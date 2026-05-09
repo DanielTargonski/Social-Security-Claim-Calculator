@@ -16,8 +16,9 @@ Originally built to model a specific real-world scenario (a surviving spouse con
 
 - **Vite 8** + **React 19** + **Tailwind CSS v4** (via `@tailwindcss/vite` plugin)
 - **recharts 3.8** for the lifetime-payout chart
-- **Vitest 4** for unit + integration tests (no React Testing Library yet — math-only tests for now)
-- Google Fonts: Fraunces (display) + JetBrains Mono (numerals), imported via `<style>` block inside `App.jsx` (intentional — keeps the calculator's font assets self-contained)
+- **Vitest 4** for unit + integration + render tests
+- **@testing-library/react 16** + **jsdom 29** + **@testing-library/user-event 14** for React render tests
+- Google Fonts: Fraunces (display) + JetBrains Mono (numerals), imported via the `<GlobalStyles>` component (intentional — keeps the calculator's font assets self-contained)
 
 Node 26.1.0 was used locally; Vercel uses Node 22 LTS by default. No version-specific issues so far.
 
@@ -27,13 +28,31 @@ Node 26.1.0 was used locally; Vercel uses Node 22 LTS by default. No version-spe
 
 ```
 src/
-├─ App.jsx                       Single React component (~1300 lines, mostly JSX)
+├─ App.jsx                       Top-level orchestrator (~200 lines, just hooks + composition)
+├─ App.test.jsx                  Smoke tests (mode switching, white-page regressions)
 ├─ main.jsx                      Standard Vite entry point
 ├─ index.css                     Tailwind import + minimal resets
+├─ constants/
+│  └─ colors.js                  The C palette — single source of truth, imported everywhere
 ├─ components/
-│  └─ SensitivityTornado.jsx    "What moves the answer" panel
+│  ├─ GlobalStyles.jsx           Inline <style> block (Google Fonts, range thumb, .num/.display)
+│  ├─ Header.jsx                 Title + lede paragraph
+│  ├─ ModeSwitcher.jsx           Three-mode picker + the switch-mode banner
+│  ├─ SliderInput.jsx            Click-to-edit slider used by every input
+│  ├─ SliderInput.test.jsx       (range/click/edit/clamp/blur/escape behaviors)
+│  ├─ InputsPanel.jsx            Benefits + Outlook + Income & Tax sliders
+│  ├─ SummaryCards.jsx           Net check at claim age / at 67 / pot-or-crossover
+│  ├─ MetadataStrip.jsx          Earnings test, FRA recoup, combined income, taxable SS
+│  ├─ ChartCard.jsx              Lifetime-payout chart + 4-stat row
+│  ├─ PotTable.jsx               Five-year pot snapshots with phase labels
+│  ├─ Footnotes.jsx              Static footnote grid
+│  ├─ SensitivityTornado.jsx     "What moves the answer" panel
+│  ├─ SensitivityTornado.test.jsx (mode-by-mode + bounds-collapse regression)
+│  └─ ModeSwitcher.test.jsx
 ├─ hooks/
 │  └─ useBenefitProjection.js   useMemo wrapper around computeProjection
+├─ test/
+│  └─ setup.js                  Vitest setup (jsdom: ResizeObserver/matchMedia stubs, RTL cleanup)
 └─ lib/
    ├─ ssRules.js                 SSA rules (factors, earnings test, recoup, resolveBenefits)
    ├─ ssRules.test.js
@@ -45,7 +64,7 @@ src/
    └─ benefitMath.test.js        Integration tests
 ```
 
-**App.jsx still owns all UI state and renders everything inline.** Splitting it into smaller components (`InputsPanel`, `SummaryCards`, `ChartCard`, `MetadataStrip`, `Footnotes`) is a candidate cleanup if/when it gets in the way — not yet.
+**App.jsx is now just a composition root** — owns all `useState` calls and the projection hook, then passes derived values down. Each visual section lives in its own file under `src/components/`. The `C` color palette lives in `src/constants/colors.js` and is imported wherever needed (no prop drilling).
 
 ---
 
@@ -141,7 +160,7 @@ npm run preview          # serve the production build at :4173
 npm run lint             # eslint
 ```
 
-`npm test` should always pass before committing. **108 tests** as of this writing across 4 files in `src/lib/`. Add new tests when adding new math; integration tests live in `benefitMath.test.js`, unit tests in their respective module files.
+`npm test` should always pass before committing. **140 tests** as of this writing across 8 files: 108 math tests in `src/lib/` and 32 React render tests in `src/components/` and `src/App.test.jsx`. Vitest defaults to the node environment for speed; component test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
 
 ---
 
@@ -172,6 +191,7 @@ The user's git is locally configured to push as `DanielTargonski` (this account 
 - Click-to-edit on every slider
 - Gender-neutral language sweep
 - Math layer split into 4 focused modules + 108 tests
+- React UI split: `App.jsx` 1348 → ~200 lines; nine focused components under `src/components/`; 32 render tests via @testing-library/react + jsdom (including a regression for the SensitivityTornado white-page bounds-collapse bug)
 
 ### Candidate features (from the survey research)
 Researched but not built. In rough priority order based on the original analysis:
@@ -186,8 +206,8 @@ Researched but not built. In rough priority order based on the original analysis
 8. **Discount rate ≠ investment return** — separate knobs for sophisticated users.
 
 ### Possible code-side cleanup
-- Split `App.jsx` (~1300 lines of JSX) into `<InputsPanel>`, `<SummaryCards>`, `<MetadataStrip>`, `<ChartCard>`, `<PotTable>`, `<Footnotes>`. Not blocking anything; do when it next gets in the way of a UI edit.
-- Add a render test (Vitest + jsdom + React Testing Library) — would have caught the white-page tornado bug before deploy. The math layer is well-tested; the React layer has zero tests.
+*(The original two — App.jsx split and React render tests — both done; see "Shipped recently" above.)*
+- Lazy-load recharts (still ~570KB bundle) with React.lazy + Suspense if bundle size starts to matter.
 
 ---
 

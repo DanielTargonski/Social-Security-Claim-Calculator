@@ -185,7 +185,8 @@ describe("computeRecoupedFactor — null cases", () => {
 describe("computeRecoupedFactor — math", () => {
   it("100% withholding → recoup gives full FRA factor (1.0)", () => {
     const earlyMonthlyGross = 1000;
-    const yearsPreFRA = 3;
+    // Annual withholding of one full year of benefits, applied across the
+    // 3-year pre-FRA window → 36 months effective recoup.
     const annualWithheld = earlyMonthlyGross * 12;
     const r = computeRecoupedFactor({
       mode: "retirement",

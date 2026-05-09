@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { computeProjection, fmtBig } from "../lib/benefitMath.js";
+import { C } from "../constants/colors.js";
 
 // One sensitivity variable. Each entry:
 //   key:          which input field to perturb
@@ -108,7 +109,7 @@ function getOutputLabelForMode(mode, lifeExpectancy) {
   return `Net lifetime advantage at age ${lifeExpectancy}`;
 }
 
-export default function SensitivityTornado({ inputs, C }) {
+export default function SensitivityTornado({ inputs }) {
   const data = useMemo(() => {
     const baseline = computeProjection(inputs);
     const baselineOutput = getOutputForMode(baseline, inputs.mode);
