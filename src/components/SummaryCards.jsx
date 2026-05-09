@@ -123,7 +123,7 @@ export default function SummaryCards({
       >
         <div
           className="text-xs uppercase mb-2"
-          style={{ color: C.inkFaint, letterSpacing: "0.15em" }}
+          style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
         >
           {mode === "switch"
             ? `Pot at ${investStopAge} (pure upside)`
@@ -139,7 +139,7 @@ export default function SummaryCards({
             ? `${breakEvenAge}`
             : "—"}
         </div>
-        <div className="text-xs num mt-2" style={{ color: C.inkFaint }}>
+        <div className="text-xs num mt-2" style={{ color: C.inkOnDark }}>
           {mode === "switch"
             ? returnRate > 0
               ? `from investing through ${investStopAge}`

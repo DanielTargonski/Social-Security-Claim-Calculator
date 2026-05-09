@@ -5,6 +5,14 @@
 //   - earlySoft   (soft red)   = invested-pot trajectory (dashed)
 //   - wait        (dark green) = "wait until FRA" line, also "better outcome" in tornado
 //   - cross       (gold)       = crossover marker
+//
+// Text-on-background contrast (AA = 4.5:1 for normal text):
+//   - ink        on paper/bg → ~14:1   (primary copy)
+//   - inkSoft    on paper/bg → ~7:1    (secondary copy)
+//   - inkFaint   on paper/bg → ~5.7:1  (small caps labels, hints)
+//   - inkOnDark  on ink      → ~7.7:1  (labels on the dark Crossover-age card)
+// inkFaint was previously #9A8B72 (~2.9:1) — failed AA, hard to read in dim light.
+// inkOnDark was added so the dark card can stay subtle without going below AA.
 export const C = {
   bg: "#EFE7D6",
   paper: "#F7F0DE",
@@ -12,7 +20,8 @@ export const C = {
   borderDark: "#A89677",
   ink: "#181410",
   inkSoft: "#5C4F3D",
-  inkFaint: "#9A8B72",
+  inkFaint: "#6B5C44",
+  inkOnDark: "#B5A688",
   early: "#A02B2B",
   earlySoft: "#C97070",
   wait: "#1F4D3F",
