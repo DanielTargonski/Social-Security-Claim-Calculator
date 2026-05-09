@@ -6,6 +6,7 @@ import {
 } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 import SliderInput from "./SliderInput.jsx";
+import ShareLinkButton from "./ShareLinkButton.jsx";
 
 // All input controls live here: benefits, outlook, income & tax. The earliest/
 // latest claim-age bounds depend on `mode` and are computed by the caller and
@@ -49,16 +50,11 @@ export default function InputsPanel({
         border: `1px solid ${C.border}`,
       }}
     >
-      <div className="flex items-baseline justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h3 className="display text-xl" style={{ color: C.ink }}>
           <em>Inputs</em>
         </h3>
-        <span
-          className="num text-xs uppercase"
-          style={{ color: C.inkFaint, letterSpacing: "0.15em" }}
-        >
-          Drag to explore
-        </span>
+        <ShareLinkButton />
       </div>
       <div className="space-y-5">
         <div className="section-divider">Benefits</div>

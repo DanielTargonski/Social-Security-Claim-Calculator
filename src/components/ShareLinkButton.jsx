@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { C } from "../constants/colors.js";
 
 // Copies the current page URL (which includes the full calculator state
 // as query params — see lib/shareableState.js) to the clipboard. Brief
 // "Link copied" feedback, then reverts. Falls back to a hidden textarea
 // + execCommand when the modern Clipboard API is unavailable (insecure
 // context, older Safari, etc).
+//
+// Visual styling lives in GlobalStyles under .share-link-btn — keeps the
+// hover/copied transitions in CSS rather than inline state-driven styles.
 export default function ShareLinkButton() {
   const [copied, setCopied] = useState(false);
 
@@ -32,17 +34,7 @@ export default function ShareLinkButton() {
     <button
       type="button"
       onClick={handleClick}
-      className="num text-xs uppercase"
-      style={{
-        color: copied ? C.wait : C.inkSoft,
-        letterSpacing: "0.18em",
-        background: "transparent",
-        border: `1px solid ${copied ? C.wait : C.borderDark}`,
-        padding: "6px 12px",
-        cursor: "pointer",
-        transition: "color 150ms, border-color 150ms",
-        fontWeight: 500,
-      }}
+      className={`share-link-btn${copied ? " copied" : ""}`}
       title="Copy a link to this exact set of inputs"
     >
       {copied ? "Link copied" : "Copy share link"}

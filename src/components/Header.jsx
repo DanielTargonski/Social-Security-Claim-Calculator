@@ -1,6 +1,5 @@
 import { C } from "../constants/colors.js";
 import Var from "./Var.jsx";
-import ShareLinkButton from "./ShareLinkButton.jsx";
 
 // Top-of-page heading: kicker, title, and lede paragraph. The lede references
 // investStopAge so it stays in sync with the user's chosen "stop investing"
@@ -8,23 +7,20 @@ import ShareLinkButton from "./ShareLinkButton.jsx";
 export default function Header({ investStopAge }) {
   return (
     <div className="mb-8 md:mb-10">
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div
-            style={{
-              width: "48px",
-              height: "1px",
-              backgroundColor: C.ink,
-            }}
-          />
-          <span
-            className="num text-xs uppercase"
-            style={{ color: C.inkSoft, letterSpacing: "0.22em" }}
-          >
-            Vol. III &nbsp;·&nbsp; The Claim Calculator
-          </span>
-        </div>
-        <ShareLinkButton />
+      <div className="flex items-center gap-3 mb-4">
+        <div
+          style={{
+            width: "48px",
+            height: "1px",
+            backgroundColor: C.ink,
+          }}
+        />
+        <span
+          className="num text-xs uppercase"
+          style={{ color: C.inkSoft, letterSpacing: "0.22em" }}
+        >
+          Vol. III &nbsp;·&nbsp; The Claim Calculator
+        </span>
       </div>
       <h1
         className="display leading-[0.95]"

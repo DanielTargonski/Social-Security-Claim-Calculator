@@ -63,8 +63,37 @@ export default function GlobalStyles() {
         cursor: pointer;
         color: ${C.ink};
       }
+      /* Hover preview only on inactive tabs — :not(.mode-btn-active)
+         keeps the active black fill from reverting on hover. */
+      .mode-btn:not(.mode-btn-active):hover {
+        background: ${C.border};
+      }
       .mode-btn-active {
         background: ${C.ink};
+        color: ${C.bg};
+      }
+
+      .share-link-btn {
+        padding: 6px 12px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-weight: 500;
+        font-family: 'JetBrains Mono', monospace;
+        background: transparent;
+        border: 1px solid ${C.borderDark};
+        color: ${C.inkSoft};
+        cursor: pointer;
+        transition: all 0.18s ease;
+      }
+      .share-link-btn:hover {
+        background: ${C.border};
+        color: ${C.ink};
+      }
+      .share-link-btn.copied,
+      .share-link-btn.copied:hover {
+        background: ${C.wait};
+        border-color: ${C.wait};
         color: ${C.bg};
       }
 
