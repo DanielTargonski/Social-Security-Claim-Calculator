@@ -290,9 +290,13 @@ export default function ChartCard({
         <div>
           <div
             className="text-xs uppercase mb-1"
-            style={{ color: C.inkFaint, letterSpacing: "0.15em" }}
+            style={{
+              color: C.inkFaint,
+              letterSpacing: "0.15em",
+              whiteSpace: "nowrap",
+            }}
           >
-            Net advantage
+            Net advantage at {lifeExpectancy}
           </div>
           <div
             className="num"
@@ -306,7 +310,7 @@ export default function ChartCard({
             {fmtBig(Math.abs(advantage))}
           </div>
           <div className="text-xs mt-1" style={{ color: C.inkSoft }}>
-            {advantage >= 0 ? "claim early" : "wait wins"}
+            {advantage >= 0 ? "early wins" : "wait wins"}
           </div>
         </div>
       </div>
