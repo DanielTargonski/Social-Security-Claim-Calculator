@@ -28,3 +28,13 @@ npm run preview # serve the production build locally
 ## Deploy
 
 Wired up for Vercel. Connect the repo on vercel.com → New Project; framework auto-detects via `vercel.json`. No env vars required.
+
+## Author
+
+Built by [Daniel Targonski](https://www.linkedin.com/in/daniel-targonski/) — [GitHub](https://github.com/DanielTargonski).
+
+## Copyright
+
+© 2026 Daniel Targonski. All rights reserved.
+
+This is a personal portfolio project. The source is published here so it can be read for reference — but no license is granted to copy, modify, redistribute, or deploy this code or any derivative work. If you'd like to use any part of it, please reach out first.

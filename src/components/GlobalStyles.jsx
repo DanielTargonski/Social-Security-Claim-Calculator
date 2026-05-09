@@ -97,6 +97,16 @@ export default function GlobalStyles() {
         color: ${C.bg};
       }
 
+      .attribution-link {
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: color 0.18s ease, border-color 0.18s ease;
+      }
+      .attribution-link:hover {
+        color: ${C.ink} !important;
+        border-bottom-color: ${C.inkSoft};
+      }
+
       .section-divider {
         font-family: 'JetBrains Mono', monospace;
         font-size: 10px;

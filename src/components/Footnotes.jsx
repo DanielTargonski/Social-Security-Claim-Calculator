@@ -2,12 +2,14 @@ import { C } from "../constants/colors.js";
 
 // Static footnotes at the bottom of the page: earnings test, NYC tax
 // treatment, switch-strategy notes, and caveats this model leaves out.
+// Author attribution + copyright notice live below the grid.
 export default function Footnotes() {
   return (
-    <div
-      className="mt-8 pt-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed"
-      style={{ borderTop: `1px solid ${C.border}`, color: C.inkSoft }}
-    >
+    <>
+      <div
+        className="mt-8 pt-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed"
+        style={{ borderTop: `1px solid ${C.border}`, color: C.inkSoft }}
+      >
       <div>
         <div
           className="display text-sm mb-2"
@@ -67,5 +69,39 @@ export default function Footnotes() {
         assuming a real return.
       </div>
     </div>
+
+    <div
+      className="mt-8 pt-5 flex flex-wrap items-center justify-between gap-3 text-xs"
+      style={{ borderTop: `1px solid ${C.border}`, color: C.inkFaint }}
+    >
+      <div>
+        © 2026 Daniel Targonski. All rights reserved.
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="num" style={{ letterSpacing: "0.08em" }}>
+          Built by{" "}
+          <a
+            href="https://www.linkedin.com/in/daniel-targonski/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="attribution-link"
+            style={{ color: C.inkSoft }}
+          >
+            Daniel Targonski
+          </a>
+        </span>
+        <span style={{ color: C.border }}>·</span>
+        <a
+          href="https://github.com/DanielTargonski/Social-Security-Claim-Calculator"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="attribution-link num"
+          style={{ color: C.inkSoft, letterSpacing: "0.08em" }}
+        >
+          GitHub
+        </a>
+      </div>
+    </div>
+    </>
   );
 }
