@@ -22,17 +22,41 @@ export default function MetadataStrip({
     earningsTestWithholding > 0 || ssEffectiveTaxRate > 0 || autoTax;
   if (!shouldRender) return null;
 
+  const monthlyAfterTest = (annualEarlyGross - earningsTestWithholding) / 12;
+
   return (
     <div
-      className="mb-5 p-4 text-xs flex flex-wrap gap-x-6 gap-y-2"
+      className="mb-5 p-4"
       style={{
         backgroundColor: C.paper,
         border: `1px solid ${C.border}`,
         color: C.inkSoft,
       }}
     >
+      <h3
+        className="display text-xl mb-3"
+        style={{ color: C.ink }}
+      >
+        <em>By the numbers</em>
+      </h3>
+      <div className="text-xs flex flex-wrap gap-x-6 gap-y-2">
       {earningsTestWithholding > 0 && (
         <>
+          <div>
+            <span
+              className="num uppercase"
+              style={{
+                color: C.inkFaint,
+                letterSpacing: "0.15em",
+                fontSize: "10px",
+              }}
+            >
+              Monthly SS (after test)
+            </span>{" "}
+            <span className="num" style={{ color: C.ink, fontWeight: 500 }}>
+              {fmtMoney(monthlyAfterTest)}
+            </span>
+          </div>
           <div>
             <span
               className="num uppercase"
@@ -49,21 +73,38 @@ export default function MetadataStrip({
             </span>
           </div>
           {recoupedFactor !== null && (
-            <div>
-              <span
-                className="num uppercase"
-                style={{
-                  color: C.inkFaint,
-                  letterSpacing: "0.15em",
-                  fontSize: "10px",
-                }}
-              >
-                Annual SS (after FRA)
-              </span>{" "}
-              <span className="num" style={{ color: C.wait, fontWeight: 500 }}>
-                {fmtMoney(earlyPostFRAMonthlyGross * 12)}
-              </span>
-            </div>
+            <>
+              <div>
+                <span
+                  className="num uppercase"
+                  style={{
+                    color: C.inkFaint,
+                    letterSpacing: "0.15em",
+                    fontSize: "10px",
+                  }}
+                >
+                  Monthly SS (after FRA)
+                </span>{" "}
+                <span className="num" style={{ color: C.wait, fontWeight: 500 }}>
+                  {fmtMoney(earlyPostFRAMonthlyGross)}
+                </span>
+              </div>
+              <div>
+                <span
+                  className="num uppercase"
+                  style={{
+                    color: C.inkFaint,
+                    letterSpacing: "0.15em",
+                    fontSize: "10px",
+                  }}
+                >
+                  Annual SS (after FRA)
+                </span>{" "}
+                <span className="num" style={{ color: C.wait, fontWeight: 500 }}>
+                  {fmtMoney(earlyPostFRAMonthlyGross * 12)}
+                </span>
+              </div>
+            </>
           )}
           <div>
             <span
@@ -185,6 +226,7 @@ export default function MetadataStrip({
         <span className="num" style={{ color: C.wait, fontWeight: 500 }}>
           $0 · exempt
         </span>
+      </div>
       </div>
     </div>
   );
