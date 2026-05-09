@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -9,6 +9,15 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import {
+  FRA,
+  EARNINGS_LIMIT_2026,
+  fmtMoney,
+  fmtBig,
+  fmtAge,
+  fmtIncome,
+} from "./lib/benefitMath.js";
+import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
 
 const C = {
   bg: "#EFE7D6",
@@ -23,8 +32,6 @@ const C = {
   wait: "#1F4D3F",
   cross: "#B8860B",
 };
-
-const EARNINGS_LIMIT_2026 = 24480;
 
 function SliderInput({ label, value, onChange, min, max, step, format, hint }) {
   const [editing, setEditing] = useState(false);
@@ -137,8 +144,6 @@ export default function App() {
   const [autoTax, setAutoTax] = useState(true);
   const [manualFedRate, setManualFedRate] = useState(12);
 
-  const FRA = 67;
-
   let earliest, latest;
   if (mode === "retirement") {
     earliest = 62;
@@ -165,218 +170,38 @@ export default function App() {
     }
   };
 
-  function retirementFactor(age) {
-    if (age >= 70) return 1.24;
-    if (age >= 67) return 1 + (age - 67) * 0.08;
-    const monthsEarly = (67 - age) * 12;
-    let reduction;
-    if (monthsEarly <= 36) {
-      reduction = (monthsEarly * (5 / 9)) / 100;
-    } else {
-      reduction = (36 * (5 / 9)) / 100 + ((monthsEarly - 36) * (5 / 12)) / 100;
-    }
-    return 1 - reduction;
-  }
-
-  function survivorFactor(age) {
-    if (age >= 67) return 1.0;
-    if (age < 60) return 0;
-    const monthsEarly = (67 - age) * 12;
-    return 1 - monthsEarly * (0.285 / 84);
-  }
-
-  let earlyFactor, earlyMonthlyGross, fraMonthlyGross, earlyPostFRAMonthlyGross;
-
-  if (mode === "retirement") {
-    earlyFactor = retirementFactor(claimAge);
-    earlyMonthlyGross = fraBenefit * earlyFactor;
-    fraMonthlyGross = fraBenefit;
-    earlyPostFRAMonthlyGross = earlyMonthlyGross;
-  } else if (mode === "survivor") {
-    earlyFactor = survivorFactor(claimAge);
-    earlyMonthlyGross = fraBenefit * earlyFactor;
-    fraMonthlyGross = fraBenefit;
-    earlyPostFRAMonthlyGross = earlyMonthlyGross;
-  } else {
-    earlyFactor = retirementFactor(claimAge);
-    earlyMonthlyGross = ownBenefit * earlyFactor;
-    fraMonthlyGross = fraBenefit;
-    earlyPostFRAMonthlyGross = fraBenefit;
-  }
-
-  // Earnings test (2026: $24,480 limit pre-FRA, $1 withheld per $2 over)
-  const annualEarlyGross = earlyMonthlyGross * 12;
-  let earningsTestWithholding = 0;
-  if (claimAge < FRA && grossIncome > EARNINGS_LIMIT_2026) {
-    const excess = grossIncome - EARNINGS_LIMIT_2026;
-    earningsTestWithholding = Math.min(excess / 2, annualEarlyGross);
-  }
-  const earlyMonthlyAfterET = (annualEarlyGross - earningsTestWithholding) / 12;
-
-  // Federal tax: auto-compute marginal bracket from income, OR use manual override.
-  // Combined income (= AGI + 0.5 × SS) determines what % of SS is taxable.
-  // Then bracket on (wage + taxable SS - standard deduction $16,100) gives marginal rate.
-  const ssBasisAnnual = fraMonthlyGross * 12; // use full benefit as basis for tax tier
-  const combinedIncome = grossIncome + 0.5 * ssBasisAnnual;
-  let taxableSSPct;
-  if (ssBasisAnnual <= 0) {
-    taxableSSPct = 0;
-  } else if (combinedIncome <= 25000) {
-    taxableSSPct = 0;
-  } else if (combinedIncome <= 34000) {
-    const taxable = Math.min(0.5 * ssBasisAnnual, 0.5 * (combinedIncome - 25000));
-    taxableSSPct = taxable / ssBasisAnnual;
-  } else {
-    const taxable = Math.min(
-      0.85 * ssBasisAnnual,
-      0.5 * 9000 + 0.85 * (combinedIncome - 34000)
-    );
-    taxableSSPct = taxable / ssBasisAnnual;
-  }
-
-  // 2026 single-filer brackets (using $16,100 standard deduction)
-  const taxableIncome = Math.max(
-    0,
-    grossIncome + taxableSSPct * ssBasisAnnual - 16100
-  );
-  let autoMarginalRate;
-  if (taxableIncome <= 12400) autoMarginalRate = 10;
-  else if (taxableIncome <= 50400) autoMarginalRate = 12;
-  else if (taxableIncome <= 105700) autoMarginalRate = 22;
-  else if (taxableIncome <= 201775) autoMarginalRate = 24;
-  else if (taxableIncome <= 256225) autoMarginalRate = 32;
-  else if (taxableIncome <= 640600) autoMarginalRate = 35;
-  else autoMarginalRate = 37;
-
-  const fedMarginalRate = autoTax ? autoMarginalRate : manualFedRate;
-  // When auto, use tier-aware effective rate. When manual, assume 85% taxable.
-  const ssEffectiveTaxRate = autoTax
-    ? taxableSSPct * (fedMarginalRate / 100)
-    : 0.85 * (manualFedRate / 100);
-
-  const earlyMonthlyNet = earlyMonthlyAfterET * (1 - ssEffectiveTaxRate);
-  const earlyPostFRAMonthlyNet =
-    earlyPostFRAMonthlyGross * (1 - ssEffectiveTaxRate);
-  const fraMonthlyNet = fraMonthlyGross * (1 - ssEffectiveTaxRate);
-
-  const chartData = useMemo(() => {
-    const data = [];
-    const r = returnRate / 100 / 12;
-    const startAge = Math.min(claimAge, FRA);
-
-    // Investing has up to two contribution rates:
-    //   Phase 1: claimAge → min(FRA, investStopAge)  contributing earlyMonthlyNet (after earnings test)
-    //   Phase 2: FRA → investStopAge                 contributing earlyPostFRAMonthlyNet (no test)
-    //   Phase 3: investStopAge → lifeExpectancy      pot grows untouched, cash collected as income
-    const phase1End = Math.min(FRA, Math.max(claimAge, investStopAge));
-    const phase1Months = Math.max(0, (phase1End - claimAge) * 12);
-    const phase2Months = Math.max(0, (investStopAge - phase1End) * 12);
-
-    const potAtPhase1End =
-      r > 0
-        ? (earlyMonthlyNet * (Math.pow(1 + r, phase1Months) - 1)) / r
-        : earlyMonthlyNet * phase1Months;
-
-    const potAtInvestStop =
-      r > 0
-        ? potAtPhase1End * Math.pow(1 + r, phase2Months) +
-          (earlyPostFRAMonthlyNet * (Math.pow(1 + r, phase2Months) - 1)) / r
-        : potAtPhase1End + earlyPostFRAMonthlyNet * phase2Months;
-
-    for (let age = startAge; age <= lifeExpectancy; age += 0.25) {
-      let early = 0;
-      let pot = 0;
-      if (age >= claimAge) {
-        if (age <= phase1End) {
-          // Phase 1: invest the (post-ET) early check
-          const n = (age - claimAge) * 12;
-          const lump =
-            r > 0
-              ? (earlyMonthlyNet * (Math.pow(1 + r, n) - 1)) / r
-              : earlyMonthlyNet * n;
-          pot = lump;
-          early = lump;
-        } else if (age <= investStopAge) {
-          // Phase 2: continue investing past FRA at the post-FRA rate
-          const n = (age - phase1End) * 12;
-          const grown = potAtPhase1End * Math.pow(1 + r, n);
-          const newContrib =
-            r > 0
-              ? (earlyPostFRAMonthlyNet * (Math.pow(1 + r, n) - 1)) / r
-              : earlyPostFRAMonthlyNet * n;
-          pot = grown + newContrib;
-          early = pot;
-        } else {
-          // Phase 3: pot keeps compounding, checks now collected as cash
-          const monthsAfterStop = (age - investStopAge) * 12;
-          const potNow = potAtInvestStop * Math.pow(1 + r, monthsAfterStop);
-          const cashCollected = earlyPostFRAMonthlyNet * monthsAfterStop;
-          pot = potNow;
-          early = potNow + cashCollected;
-        }
-      }
-
-      let wait = 0;
-      if (age >= FRA) {
-        const n = (age - FRA) * 12;
-        wait = fraMonthlyNet * n;
-      }
-
-      data.push({
-        age: parseFloat(age.toFixed(2)),
-        early: Math.round(early),
-        pot: Math.round(pot),
-        wait: Math.round(wait),
-      });
-    }
-    return data;
-  }, [
-    claimAge,
+  const inputs = {
+    mode,
     fraBenefit,
     ownBenefit,
+    claimAge,
     returnRate,
-    lifeExpectancy,
     investStopAge,
-    mode,
+    lifeExpectancy,
+    grossIncome,
+    autoTax,
+    manualFedRate,
+  };
+
+  const {
+    earlyFactor,
+    earlyMonthlyGross,
+    fraMonthlyGross,
+    annualEarlyGross,
+    earningsTestWithholding,
+    combinedIncome,
+    taxableSSPct,
+    fedMarginalRate,
+    ssEffectiveTaxRate,
     earlyMonthlyNet,
     fraMonthlyNet,
-    earlyPostFRAMonthlyNet,
-  ]);
-
-  const breakEvenAge = useMemo(() => {
-    if (mode === "switch") return null;
-    if (Math.abs(claimAge - FRA) < 0.01) return null;
-    for (let i = 1; i < chartData.length; i++) {
-      const a = chartData[i - 1];
-      const b = chartData[i];
-      const prevDiff = a.early - a.wait;
-      const currDiff = b.early - b.wait;
-      if (prevDiff * currDiff < 0) {
-        const t = prevDiff / (prevDiff - currDiff);
-        return parseFloat((a.age + t * (b.age - a.age)).toFixed(1));
-      }
-    }
-    return null;
-  }, [chartData, claimAge, mode]);
-
-  const finalEarly = chartData[chartData.length - 1]?.early || 0;
-  const finalWait = chartData[chartData.length - 1]?.wait || 0;
-  const finalPot = chartData[chartData.length - 1]?.pot || 0;
-  const advantage = finalEarly - finalWait;
-  const potAtFRARow = chartData.find((d) => d.age >= FRA)?.pot || 0;
-  const potAtStopRow = chartData.find((d) => d.age >= investStopAge)?.pot || 0;
-
-  const fmtMoney = (v) =>
-    "$" + Math.round(v).toLocaleString("en-US", { maximumFractionDigits: 0 });
-  const fmtBig = (v) => {
-    const abs = Math.abs(v);
-    if (abs >= 1_000_000) return "$" + (v / 1_000_000).toFixed(2) + "M";
-    if (abs >= 1000) return "$" + (v / 1000).toFixed(0) + "K";
-    return "$" + Math.round(v);
-  };
-  const fmtAge = (v) => (v % 1 === 0 ? v + " yr" : v.toFixed(1) + " yr");
-  const fmtIncome = (v) =>
-    v === 0 ? "Not working" : "$" + v.toLocaleString() + "/yr";
+    chartData,
+    breakEvenAge,
+    finalEarly,
+    finalPot,
+    advantage,
+    potAtStopRow,
+  } = useBenefitProjection(inputs);
 
   const primaryBenefitLabel =
     mode === "retirement"
