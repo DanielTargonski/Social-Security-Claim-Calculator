@@ -4,6 +4,7 @@ import {
   survivorFactor,
   computeEarningsTest,
   computeTaxableSSPct,
+  computeRecoupedFactor,
   getMarginalRate2026,
   resolveBenefits,
   computeProjection,
@@ -149,6 +150,84 @@ describe("resolveBenefits", () => {
   });
 });
 
+describe("computeRecoupedFactor (FRA recoup of earnings-test withholding)", () => {
+  it("returns null for switch mode (own retirement abandoned at FRA)", () => {
+    const r = computeRecoupedFactor({
+      mode: "switch",
+      claimAge: 64,
+      earlyMonthlyGross: 800,
+      earningsTestWithholding: 5000,
+    });
+    expect(r).toBeNull();
+  });
+
+  it("returns null when claimed at or after FRA (nothing to recoup)", () => {
+    const r = computeRecoupedFactor({
+      mode: "retirement",
+      claimAge: 67,
+      earlyMonthlyGross: 2500,
+      earningsTestWithholding: 5000,
+    });
+    expect(r).toBeNull();
+  });
+
+  it("returns null when there's no earnings-test withholding", () => {
+    const r = computeRecoupedFactor({
+      mode: "retirement",
+      claimAge: 64,
+      earlyMonthlyGross: 2000,
+      earningsTestWithholding: 0,
+    });
+    expect(r).toBeNull();
+  });
+
+  it("returns the full FRA factor (1.0) when 100% of benefits were withheld", () => {
+    // Withhold every dollar over 3 years → effectively never claimed early
+    const earlyMonthlyGross = 1000;
+    const yearsPreFRA = 3; // claim at 64
+    const totalWithheldNeeded = earlyMonthlyGross * 12 * yearsPreFRA;
+    const r = computeRecoupedFactor({
+      mode: "retirement",
+      claimAge: 64,
+      earlyMonthlyGross,
+      earningsTestWithholding: totalWithheldNeeded / yearsPreFRA, // per-year
+    });
+    expect(closeTo(r, 1.0, 0.01)).toBe(true);
+  });
+
+  it("retirement mode: partial withholding shifts the effective claim age", () => {
+    // Claim at 64 (retirementFactor = 0.8). Withhold 12 months total over 3 years.
+    // Effective age = 65, retirementFactor(65) = 1 - 24×(5/9)/100 = 1 - 0.1333 = 0.8667
+    // monthsWithheld = totalDollarsWithheld / earlyMonthlyGross
+    // earlyMonthlyGross at age 64 with fraBenefit 2000 = 2000 × 0.8 = 1600
+    // For 12 months total → totalDollarsWithheld = 1600 × 12 = 19200
+    // Per-year withholding = 19200 / 3 = 6400
+    const r = computeRecoupedFactor({
+      mode: "retirement",
+      claimAge: 64,
+      earlyMonthlyGross: 1600,
+      earningsTestWithholding: 6400,
+    });
+    expect(closeTo(r, 1 - (24 * (5 / 9)) / 100, 0.005)).toBe(true);
+  });
+
+  it("survivor mode: partial withholding uses the survivor reduction formula", () => {
+    // Claim at 64 → survivorFactor = 1 - 36×(0.285/84) ≈ 0.8779
+    // earlyMonthlyGross = 2300 × 0.8779 ≈ 2019
+    // Withhold 12 months total over 3 years → effective age 65
+    // survivorFactor(65) = 1 - 24×(0.285/84) ≈ 0.9186
+    const earlyMonthlyGross = 2019;
+    const totalWithheld12mo = earlyMonthlyGross * 12;
+    const r = computeRecoupedFactor({
+      mode: "survivor",
+      claimAge: 64,
+      earlyMonthlyGross,
+      earningsTestWithholding: totalWithheld12mo / 3,
+    });
+    expect(closeTo(r, 1 - (24 * 0.285) / 84, 0.005)).toBe(true);
+  });
+});
+
 describe("computeProjection — integration smoke tests", () => {
   const baseInputs = {
     mode: "retirement",
@@ -213,5 +292,41 @@ describe("computeProjection — integration smoke tests", () => {
   it("breakEvenAge is null when claiming exactly at FRA (no comparison to make)", () => {
     const r = computeProjection({ ...baseInputs, claimAge: FRA });
     expect(r.breakEvenAge).toBeNull();
+  });
+
+  it("survivor mode: earnings-test recoup raises post-FRA monthly check", () => {
+    const survivorInputs = {
+      ...baseInputs,
+      mode: "survivor",
+      fraBenefit: 2300, // mom's actual survivor PIA
+      claimAge: 64,
+      grossIncome: 40000,
+    };
+    const r = computeProjection(survivorInputs);
+    // earlyPostFRAMonthlyGross should be HIGHER than earlyMonthlyGross
+    // because the recoup credits back the months withheld pre-FRA
+    expect(r.earlyPostFRAMonthlyGross).toBeGreaterThan(r.earlyMonthlyGross);
+    expect(r.recoupedFactor).toBeGreaterThan(r.earlyFactor);
+    // But still less than the full FRA benefit (some months actually were paid)
+    expect(r.earlyPostFRAMonthlyGross).toBeLessThan(r.fraMonthlyGross);
+  });
+
+  it("switch mode: NO recoup applied (own retirement abandoned at FRA)", () => {
+    const switchInputs = {
+      ...baseInputs,
+      mode: "switch",
+      claimAge: 64,
+      grossIncome: 40000,
+    };
+    const r = computeProjection(switchInputs);
+    expect(r.recoupedFactor).toBeNull();
+    // Post-FRA rate in switch mode is the full survivor benefit (fraBenefit), not recouped own retirement
+    expect(r.earlyPostFRAMonthlyGross).toBe(r.fraMonthlyGross);
+  });
+
+  it("retirement mode without earnings test: recoup is null, post-FRA equals early", () => {
+    const r = computeProjection({ ...baseInputs, mode: "retirement", claimAge: 64, grossIncome: 0 });
+    expect(r.recoupedFactor).toBeNull();
+    expect(r.earlyPostFRAMonthlyGross).toBe(r.earlyMonthlyGross);
   });
 });

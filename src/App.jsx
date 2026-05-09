@@ -188,6 +188,8 @@ export default function App() {
     earlyFactor,
     earlyMonthlyGross,
     fraMonthlyGross,
+    earlyPostFRAMonthlyGross,
+    recoupedFactor,
     annualEarlyGross,
     earningsTestWithholding,
     combinedIncome,
@@ -195,6 +197,7 @@ export default function App() {
     fedMarginalRate,
     ssEffectiveTaxRate,
     earlyMonthlyNet,
+    earlyPostFRAMonthlyNet,
     fraMonthlyNet,
     chartData,
     breakEvenAge,
@@ -631,6 +634,16 @@ export default function App() {
                       then {fmtMoney(fraMonthlyNet)} net from 67
                     </>
                   )}
+                  {mode !== "switch" && recoupedFactor !== null && (
+                    <>
+                      <br />
+                      then{" "}
+                      <span style={{ color: C.wait }}>
+                        {fmtMoney(earlyPostFRAMonthlyNet)} net from 67
+                      </span>{" "}
+                      (FRA recoup of withheld months)
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -755,6 +768,32 @@ export default function App() {
                       −{fmtMoney(earningsTestWithholding)}
                     </span>
                   </div>
+                  {recoupedFactor !== null && (
+                    <div>
+                      <span
+                        className="num uppercase"
+                        style={{
+                          color: C.inkFaint,
+                          letterSpacing: "0.15em",
+                          fontSize: "10px",
+                        }}
+                      >
+                        FRA recoup → +
+                      </span>{" "}
+                      <span
+                        className="num"
+                        style={{ color: C.wait, fontWeight: 500 }}
+                      >
+                        {fmtMoney(earlyPostFRAMonthlyGross - earlyMonthlyGross)}/mo
+                      </span>{" "}
+                      <span
+                        className="num"
+                        style={{ color: C.inkFaint, fontSize: "10px" }}
+                      >
+                        permanent from 67
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
               {autoTax && (

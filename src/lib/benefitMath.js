@@ -63,6 +63,41 @@ export function computeTaxableSSPct({ ssBasisAnnual, grossIncome }) {
   return taxable / ssBasisAnnual;
 }
 
+// Earnings-test recoup at FRA.
+// When the earnings test withholds benefits pre-FRA, SSA recomputes the
+// benefit at FRA as if those withheld months had never been claimed —
+// shrinking the early-claiming reduction. The new (higher) rate is paid
+// from FRA onward for life.
+//   monthsWithheld = (totalDollarsWithheld) / earlyMonthlyGross
+//                   capped at the total months pre-FRA
+//   effectiveClaimAge = claimAge + monthsWithheld / 12
+//   recoupedFactor = mode-appropriate factor at the effective claim age
+// Returns null when no recoup applies (already at/past FRA, no withholding,
+// or switch mode where she abandons own retirement at FRA anyway).
+export function computeRecoupedFactor({
+  mode,
+  claimAge,
+  earlyMonthlyGross,
+  earningsTestWithholding,
+}) {
+  if (mode === "switch") return null; // own retirement is abandoned at FRA → recoup moot
+  if (claimAge >= FRA) return null;
+  if (earningsTestWithholding <= 0) return null;
+  if (earlyMonthlyGross <= 0) return null;
+
+  const yearsPreFRA = FRA - claimAge;
+  const totalDollarsWithheld = earningsTestWithholding * yearsPreFRA;
+  const monthsWithheld = Math.min(
+    totalDollarsWithheld / earlyMonthlyGross,
+    yearsPreFRA * 12
+  );
+  const effectiveClaimAge = claimAge + monthsWithheld / 12;
+
+  if (mode === "retirement") return retirementFactor(effectiveClaimAge);
+  if (mode === "survivor") return survivorFactor(effectiveClaimAge);
+  return null;
+}
+
 // 2026 single-filer marginal rate on a given taxable income.
 export function getMarginalRate2026(taxableIncome) {
   if (taxableIncome <= 12400) return 10;
@@ -122,8 +157,12 @@ export function computeProjection({
   autoTax,
   manualFedRate,
 }) {
-  const { earlyFactor, earlyMonthlyGross, fraMonthlyGross, earlyPostFRAMonthlyGross } =
-    resolveBenefits({ mode, fraBenefit, ownBenefit, claimAge });
+  const {
+    earlyFactor,
+    earlyMonthlyGross,
+    fraMonthlyGross,
+    earlyPostFRAMonthlyGross: basePostFRAMonthlyGross,
+  } = resolveBenefits({ mode, fraBenefit, ownBenefit, claimAge });
 
   const annualEarlyGross = earlyMonthlyGross * 12;
   const earningsTestWithholding = computeEarningsTest({
@@ -132,6 +171,18 @@ export function computeProjection({
     annualEarlyGross,
   });
   const earlyMonthlyAfterET = (annualEarlyGross - earningsTestWithholding) / 12;
+
+  // Apply the FRA recoup for retirement/survivor modes — withheld months are
+  // credited back at FRA, raising the post-FRA monthly amount permanently.
+  // Switch mode is unaffected (she abandons own retirement at FRA).
+  const recoupedFactor = computeRecoupedFactor({
+    mode,
+    claimAge,
+    earlyMonthlyGross,
+    earningsTestWithholding,
+  });
+  const earlyPostFRAMonthlyGross =
+    recoupedFactor !== null ? fraBenefit * recoupedFactor : basePostFRAMonthlyGross;
 
   const ssBasisAnnual = fraMonthlyGross * 12;
   const combinedIncome = grossIncome + 0.5 * ssBasisAnnual;
@@ -175,6 +226,7 @@ export function computeProjection({
     earlyMonthlyGross,
     fraMonthlyGross,
     earlyPostFRAMonthlyGross,
+    recoupedFactor,
     annualEarlyGross,
     earningsTestWithholding,
     combinedIncome,
