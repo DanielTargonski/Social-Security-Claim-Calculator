@@ -41,6 +41,16 @@ export default function App() {
     latest = 66.5;
   }
 
+  // Keep investStopAge >= ceil(claimAge). When the user drags claimAge past
+  // investStopAge (e.g. claimAge 70 with investStopAge stuck at 67), the
+  // model handles the invalid state gracefully (no investing happens) but
+  // the slider would otherwise display its raw value below its dynamic min.
+  // We derive an effective value here and pass it everywhere downstream;
+  // the underlying `investStopAge` state is preserved so dragging claimAge
+  // back down restores the user's earlier choice.
+  const minInvestStopAge = Math.max(60, Math.ceil(claimAge));
+  const effectiveInvestStopAge = Math.max(investStopAge, minInvestStopAge);
+
   // When the user switches modes, snap claimAge into the new mode's range so
   // the projection stays sensible. Picks a neutral midpoint when wildly out.
   const switchMode = (newMode) => {
@@ -63,7 +73,7 @@ export default function App() {
     ownBenefit,
     claimAge,
     returnRate,
-    investStopAge,
+    investStopAge: effectiveInvestStopAge,
     lifeExpectancy,
     grossIncome,
     autoTax,
@@ -113,7 +123,7 @@ export default function App() {
         <div className="grain" />
 
         <div className="max-w-5xl mx-auto px-5 py-8 md:py-12 relative">
-          <Header investStopAge={investStopAge} />
+          <Header investStopAge={effectiveInvestStopAge} />
 
           <ModeSwitcher mode={mode} onChange={switchMode} />
 
@@ -131,7 +141,7 @@ export default function App() {
               setClaimAge={setClaimAge}
               returnRate={returnRate}
               setReturnRate={setReturnRate}
-              investStopAge={investStopAge}
+              investStopAge={effectiveInvestStopAge}
               setInvestStopAge={setInvestStopAge}
               lifeExpectancy={lifeExpectancy}
               setLifeExpectancy={setLifeExpectancy}
@@ -148,7 +158,7 @@ export default function App() {
             <SummaryCards
               mode={mode}
               claimAge={claimAge}
-              investStopAge={investStopAge}
+              investStopAge={effectiveInvestStopAge}
               returnRate={returnRate}
               earlyMonthlyGross={earlyMonthlyGross}
               earlyMonthlyNet={earlyMonthlyNet}
@@ -177,7 +187,7 @@ export default function App() {
 
           <ChartCard
             claimAge={claimAge}
-            investStopAge={investStopAge}
+            investStopAge={effectiveInvestStopAge}
             lifeExpectancy={lifeExpectancy}
             returnRate={returnRate}
             taxesActive={taxesActive}
@@ -195,7 +205,7 @@ export default function App() {
             claimAge={claimAge}
             lifeExpectancy={lifeExpectancy}
             returnRate={returnRate}
-            investStopAge={investStopAge}
+            investStopAge={effectiveInvestStopAge}
             chartData={chartData}
           />
 

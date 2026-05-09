@@ -78,21 +78,51 @@ export function computeProjection({
       ? fraBenefit * recoupedFactor
       : basePostFRAMonthlyGross;
 
-  // Tax — auto from income, or manual override
-  const ssBasisAnnual = fraMonthlyGross * 12;
-  const combinedIncome = grossIncome + 0.5 * ssBasisAnnual;
-  const { taxableSSPct, fedMarginalRate, ssEffectiveTaxRate } =
-    computeSSEffectiveTaxRate({
-      autoTax,
-      manualFedRate,
-      ssBasisAnnual,
-      grossIncome,
-    });
+  // Tax — auto from income, or manual override.
+  //
+  // The combined-income tier formula (taxMath.computeTaxableSSPct) takes the
+  // ssBasisAnnual that the claimant actually receives. Early and wait
+  // scenarios receive different SS amounts, so they produce different
+  // effective tax rates. Using a single basis (e.g. fraMonthlyGross * 12)
+  // for both was a real bug — it overstated tax on the early-scenario
+  // checks because the early claimant's combined income is lower than
+  // wait's, which puts them in a lower taxable-SS tier and often a lower
+  // marginal bracket.
+  //
+  // We use earlyPostFRAMonthlyGross for the early basis (the long-term
+  // steady state — most years are post-FRA). For the wait basis we use
+  // fraMonthlyGross since that's exactly what the wait scenario receives
+  // every month from FRA onward. In switch mode and in retirement/survivor
+  // without recoup, the two bases collapse and the rates are identical.
+  const ssBasisAnnualEarly = earlyPostFRAMonthlyGross * 12;
+  const ssBasisAnnualWait = fraMonthlyGross * 12;
+  const combinedIncome = grossIncome + 0.5 * ssBasisAnnualEarly;
 
-  const earlyMonthlyNet = earlyMonthlyAfterET * (1 - ssEffectiveTaxRate);
+  const earlyTax = computeSSEffectiveTaxRate({
+    autoTax,
+    manualFedRate,
+    ssBasisAnnual: ssBasisAnnualEarly,
+    grossIncome,
+  });
+  const waitTax = computeSSEffectiveTaxRate({
+    autoTax,
+    manualFedRate,
+    ssBasisAnnual: ssBasisAnnualWait,
+    grossIncome,
+  });
+
+  // Headline tax fields exposed to the UI describe the user's chosen
+  // (early) scenario, since that's what every other on-screen number
+  // refers to. Wait-scenario tax is applied internally to fraMonthlyNet
+  // but not displayed separately.
+  const taxableSSPct = earlyTax.taxableSSPct;
+  const fedMarginalRate = earlyTax.fedMarginalRate;
+  const ssEffectiveTaxRate = earlyTax.ssEffectiveTaxRate;
+
+  const earlyMonthlyNet = earlyMonthlyAfterET * (1 - earlyTax.ssEffectiveTaxRate);
   const earlyPostFRAMonthlyNet =
-    earlyPostFRAMonthlyGross * (1 - ssEffectiveTaxRate);
-  const fraMonthlyNet = fraMonthlyGross * (1 - ssEffectiveTaxRate);
+    earlyPostFRAMonthlyGross * (1 - earlyTax.ssEffectiveTaxRate);
+  const fraMonthlyNet = fraMonthlyGross * (1 - waitTax.ssEffectiveTaxRate);
 
   const chartData = buildChartData({
     claimAge,

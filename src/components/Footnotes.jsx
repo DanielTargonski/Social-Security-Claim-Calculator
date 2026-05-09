@@ -62,9 +62,9 @@ export default function Footnotes() {
         </div>
         Sequence of returns risk on the invested side. The senior bonus
         deduction (up to $6,000 extra for 65+, phasing out above $75K MAGI)
-        which can reduce or eliminate SS taxation. Earnings test recoup at FRA.
-        Tax drag on the investment portfolio. Medicare Part B premiums. Numbers
-        in today's dollars assuming a real return.
+        which can reduce or eliminate SS taxation. Tax drag on the investment
+        portfolio. Medicare Part B premiums. Numbers in today's dollars
+        assuming a real return.
       </div>
     </div>
   );

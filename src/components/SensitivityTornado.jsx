@@ -53,7 +53,7 @@ function makeVariables(inputs) {
       label: "Gross wage income",
       delta: 20000,
       formatValue: (v) => "$" + Math.round(Number(v) / 1000) + "K",
-      bounds: () => ({ min: 0, max: 150000 }),
+      bounds: () => ({ min: 0, max: 500000 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
     {
@@ -61,7 +61,7 @@ function makeVariables(inputs) {
       label: "Stop investing at age",
       delta: 3,
       formatValue: (v) => `age ${Math.round(Number(v))}`,
-      bounds: () => ({ min: Math.max(60, Math.floor(inputs.claimAge)), max: 85 }),
+      bounds: () => ({ min: Math.max(60, Math.ceil(inputs.claimAge)), max: 85 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
     {

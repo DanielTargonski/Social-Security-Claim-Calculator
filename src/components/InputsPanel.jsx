@@ -113,7 +113,7 @@ export default function InputsPanel({
           label="Stop investing at age"
           value={investStopAge}
           onChange={setInvestStopAge}
-          min={Math.max(60, Math.floor(claimAge))}
+          min={Math.max(60, Math.ceil(claimAge))}
           max={85}
           step={1}
           format={fmtAge}
