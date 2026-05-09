@@ -48,6 +48,23 @@ export default function MetadataStrip({
               {fmtMoney(annualEarlyGross - earningsTestWithholding)}
             </span>
           </div>
+          {recoupedFactor !== null && (
+            <div>
+              <span
+                className="num uppercase"
+                style={{
+                  color: C.inkFaint,
+                  letterSpacing: "0.15em",
+                  fontSize: "10px",
+                }}
+              >
+                Annual SS (after FRA)
+              </span>{" "}
+              <span className="num" style={{ color: C.wait, fontWeight: 500 }}>
+                {fmtMoney(earlyPostFRAMonthlyGross * 12)}
+              </span>
+            </div>
+          )}
           <div>
             <span
               className="num uppercase"
