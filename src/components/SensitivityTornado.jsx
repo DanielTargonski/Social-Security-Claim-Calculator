@@ -265,7 +265,7 @@ export default function SensitivityTornado({ inputs, C }) {
                   style={{
                     right: "50%",
                     width: `${leftPct}%`,
-                    backgroundColor: C.wait,
+                    backgroundColor: C.early,
                     opacity: 0.85,
                   }}
                   title={`${row.formatValue(row.minSideValue)} → ${
@@ -278,7 +278,7 @@ export default function SensitivityTornado({ inputs, C }) {
                   style={{
                     left: "50%",
                     width: `${rightPct}%`,
-                    backgroundColor: C.early,
+                    backgroundColor: C.wait,
                     opacity: 0.85,
                   }}
                   title={`${row.formatValue(row.maxSideValue)} → ${
@@ -308,7 +308,7 @@ export default function SensitivityTornado({ inputs, C }) {
               style={{
                 width: "16px",
                 height: "8px",
-                backgroundColor: C.wait,
+                backgroundColor: C.early,
                 opacity: 0.85,
               }}
             />
@@ -319,7 +319,7 @@ export default function SensitivityTornado({ inputs, C }) {
               style={{
                 width: "16px",
                 height: "8px",
-                backgroundColor: C.early,
+                backgroundColor: C.wait,
                 opacity: 0.85,
               }}
             />
