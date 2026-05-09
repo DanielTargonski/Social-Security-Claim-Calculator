@@ -329,4 +329,42 @@ describe("computeProjection — integration smoke tests", () => {
     expect(r.recoupedFactor).toBeNull();
     expect(r.earlyPostFRAMonthlyGross).toBe(r.earlyMonthlyGross);
   });
+
+  it("invested pot uses the post-earnings-test, post-tax amount (not gross)", () => {
+    // 0% return so pot at investStopAge equals literal sum of contributions
+    const r = computeProjection({
+      ...baseInputs,
+      mode: "survivor",
+      fraBenefit: 2300,
+      claimAge: 64,
+      grossIncome: 40000,
+      returnRate: 0,
+      investStopAge: 67,
+    });
+    // Should equal 3 years × 12 months × earlyMonthlyNet (post-ET, post-tax)
+    const expectedContributions = r.earlyMonthlyNet * 12 * 3;
+    expect(Math.abs(r.potAtStopRow - expectedContributions)).toBeLessThan(2);
+  });
+
+  it("Phase 3 cash uses the early ET-reduced rate while still pre-FRA", () => {
+    // investStopAge < FRA: between investStopAge and FRA the claimant should
+    // collect the smaller pre-FRA check, not the larger post-FRA recouped check
+    const r = computeProjection({
+      ...baseInputs,
+      mode: "survivor",
+      fraBenefit: 2300,
+      claimAge: 64,
+      grossIncome: 40000,
+      returnRate: 0,        // turn off compounding for clean arithmetic
+      investStopAge: 65,    // stop investing 2 years before FRA
+      lifeExpectancy: 70,
+    });
+    const rowAt67 = r.chartData.find((d) => d.age >= FRA);
+    const cashFrom65To67 = rowAt67.early - rowAt67.pot;
+    // Should equal 2 years of the EARLY rate, not the post-FRA recouped rate
+    const correctCash = r.earlyMonthlyNet * 12 * 2;
+    const buggyCash = r.earlyPostFRAMonthlyNet * 12 * 2;
+    expect(Math.abs(cashFrom65To67 - correctCash)).toBeLessThan(2);
+    expect(cashFrom65To67).toBeLessThan(buggyCash); // sanity: bug would inflate this
+  });
 });

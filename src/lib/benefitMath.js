@@ -303,9 +303,20 @@ function buildChartData({
         pot = grown + newContrib;
         early = pot;
       } else {
+        // Phase 3: pot compounds untouched, checks now collected as cash.
+        // Cash rate splits at FRA: between investStopAge and FRA (only
+        // possible when investStopAge < FRA), the claimant is still pre-FRA
+        // and receives the early ET-reduced rate; from FRA onward they
+        // receive the post-FRA recouped rate.
         const monthsAfterStop = (age - investStopAge) * 12;
         const potNow = potAtInvestStop * Math.pow(1 + r, monthsAfterStop);
-        const cashCollected = earlyPostFRAMonthlyNet * monthsAfterStop;
+        const monthsAtEarlyRate =
+          Math.max(0, Math.min(age, FRA) - investStopAge) * 12;
+        const monthsAtPostFRARate =
+          Math.max(0, age - Math.max(investStopAge, FRA)) * 12;
+        const cashCollected =
+          earlyMonthlyNet * monthsAtEarlyRate +
+          earlyPostFRAMonthlyNet * monthsAtPostFRARate;
         pot = potNow;
         early = potNow + cashCollected;
       }
