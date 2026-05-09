@@ -143,7 +143,8 @@ export default function InputsPanel({
           value={grossIncome}
           onChange={setGrossIncome}
           min={0}
-          max={500000}
+          max={100000}
+          typeMax={500000}
           step={1000}
           format={fmtIncome}
           hint={
@@ -159,7 +160,8 @@ export default function InputsPanel({
           value={postFRAGrossIncome}
           onChange={setPostFRAGrossIncome}
           min={0}
-          max={500000}
+          max={100000}
+          typeMax={500000}
           step={1000}
           format={fmtIncome}
           hint="affects fed tax on SS, not benefits"

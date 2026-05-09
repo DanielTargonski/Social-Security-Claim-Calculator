@@ -91,6 +91,54 @@ describe("SliderInput — click-to-edit", () => {
     expect(onChange).toHaveBeenCalledWith(70); // clamped to max
   });
 
+  it("typeMin/typeMax widen the typed-input range without changing the slider", async () => {
+    // The slider stays bounded for easy maneuvering, but power users can
+    // type values outside that range — used by the income sliders so phone
+    // users get a manageable slider but high earners aren't capped.
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const props = {
+      ...baseProps,
+      min: 0,
+      max: 100,
+      typeMax: 500,
+      format: (v) => `${v}`,
+    };
+    render(<SliderInput {...props} value={50} onChange={onChange} />);
+
+    // Slider element still reflects the visible bounds.
+    expect(screen.getByRole("slider")).toHaveAttribute("max", "100");
+
+    await user.click(screen.getByRole("button", { name: "50" }));
+    const numInput = screen.getByRole("spinbutton");
+
+    await user.clear(numInput);
+    await user.type(numInput, "300{Enter}");
+
+    // 300 is above slider max but within typeMax — accepted as-is.
+    expect(onChange).toHaveBeenCalledWith(300);
+  });
+
+  it("clamps typed values to typeMax when above it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const props = {
+      ...baseProps,
+      min: 0,
+      max: 100,
+      typeMax: 500,
+      format: (v) => `${v}`,
+    };
+    render(<SliderInput {...props} value={50} onChange={onChange} />);
+
+    await user.click(screen.getByRole("button", { name: "50" }));
+    const numInput = screen.getByRole("spinbutton");
+    await user.clear(numInput);
+    await user.type(numInput, "999{Enter}");
+
+    expect(onChange).toHaveBeenCalledWith(500); // clamped to typeMax
+  });
+
   it("Escape cancels the edit without calling onChange", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
