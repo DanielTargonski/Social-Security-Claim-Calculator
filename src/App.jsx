@@ -18,6 +18,7 @@ import {
   fmtIncome,
 } from "./lib/benefitMath.js";
 import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
+import SensitivityTornado from "./components/SensitivityTornado.jsx";
 
 const C = {
   bg: "#EFE7D6",
@@ -1109,6 +1110,8 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          <SensitivityTornado inputs={inputs} C={C} />
 
           <div
             className="mt-5 p-6 md:p-7"
