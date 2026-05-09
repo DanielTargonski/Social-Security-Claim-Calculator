@@ -101,9 +101,9 @@ export default function InputsPanel({
           onChange={setClaimAge}
           min={earliest}
           max={latest}
-          step={0.5}
+          step={1 / 12}
           format={fmtAge}
-          hint={`${(earlyFactor * 100).toFixed(0)}% of full`}
+          hint={`${(earlyFactor * 100).toFixed(1).replace(/\.0$/, "")}% of full`}
         />
 
         <div className="section-divider" style={{ marginTop: "20px" }}>

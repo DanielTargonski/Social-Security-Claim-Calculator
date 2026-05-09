@@ -234,7 +234,21 @@ export const fmtBig = (v) => {
   return "$" + Math.round(v);
 };
 
-export const fmtAge = (v) => (v % 1 === 0 ? v + " yr" : v.toFixed(1) + " yr");
+// Display age in years and months — matches how SSA actually prices benefits
+// (every month early/delayed is its own discrete factor). The 1e-9 fudge
+// guards against float-precision creep from a 1/12-stepped slider, where
+// e.g. age 64 might arrive as 63.99999999. Without it Math.floor would
+// underflow to 63 and Math.round would overshoot to "63 yr 12 mo".
+export const fmtAge = (v) => {
+  let years = Math.floor(v + 1e-9);
+  let months = Math.round((v - years) * 12);
+  if (months >= 12) {
+    years += 1;
+    months = 0;
+  }
+  if (months === 0) return years + " yr";
+  return years + " yr " + months + " mo";
+};
 
 export const fmtIncome = (v) =>
   v === 0 ? "Not working" : "$" + v.toLocaleString() + "/yr";
