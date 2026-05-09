@@ -2,13 +2,13 @@ import { useMemo } from "react";
 import { computeProjection, fmtBig } from "../lib/benefitMath.js";
 
 // One sensitivity variable. Each entry:
+//   key:          which input field to perturb
 //   label:        UI label
 //   delta:        symmetric perturbation around the current value
 //   formatValue:  formatter for displaying the swept value at each end
-//   perturb:      (inputs, deltaSigned) => modified inputs
+//                 (must handle undefined gracefully)
 //   bounds:       (inputs) => {min, max} hard limits to clamp the perturbation
 //   showInModes:  array of modes this variable applies to
-//   description:  short tooltip-ish explanation
 function makeVariables(inputs) {
   let earliest, latest;
   if (inputs.mode === "retirement") {
@@ -24,80 +24,72 @@ function makeVariables(inputs) {
 
   return [
     {
+      key: "claimAge",
       label: "Claim age",
       delta: 2,
-      formatValue: (v) => `age ${v.toFixed(1).replace(/\.0$/, "")}`,
-      perturb: (inp, d) => ({ ...inp, claimAge: inp.claimAge + d }),
+      formatValue: (v) => `age ${Number(v).toFixed(1).replace(/\.0$/, "")}`,
       bounds: () => ({ min: earliest, max: latest }),
       showInModes: ["retirement", "survivor", "switch"],
     },
     {
+      key: "lifeExpectancy",
       label: "Life expectancy",
       delta: 5,
-      formatValue: (v) => `age ${Math.round(v)}`,
-      perturb: (inp, d) => ({ ...inp, lifeExpectancy: inp.lifeExpectancy + d }),
+      formatValue: (v) => `age ${Math.round(Number(v))}`,
       bounds: () => ({ min: 70, max: 100 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
     {
+      key: "returnRate",
       label: "Real return rate",
       delta: 2,
-      formatValue: (v) => v.toFixed(1) + "%",
-      perturb: (inp, d) => ({ ...inp, returnRate: inp.returnRate + d }),
+      formatValue: (v) => Number(v).toFixed(1) + "%",
       bounds: () => ({ min: 0, max: 10 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
     {
+      key: "grossIncome",
       label: "Gross wage income",
       delta: 20000,
-      formatValue: (v) => "$" + Math.round(v / 1000) + "K",
-      perturb: (inp, d) => ({ ...inp, grossIncome: Math.max(0, inp.grossIncome + d) }),
+      formatValue: (v) => "$" + Math.round(Number(v) / 1000) + "K",
       bounds: () => ({ min: 0, max: 150000 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
     {
+      key: "investStopAge",
       label: "Stop investing at age",
       delta: 3,
-      formatValue: (v) => `age ${Math.round(v)}`,
-      perturb: (inp, d) => ({ ...inp, investStopAge: inp.investStopAge + d }),
+      formatValue: (v) => `age ${Math.round(Number(v))}`,
       bounds: () => ({ min: Math.max(60, Math.floor(inputs.claimAge)), max: 85 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
     {
+      key: "fraBenefit",
       label: "Benefit at 67",
       delta: 300,
-      formatValue: (v) => "$" + Math.round(v).toLocaleString() + "/mo",
-      perturb: (inp, d) => ({ ...inp, fraBenefit: inp.fraBenefit + d }),
+      formatValue: (v) => "$" + Math.round(Number(v)).toLocaleString() + "/mo",
       bounds: () => ({ min: 500, max: 5000 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
     {
+      key: "ownBenefit",
       label: "Own retirement at 67",
       delta: 200,
-      formatValue: (v) => "$" + Math.round(v).toLocaleString() + "/mo",
-      perturb: (inp, d) => ({ ...inp, ownBenefit: inp.ownBenefit + d }),
+      formatValue: (v) => "$" + Math.round(Number(v)).toLocaleString() + "/mo",
       bounds: () => ({ min: 300, max: 4000 }),
       showInModes: ["switch"],
     },
   ];
 }
 
-// Clamp helper that returns null if the perturbation would push out of bounds
-// AND the original value is already at the edge — in which case we have nothing
-// to compare on that side.
-function safePerturb(inp, variable, deltaSigned) {
-  const perturbed = variable.perturb(inp, deltaSigned);
-  const { min, max } = variable.bounds(inp);
-  // Find which key changed and clamp it
-  const keys = Object.keys(perturbed);
-  for (const k of keys) {
-    if (perturbed[k] !== inp[k]) {
-      const clamped = Math.min(max, Math.max(min, perturbed[k]));
-      if (clamped === inp[k]) return null; // perturbation collapsed to baseline
-      return { ...perturbed, [k]: clamped };
-    }
-  }
-  return perturbed;
+// Apply +/- delta to a single field, clamped to its bounds. Always returns
+// a fully-formed inputs object — if the perturbation collapsed back to the
+// current value, the projection result will simply equal the baseline.
+function perturb(inputs, variable, deltaSigned) {
+  const { min, max } = variable.bounds(inputs);
+  const proposed = inputs[variable.key] + deltaSigned;
+  const clamped = Math.min(max, Math.max(min, proposed));
+  return { ...inputs, [variable.key]: clamped };
 }
 
 function getOutputForMode(projection, mode) {
@@ -126,33 +118,30 @@ export default function SensitivityTornado({ inputs, C }) {
 
     const rows = [];
     for (const v of variables) {
-      const lowInputs = safePerturb(inputs, v, -v.delta);
-      const highInputs = safePerturb(inputs, v, +v.delta);
+      const lowInputs = perturb(inputs, v, -v.delta);
+      const highInputs = perturb(inputs, v, +v.delta);
+      const lowValue = lowInputs[v.key];
+      const highValue = highInputs[v.key];
 
-      // Skip if both perturbations were clamped away (variable is at both edges,
-      // which won't happen in practice for any of our variables, but defensive).
-      if (!lowInputs && !highInputs) continue;
+      // Skip variables where neither side actually moved (both bounds collapsed)
+      if (lowValue === inputs[v.key] && highValue === inputs[v.key]) continue;
 
-      const lowOutput = lowInputs
-        ? getOutputForMode(computeProjection(lowInputs), inputs.mode)
-        : baselineOutput;
-      const highOutput = highInputs
-        ? getOutputForMode(computeProjection(highInputs), inputs.mode)
-        : baselineOutput;
-
-      // Determine which input value produced the lower vs higher output
-      const lowKey = Object.keys(lowInputs || {}).find((k) => lowInputs && lowInputs[k] !== inputs[k]);
-      const highKey = Object.keys(highInputs || {}).find((k) => highInputs && highInputs[k] !== inputs[k]);
-      const lowInputValue = lowInputs ? lowInputs[lowKey] : inputs[lowKey];
-      const highInputValue = highInputs ? highInputs[highKey] : inputs[highKey];
+      const lowOutput =
+        lowValue === inputs[v.key]
+          ? baselineOutput
+          : getOutputForMode(computeProjection(lowInputs), inputs.mode);
+      const highOutput =
+        highValue === inputs[v.key]
+          ? baselineOutput
+          : getOutputForMode(computeProjection(highInputs), inputs.mode);
 
       const minOutput = Math.min(lowOutput, highOutput);
       const maxOutput = Math.max(lowOutput, highOutput);
       const swing = maxOutput - minOutput;
 
       // Which input value corresponds to the min vs max output
-      const minSideValue = lowOutput < highOutput ? lowInputValue : highInputValue;
-      const maxSideValue = lowOutput < highOutput ? highInputValue : lowInputValue;
+      const minSideValue = lowOutput < highOutput ? lowValue : highValue;
+      const maxSideValue = lowOutput < highOutput ? highValue : lowValue;
 
       rows.push({
         label: v.label,
