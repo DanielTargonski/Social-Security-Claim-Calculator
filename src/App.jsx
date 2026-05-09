@@ -367,7 +367,7 @@ export default function App() {
               onClick={() => switchMode("survivor")}
               className={`mode-btn ${mode === "survivor" ? "mode-btn-active" : ""}`}
             >
-              Survivor (Widow)
+              Survivor (Spouse)
             </button>
             <button
               onClick={() => switchMode("switch")}
@@ -391,13 +391,13 @@ export default function App() {
                 className="display"
                 style={{ color: C.ink, fontStyle: "italic", fontSize: "13px" }}
               >
-                The widow's switch.
+                The survivor's switch.
               </span>{" "}
-              Claim her own reduced retirement benefit early, invest those
-              checks until 67, then switch to the full 100% survivor benefit at
-              FRA. The own retirement reduction is permanent on that record but
-              irrelevant once she switches. The survivor benefit is unaffected
-              by claiming her own benefit early.
+              Claim the claimant's own reduced retirement benefit early, invest
+              those checks until 67, then switch to the full 100% survivor
+              benefit at FRA. The own-retirement reduction is permanent on that
+              record but irrelevant once they switch. The survivor benefit is
+              unaffected by claiming the own benefit early.
             </div>
           )}
 
@@ -433,7 +433,7 @@ export default function App() {
                 />
                 {mode === "switch" && (
                   <SliderInput
-                    label="Her own retirement at 67"
+                    label="Own retirement at 67"
                     value={ownBenefit}
                     onChange={setOwnBenefit}
                     min={300}
@@ -790,7 +790,25 @@ export default function App() {
                         className="num"
                         style={{ color: C.inkFaint, fontSize: "10px" }}
                       >
-                        permanent from 67
+                        from 67 ·
+                      </span>{" "}
+                      <span
+                        className="num"
+                        style={{ color: C.wait, fontWeight: 500 }}
+                      >
+                        ~
+                        {fmtMoney(
+                          (earlyPostFRAMonthlyGross - earlyMonthlyGross) *
+                            12 *
+                            Math.max(0, lifeExpectancy - FRA) *
+                            (1 - ssEffectiveTaxRate)
+                        )}
+                      </span>{" "}
+                      <span
+                        className="num"
+                        style={{ color: C.inkFaint, fontSize: "10px" }}
+                      >
+                        net through age {lifeExpectancy}
                       </span>
                     </div>
                   )}
@@ -924,7 +942,9 @@ export default function App() {
                       strokeDasharray="5 4"
                     />
                   </svg>
-                  <span style={{ color: C.ink }}>Invested pot only</span>
+                  <span style={{ color: C.ink }}>
+                    {returnRate > 0 ? "Invested pot only" : "Set-aside checks only"}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div
@@ -1004,7 +1024,7 @@ export default function App() {
                     formatter={(value, name) => {
                       const labelMap = {
                         early: `Claim at ${claimAge}`,
-                        pot: "Invested pot",
+                        pot: returnRate > 0 ? "Invested pot" : "Set-aside checks",
                         wait: "Wait to 67",
                       };
                       return [fmtMoney(value), labelMap[name] || name];
@@ -1269,11 +1289,12 @@ export default function App() {
               For 2026, anyone under FRA the entire year loses $1 of benefits
               for every $2 earned over $24,480. In the year of FRA the limit
               loosens to $65,160 with $1 lost per $3 over. Withheld benefits
-              aren't lost forever, the SSA recalculates her benefit upward at
-              FRA to recoup what was held back. The catch in switch mode is
-              the recoup applies to her own retirement benefit only, and once
-              she switches to survivor at 67 the bumped-up own benefit becomes
-              irrelevant.
+              aren't lost forever — the SSA recalculates the claimant's benefit
+              upward at FRA to recoup what was held back (this calculator
+              models that recoup explicitly). The catch in switch mode is that
+              the recoup only applies to the own-retirement benefit, and once
+              the claimant switches to survivor at 67, the bumped-up own
+              benefit becomes irrelevant.
             </div>
             <div>
               <div
@@ -1283,12 +1304,12 @@ export default function App() {
                 NYC tax treatment
               </div>
               New York State and NYC do not tax Social Security benefits at
-              all. The only tax that touches her checks is federal. Up to 85%
-              of her benefits are federally taxable depending on combined
+              all. The only tax that touches the claimant's checks is federal.
+              Up to 85% of benefits are federally taxable depending on combined
               income (single filer thresholds are $25K and $34K). The
               calculator simplifies by applying the marginal rate to 85% of
-              the benefit. Her wage income is separately taxed at federal,
-              state, and city rates but that's outside this model.
+              the benefit. Wage income is separately taxed at federal, state,
+              and city rates but that's outside this model.
             </div>
             <div>
               <div
@@ -1297,13 +1318,13 @@ export default function App() {
               >
                 On the switch strategy
               </div>
-              A widow can file a restricted application to claim only her own
-              retirement benefit early, then switch to 100% of the survivor
-              benefit at her FRA. Her own benefit is reduced for life on that
-              record but irrelevant once she switches. Claiming her own benefit
-              early does not reduce the survivor benefit. Verify her exact own
-              retirement amount with her SSA online statement before relying
-              on this.
+              A surviving spouse can file a restricted application to claim
+              only their own retirement benefit early, then switch to 100% of
+              the survivor benefit at FRA. The own benefit is reduced for life
+              on that record but irrelevant once the claimant switches.
+              Claiming the own benefit early does not reduce the survivor
+              benefit. Verify the exact own-retirement amount with the SSA
+              online statement before relying on this.
             </div>
             <div>
               <div

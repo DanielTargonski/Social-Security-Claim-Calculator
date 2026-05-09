@@ -73,7 +73,7 @@ export function computeTaxableSSPct({ ssBasisAnnual, grossIncome }) {
 //   effectiveClaimAge = claimAge + monthsWithheld / 12
 //   recoupedFactor = mode-appropriate factor at the effective claim age
 // Returns null when no recoup applies (already at/past FRA, no withholding,
-// or switch mode where she abandons own retirement at FRA anyway).
+// or switch mode where the claimant abandons own retirement at FRA anyway).
 export function computeRecoupedFactor({
   mode,
   claimAge,
@@ -174,7 +174,7 @@ export function computeProjection({
 
   // Apply the FRA recoup for retirement/survivor modes — withheld months are
   // credited back at FRA, raising the post-FRA monthly amount permanently.
-  // Switch mode is unaffected (she abandons own retirement at FRA).
+  // Switch mode is unaffected (claimant abandons own retirement at FRA).
   const recoupedFactor = computeRecoupedFactor({
     mode,
     claimAge,
