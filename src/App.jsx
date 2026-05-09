@@ -25,6 +25,7 @@ export default function App() {
   const [investStopAge, setInvestStopAge] = useState(67);
   const [lifeExpectancy, setLifeExpectancy] = useState(85);
   const [grossIncome, setGrossIncome] = useState(0);
+  const [postFRAGrossIncome, setPostFRAGrossIncome] = useState(0);
   const [autoTax, setAutoTax] = useState(true);
   const [manualFedRate, setManualFedRate] = useState(12);
 
@@ -76,6 +77,7 @@ export default function App() {
     investStopAge: effectiveInvestStopAge,
     lifeExpectancy,
     grossIncome,
+    postFRAGrossIncome,
     autoTax,
     manualFedRate,
   };
@@ -147,6 +149,8 @@ export default function App() {
               setLifeExpectancy={setLifeExpectancy}
               grossIncome={grossIncome}
               setGrossIncome={setGrossIncome}
+              postFRAGrossIncome={postFRAGrossIncome}
+              setPostFRAGrossIncome={setPostFRAGrossIncome}
               autoTax={autoTax}
               setAutoTax={setAutoTax}
               setManualFedRate={setManualFedRate}

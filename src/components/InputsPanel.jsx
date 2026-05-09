@@ -31,6 +31,8 @@ export default function InputsPanel({
   setLifeExpectancy,
   grossIncome,
   setGrossIncome,
+  postFRAGrossIncome,
+  setPostFRAGrossIncome,
   autoTax,
   setAutoTax,
   setManualFedRate,
@@ -78,7 +80,15 @@ export default function InputsPanel({
             max={4000}
             step={50}
             format={(v) => "$" + v.toLocaleString() + "/mo"}
-            hint="must be < survivor"
+            hint={
+              ownBenefit >= fraBenefit ? (
+                <span style={{ color: C.early, fontWeight: 500 }}>
+                  above survivor — switching is a downgrade
+                </span>
+              ) : (
+                "must be < survivor"
+              )
+            }
           />
         )}
         <SliderInput
@@ -147,6 +157,16 @@ export default function InputsPanel({
               ? "no test (post-FRA)"
               : "no earnings test"
           }
+        />
+        <SliderInput
+          label="Gross wage income (post-67)"
+          value={postFRAGrossIncome}
+          onChange={setPostFRAGrossIncome}
+          min={0}
+          max={500000}
+          step={1000}
+          format={fmtIncome}
+          hint="affects fed tax on SS, not benefits"
         />
         <div>
           <div className="flex justify-between items-baseline mb-2">

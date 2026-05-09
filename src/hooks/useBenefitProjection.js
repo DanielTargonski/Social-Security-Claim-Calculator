@@ -16,6 +16,7 @@ export function useBenefitProjection(inputs) {
       inputs.investStopAge,
       inputs.lifeExpectancy,
       inputs.grossIncome,
+      inputs.postFRAGrossIncome,
       inputs.autoTax,
       inputs.manualFedRate,
     ]

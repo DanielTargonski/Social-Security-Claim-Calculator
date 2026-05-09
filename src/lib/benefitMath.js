@@ -39,6 +39,13 @@ export {
 // Single entry point for all derived values. Takes raw inputs, returns
 // everything the UI (or a sensitivity sweep) needs. Pure: same inputs →
 // same outputs.
+//
+// `grossIncome` represents pre-FRA wage income (used for the earnings
+// test and for the federal-tax combined-income calculation in pre-FRA
+// years). `postFRAGrossIncome` represents post-FRA wage income — the
+// earnings test no longer applies, but combined income still drives
+// federal taxation of SS, so they're separate. Default to 0 (assumes
+// retirement at FRA, the most common case).
 export function computeProjection({
   mode,
   fraBenefit,
@@ -48,6 +55,7 @@ export function computeProjection({
   investStopAge,
   lifeExpectancy,
   grossIncome,
+  postFRAGrossIncome = 0,
   autoTax,
   manualFedRate,
 }) {
@@ -80,58 +88,103 @@ export function computeProjection({
 
   // Tax — auto from income, or manual override.
   //
-  // The combined-income tier formula (taxMath.computeTaxableSSPct) takes the
-  // ssBasisAnnual that the claimant actually receives. Early and wait
-  // scenarios receive different SS amounts, so they produce different
-  // effective tax rates. Using a single basis (e.g. fraMonthlyGross * 12)
-  // for both was a real bug — it overstated tax on the early-scenario
-  // checks because the early claimant's combined income is lower than
-  // wait's, which puts them in a lower taxable-SS tier and often a lower
-  // marginal bracket.
+  // Three effective tax rates are computed because three distinct
+  // scenario/period combinations exist:
   //
-  // We use earlyPostFRAMonthlyGross for the early basis (the long-term
-  // steady state — most years are post-FRA). For the wait basis we use
-  // fraMonthlyGross since that's exactly what the wait scenario receives
-  // every month from FRA onward. In switch mode and in retirement/survivor
-  // without recoup, the two bases collapse and the rates are identical.
-  const ssBasisAnnualEarly = earlyPostFRAMonthlyGross * 12;
+  //   earlyTaxPreFRA  — early scenario, pre-FRA years.
+  //                     Combined income uses pre-FRA grossIncome and the
+  //                     after-earnings-test SS amount (annualEarlyGross
+  //                     - earningsTestWithholding).
+  //   earlyTaxPostFRA — early scenario, post-FRA years.
+  //                     Combined income uses postFRAGrossIncome and the
+  //                     post-recoup SS amount (earlyPostFRAMonthlyGross * 12).
+  //   waitTax         — wait scenario, post-FRA only (the wait curve is
+  //                     zero pre-FRA). Uses postFRAGrossIncome and
+  //                     fraMonthlyGross * 12.
+  //
+  // Using a single rate for everything (pre-fix) overtaxed the early
+  // scenario whenever its combined income fell into a lower tier than
+  // wait's, and overtaxed all post-FRA years for users who plan to retire
+  // at FRA but still had a positive `grossIncome` in the model.
+  const ssBasisAnnualEarlyPreFRA = annualEarlyGross - earningsTestWithholding;
+  const ssBasisAnnualEarlyPostFRA = earlyPostFRAMonthlyGross * 12;
   const ssBasisAnnualWait = fraMonthlyGross * 12;
-  const combinedIncome = grossIncome + 0.5 * ssBasisAnnualEarly;
 
-  const earlyTax = computeSSEffectiveTaxRate({
+  const earlyTaxPreFRA = computeSSEffectiveTaxRate({
     autoTax,
     manualFedRate,
-    ssBasisAnnual: ssBasisAnnualEarly,
+    ssBasisAnnual: ssBasisAnnualEarlyPreFRA,
     grossIncome,
+  });
+  const earlyTaxPostFRA = computeSSEffectiveTaxRate({
+    autoTax,
+    manualFedRate,
+    ssBasisAnnual: ssBasisAnnualEarlyPostFRA,
+    grossIncome: postFRAGrossIncome,
   });
   const waitTax = computeSSEffectiveTaxRate({
     autoTax,
     manualFedRate,
     ssBasisAnnual: ssBasisAnnualWait,
-    grossIncome,
+    grossIncome: postFRAGrossIncome,
   });
 
-  // Headline tax fields exposed to the UI describe the user's chosen
-  // (early) scenario, since that's what every other on-screen number
-  // refers to. Wait-scenario tax is applied internally to fraMonthlyNet
-  // but not displayed separately.
-  const taxableSSPct = earlyTax.taxableSSPct;
-  const fedMarginalRate = earlyTax.fedMarginalRate;
-  const ssEffectiveTaxRate = earlyTax.ssEffectiveTaxRate;
+  // Headline tax fields exposed to the UI describe the post-FRA early
+  // scenario — that's the long-term steady state for the user's chosen
+  // strategy and dominates the lifetime numbers (most years are post-FRA).
+  const taxableSSPct = earlyTaxPostFRA.taxableSSPct;
+  const fedMarginalRate = earlyTaxPostFRA.fedMarginalRate;
+  const ssEffectiveTaxRate = earlyTaxPostFRA.ssEffectiveTaxRate;
+  const combinedIncome = postFRAGrossIncome + 0.5 * ssBasisAnnualEarlyPostFRA;
 
-  const earlyMonthlyNet = earlyMonthlyAfterET * (1 - earlyTax.ssEffectiveTaxRate);
+  const earlyMonthlyNet = earlyMonthlyAfterET * (1 - earlyTaxPreFRA.ssEffectiveTaxRate);
   const earlyPostFRAMonthlyNet =
-    earlyPostFRAMonthlyGross * (1 - earlyTax.ssEffectiveTaxRate);
+    earlyPostFRAMonthlyGross * (1 - earlyTaxPostFRA.ssEffectiveTaxRate);
   const fraMonthlyNet = fraMonthlyGross * (1 - waitTax.ssEffectiveTaxRate);
+
+  // Lumpy SSA earnings-test withholding parameters. SSA withholds entire
+  // monthly checks at the start of each year until the projected annual
+  // withholding amount is reached, then resumes paying full checks. The
+  // averaged model (every month = (annualGross - withholding)/12) gives
+  // the same total dollars but slightly overstates compound growth — by
+  // ~1% on the lifetime pot — because contributions land "earlier" than
+  // they actually do.
+  //
+  // Only computed when there's actual withholding to distribute. Zero or
+  // null collapses to constant monthly contributions.
+  const fullMonthlyPreTaxGross = earlyMonthlyGross;
+  const monthsWithheldFull = fullMonthlyPreTaxGross > 0
+    ? Math.floor(earningsTestWithholding / fullMonthlyPreTaxGross)
+    : 0;
+  const residualWithheld = earningsTestWithholding - monthsWithheldFull * fullMonthlyPreTaxGross;
+  const partialMonthlyPreTaxGross = Math.max(
+    0,
+    fullMonthlyPreTaxGross - residualWithheld
+  );
+  const lumpy = earningsTestWithholding > 0
+    ? {
+        monthsWithheldFull,
+        partialMonthlyNet:
+          partialMonthlyPreTaxGross * (1 - earlyTaxPreFRA.ssEffectiveTaxRate),
+      }
+    : null;
+  // Note: when lumpy is active, the chart's pre-FRA contributions use
+  // fullMonthlyNet for non-withheld months and partialMonthlyNet for the
+  // transition month. fullMonthlyNet here equals earlyMonthlyGross *
+  // (1 - earlyTaxPreFRA), which is what the chart sees as its
+  // `earlyMonthlyNet` argument when lumpy is null. So we override:
+  const fullMonthlyNet =
+    fullMonthlyPreTaxGross * (1 - earlyTaxPreFRA.ssEffectiveTaxRate);
 
   const chartData = buildChartData({
     claimAge,
     investStopAge,
     lifeExpectancy,
     returnRate,
-    earlyMonthlyNet,
+    earlyMonthlyNet: lumpy ? fullMonthlyNet : earlyMonthlyNet,
     earlyPostFRAMonthlyNet,
     fraMonthlyNet,
+    lumpy,
   });
 
   const breakEvenAge = findBreakEvenAge({ chartData, claimAge, mode });

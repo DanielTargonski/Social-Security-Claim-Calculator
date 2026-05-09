@@ -110,12 +110,42 @@ export function waitTotalAtAge({ age, fraMonthlyNet }) {
   return fraMonthlyNet * months;
 }
 
+// Returns the after-tax monthly contribution for a given month index
+// (0-based, counted from the claim date) under SSA's lumpy earnings-test
+// withholding pattern. SSA actually withholds entire monthly checks until
+// the projected annual withholding amount is reached, then resumes paying
+// full checks for the rest of that year — repeating each year.
+//
+//   `lumpy` is null            → no withholding pattern, every month
+//                                 returns `fullMonthlyNet` (averaged
+//                                 fallback for callers that don't compute
+//                                 the lumpy params).
+//   `lumpy.monthsWithheldFull` → number of full $0 months at the start of
+//                                 each year cycle.
+//   `lumpy.partialMonthlyNet`  → the partial check that arrives in the
+//                                 transition month immediately after the
+//                                 full-withhold months. Equal to
+//                                 fullMonthlyNet when the residual
+//                                 withholding is zero (no transition month).
+function lumpyContribAtMonth(monthIndex, lumpy, fullMonthlyNet) {
+  if (!lumpy) return fullMonthlyNet;
+  const monthInYear = monthIndex % 12;
+  if (monthInYear < lumpy.monthsWithheldFull) return 0;
+  if (monthInYear === lumpy.monthsWithheldFull) return lumpy.partialMonthlyNet;
+  return fullMonthlyNet;
+}
+
 // Build the full chartData array used by the recharts <LineChart>.
 // One row per quarter-year between min(claimAge, FRA) and lifeExpectancy.
 //   age, early, pot, wait
-//   - early = pot + cashCollectedInPhase3 (the total claim-and-invest position)
+//   - early = pot + cashCollectedSinceInvestStop (the total claim-and-invest position)
 //   - pot   = invested-pot value alone (dashed line on the chart)
 //   - wait  = wait-until-FRA cumulative
+//
+// The implementation runs a month-by-month simulation so the SSA lumpy
+// withholding pattern is modeled honestly. When `lumpy` is omitted (e.g.
+// in unit tests for the FV helpers), every pre-FRA month contributes the
+// constant `earlyMonthlyNet` — equivalent to the old averaged behavior.
 export function buildChartData({
   claimAge,
   investStopAge,
@@ -124,51 +154,63 @@ export function buildChartData({
   earlyMonthlyNet,
   earlyPostFRAMonthlyNet,
   fraMonthlyNet,
+  lumpy = null,
 }) {
   const data = [];
   const r = returnRate / 100 / 12;
   const startAge = Math.min(claimAge, FRA);
 
-  const { phase1End, phase1Months, phase2Months } = computePhaseBoundaries({
-    claimAge,
-    investStopAge,
-  });
+  // Total months from claimAge to lifeExpectancy. We simulate this whole
+  // window and then sample at quarter-year resolution for the chart rows.
+  const totalMonthsLife = Math.max(
+    0,
+    Math.round((lifeExpectancy - claimAge) * 12)
+  );
 
-  const basePotPhase1 = potAtPhase1End({
-    earlyMonthlyNet,
-    phase1Months,
-    r,
-  });
-  const basePotPhase3 = potAtInvestStop({
-    potAtPhase1End: basePotPhase1,
-    earlyPostFRAMonthlyNet,
-    phase2Months,
-    r,
-  });
+  // monthlyPot[m] = invested-pot value at the END of month m (where month
+  // 0 = claimAge, no contribution yet). monthlyCumCash[m] = cumulative
+  // cash collected (Phase 3 only) through end of month m.
+  const monthlyPot = new Array(totalMonthsLife + 1).fill(0);
+  const monthlyCumCash = new Array(totalMonthsLife + 1).fill(0);
+  let cumCash = 0;
 
+  for (let m = 1; m <= totalMonthsLife; m++) {
+    const ageAtMonthEnd = claimAge + m / 12;
+    // Pre-FRA contribution: lumpy if params provided, else flat.
+    // monthIndex passed to lumpyContrib is (m - 1) so month 1 = year-cycle
+    // month 0 (the first withheld month if any).
+    const preFRAContrib = lumpyContribAtMonth(m - 1, lumpy, earlyMonthlyNet);
+
+    let contribThisMonth;
+    let cashThisMonth = 0;
+    if (ageAtMonthEnd <= investStopAge) {
+      // Phase 1 or Phase 2 — money goes into the invested pot
+      contribThisMonth = ageAtMonthEnd <= FRA
+        ? preFRAContrib
+        : earlyPostFRAMonthlyNet;
+    } else {
+      // Phase 3 — pot just compounds, the check is cash
+      contribThisMonth = 0;
+      cashThisMonth = ageAtMonthEnd <= FRA
+        ? preFRAContrib
+        : earlyPostFRAMonthlyNet;
+    }
+
+    monthlyPot[m] = monthlyPot[m - 1] * (1 + r) + contribThisMonth;
+    cumCash += cashThisMonth;
+    monthlyCumCash[m] = cumCash;
+  }
+
+  // Sample the simulation at quarter-year intervals for the chart.
   for (let age = startAge; age <= lifeExpectancy; age += 0.25) {
-    const pot = potAtAge({
-      age,
-      claimAge,
-      phase1End,
-      investStopAge,
-      earlyMonthlyNet,
-      earlyPostFRAMonthlyNet,
-      potAtPhase1End: basePotPhase1,
-      potAtInvestStop: basePotPhase3,
-      r,
-    });
-
-    const cash =
-      age > investStopAge
-        ? cashCollectedInPhase3({
-            age,
-            investStopAge,
-            earlyMonthlyNet,
-            earlyPostFRAMonthlyNet,
-          })
-        : 0;
-
+    const m = Math.round((age - claimAge) * 12);
+    let pot = 0;
+    let cash = 0;
+    if (m >= 0) {
+      const idx = Math.min(m, totalMonthsLife);
+      pot = monthlyPot[idx];
+      cash = monthlyCumCash[idx];
+    }
     const early = age >= claimAge ? pot + cash : 0;
     const wait = waitTotalAtAge({ age, fraMonthlyNet });
 

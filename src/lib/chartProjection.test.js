@@ -220,6 +220,86 @@ describe("buildChartData — invariants", () => {
   });
 });
 
+describe("buildChartData — lumpy SSA withholding pattern", () => {
+  // SSA withholds entire monthly checks at the start of each year until
+  // the projected withholding amount is reached, then resumes paying full
+  // checks. The averaged model used to spread withholding evenly across
+  // 12 months — same total dollars per year but slightly more compound
+  // growth (averaged contributions land "earlier" than they actually do).
+
+  const baseLumpyChart = {
+    claimAge: 62,
+    investStopAge: 67,
+    lifeExpectancy: 85,
+    earlyPostFRAMonthlyNet: 1500,
+    fraMonthlyNet: 2500,
+  };
+
+  it("with lumpy=null, behaves identically to constant earlyMonthlyNet", () => {
+    const explicit = buildChartData({
+      ...baseLumpyChart,
+      returnRate: 0,
+      earlyMonthlyNet: 1000,
+      lumpy: null,
+    });
+    const omitted = buildChartData({
+      ...baseLumpyChart,
+      returnRate: 0,
+      earlyMonthlyNet: 1000,
+    });
+    expect(explicit[explicit.length - 1].pot).toBe(omitted[omitted.length - 1].pot);
+  });
+
+  it("at 0% return, lumpy and constant give the same year-end pot total", () => {
+    // 8 full-withhold months + 1 partial month at $1250 + 3 full months at $1500.
+    // Annual contribution = 8×0 + 1×1250 + 3×1500 = $5,750.
+    // 5 years pre-FRA = $28,750.
+    const lumpyData = buildChartData({
+      ...baseLumpyChart,
+      returnRate: 0,
+      earlyMonthlyNet: 1500,
+      lumpy: { monthsWithheldFull: 8, partialMonthlyNet: 1250 },
+    });
+    const rowAt67 = lumpyData.find((d) => d.age >= 67);
+    expect(rowAt67.pot).toBe(5750 * 5);
+  });
+
+  it("at positive return, lumpy pot is < averaged pot (later contribs = less compounding)", () => {
+    const fullMonthly = 1500;
+    const monthsWithheldFull = 8;
+    const annualWithholding = monthsWithheldFull * fullMonthly; // $12,000
+    const annualNoWithhold = fullMonthly * 12; // $18,000
+    const averagedMonthly = (annualNoWithhold - annualWithholding) / 12; // $500
+
+    const lumpyData = buildChartData({
+      ...baseLumpyChart,
+      returnRate: 7,
+      earlyMonthlyNet: fullMonthly,
+      lumpy: { monthsWithheldFull, partialMonthlyNet: fullMonthly }, // residual = 0, no transition month
+    });
+    const averagedData = buildChartData({
+      ...baseLumpyChart,
+      returnRate: 7,
+      earlyMonthlyNet: averagedMonthly,
+    });
+
+    const rowAt67Lumpy = lumpyData.find((d) => d.age >= 67);
+    const rowAt67Averaged = averagedData.find((d) => d.age >= 67);
+    expect(rowAt67Lumpy.pot).toBeLessThan(rowAt67Averaged.pot);
+  });
+
+  it("monthsWithheldFull=0 (no withholding) collapses to constant contribs", () => {
+    const data = buildChartData({
+      ...baseLumpyChart,
+      returnRate: 0,
+      earlyMonthlyNet: 1500,
+      lumpy: { monthsWithheldFull: 0, partialMonthlyNet: 1500 },
+    });
+    const rowAt67 = data.find((d) => d.age >= 67);
+    expect(rowAt67.pot).toBe(1500 * 12 * 5);
+  });
+});
+
 describe("findBreakEvenAge", () => {
   it("returns null in switch mode", () => {
     expect(findBreakEvenAge({ chartData: [], claimAge: 64, mode: "switch" })).toBeNull();

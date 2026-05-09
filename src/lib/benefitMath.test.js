@@ -235,24 +235,22 @@ describe("computeProjection — separate early/wait tax rates", () => {
   // Regression: previously the calculator used fraMonthlyGross * 12 as the
   // ssBasisAnnual for both scenarios, which over-taxed the early scenario
   // (lower SS → lower combined income → lower taxable-SS percentage).
-  // The fix computes two effective rates internally; the headline
-  // `ssEffectiveTaxRate` exposed to the UI describes the early scenario.
+  // The current model uses three rates — earlyPreFRA, earlyPostFRA, and
+  // wait — applied to their respective monthly nets. Pass postFRAGrossIncome
+  // equal to grossIncome here so the wait scenario has meaningful combined
+  // income to compare against early-scenario rates.
 
-  it("at a tier-disparity income, the wait scenario taxes fraMonthlyNet more heavily than early", () => {
+  it("at a tier-disparity income, wait taxes fraMonthlyNet more heavily than early-pre-FRA", () => {
     // fraBenefit 2500 (annual wait basis $30K), early at 62 → 1750 (annual
     // early basis $21K). grossIncome $20K places wait combined income at
-    // $35K (in tier 2: 85% taxable territory) and early combined income at
-    // $30.5K (in tier 1: scaled to ~13% taxable). Different brackets, too.
+    // $35K (tier 2) and early-pre-FRA combined at $30.5K (tier 1).
     const r = computeProjection({
       ...baseInputs,
       grossIncome: 20000,
+      postFRAGrossIncome: 20000,
       autoTax: true,
     });
 
-    // The taxable fraction of fraMonthlyNet must be > the taxable fraction
-    // of earlyMonthlyNet by virtue of the wait scenario having higher SS.
-    // We can't read both rates directly any more, but we can verify it
-    // shows up in the net-vs-gross ratios.
     const earlyTaxFraction =
       1 - r.earlyMonthlyNet / ((r.annualEarlyGross - r.earningsTestWithholding) / 12);
     const waitTaxFraction = 1 - r.fraMonthlyNet / r.fraMonthlyGross;
@@ -260,14 +258,11 @@ describe("computeProjection — separate early/wait tax rates", () => {
   });
 
   it("when both scenarios collapse to the same SS basis (switch mode), tax fractions match", () => {
-    // In switch mode, the claimant abandons own retirement at FRA and
-    // collects the full survivor benefit afterward, so the early-scenario
-    // SS basis (post-FRA = fraBenefit) equals the wait basis. Both tax
-    // rates collapse to the same value.
     const r = computeProjection({
       ...baseInputs,
       mode: "switch",
       grossIncome: 20000,
+      postFRAGrossIncome: 20000,
       autoTax: true,
     });
     const earlyTaxFraction = 1 - r.earlyPostFRAMonthlyNet / r.earlyPostFRAMonthlyGross;
@@ -275,14 +270,69 @@ describe("computeProjection — separate early/wait tax rates", () => {
     expect(closeTo(earlyTaxFraction, waitTaxFraction, 0.0001)).toBe(true);
   });
 
-  it("displayed combinedIncome reflects the early-scenario basis (the user's chosen scenario)", () => {
+  it("displayed combinedIncome reflects the post-FRA early-scenario basis", () => {
     const r = computeProjection({
       ...baseInputs,
-      grossIncome: 20000,
+      grossIncome: 50000,
+      postFRAGrossIncome: 20000,
       autoTax: true,
     });
-    // Early scenario: post-FRA monthly gross × 12 (= long-term steady state)
+    // Headline = post-FRA early scenario: postFRAGrossIncome + 0.5 × earlyPostFRAMonthlyGross × 12
     const expected = 20000 + 0.5 * r.earlyPostFRAMonthlyGross * 12;
     expect(closeTo(r.combinedIncome, expected, 0.5)).toBe(true);
+  });
+});
+
+describe("computeProjection — postFRAGrossIncome", () => {
+  // The calculator splits wage income into pre-FRA and post-FRA periods.
+  // Pre-FRA wages drive the earnings test (which only applies pre-FRA) and
+  // the pre-FRA federal-tax combined-income calc. Post-FRA wages drive
+  // only the post-FRA combined-income calc. Default 0 = retire at FRA.
+
+  it("defaults postFRAGrossIncome to 0 when omitted (typical retiree case)", () => {
+    const r = computeProjection(baseInputs); // no postFRAGrossIncome
+    // With default 0, post-FRA combined income = 0 + 0.5 × early-post-FRA SS.
+    const expected = 0 + 0.5 * r.earlyPostFRAMonthlyGross * 12;
+    expect(closeTo(r.combinedIncome, expected, 0.5)).toBe(true);
+  });
+
+  it("higher postFRAGrossIncome raises combined income and the headline tax rate (auto)", () => {
+    const lowPost = computeProjection({
+      ...baseInputs,
+      grossIncome: 0,
+      postFRAGrossIncome: 0,
+      autoTax: true,
+    });
+    const highPost = computeProjection({
+      ...baseInputs,
+      grossIncome: 0,
+      postFRAGrossIncome: 80000, // big enough to cross thresholds for fraBenefit=2500
+      autoTax: true,
+    });
+    expect(highPost.combinedIncome).toBeGreaterThan(lowPost.combinedIncome);
+    expect(highPost.ssEffectiveTaxRate).toBeGreaterThan(lowPost.ssEffectiveTaxRate);
+  });
+
+  it("postFRAGrossIncome doesn't affect the earnings test (which only sees pre-FRA grossIncome)", () => {
+    // No pre-FRA income but plenty post-FRA → earnings test still returns 0.
+    const r = computeProjection({
+      ...baseInputs,
+      grossIncome: 0,
+      postFRAGrossIncome: 100000,
+    });
+    expect(r.earningsTestWithholding).toBe(0);
+  });
+
+  it("with postFRAGrossIncome=0 and grossIncome>0, fraMonthlyNet uses the post-FRA-zero rate (typical retiree)", () => {
+    // Wait scenario only ever pays SS post-FRA. With no post-FRA wages,
+    // combined income for wait = 0.5 × $30K = $15K, below the $25K threshold,
+    // so 0% of SS is taxable → fraMonthlyNet === fraMonthlyGross.
+    const r = computeProjection({
+      ...baseInputs,
+      grossIncome: 60000, // big pre-FRA income (irrelevant for wait scenario)
+      postFRAGrossIncome: 0,
+      autoTax: true,
+    });
+    expect(closeTo(r.fraMonthlyNet, r.fraMonthlyGross, 0.5)).toBe(true);
   });
 });
