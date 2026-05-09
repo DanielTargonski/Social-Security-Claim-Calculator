@@ -177,6 +177,7 @@ export default function SensitivityTornado({ inputs }) {
     inputs.postFRAGrossIncome,
     inputs.autoTax,
     inputs.manualFedRate,
+    inputs.investedPct,
   ]);
 
   const { baselineOutput, rows, globalMax } = data;

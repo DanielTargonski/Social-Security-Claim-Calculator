@@ -38,6 +38,7 @@ export default function App() {
   );
   const [autoTax, setAutoTax] = useState(initial.autoTax);
   const [manualFedRate, setManualFedRate] = useState(initial.manualFedRate);
+  const [investedPct, setInvestedPct] = useState(initial.investedPct);
 
   // Mirror state into the URL on every change via replaceState (no history
   // entries — back button shouldn't undo individual slider drags). Stored
@@ -57,6 +58,7 @@ export default function App() {
       postFRAGrossIncome,
       autoTax,
       manualFedRate,
+      investedPct,
     });
     const newSearch = "?" + params.toString();
     if (window.location.search !== newSearch) {
@@ -78,6 +80,7 @@ export default function App() {
     postFRAGrossIncome,
     autoTax,
     manualFedRate,
+    investedPct,
   ]);
 
   // Mode-specific bounds for the claim-age slider.
@@ -131,6 +134,7 @@ export default function App() {
     postFRAGrossIncome,
     autoTax,
     manualFedRate,
+    investedPct,
   };
 
   const {
@@ -205,7 +209,10 @@ export default function App() {
               autoTax={autoTax}
               setAutoTax={setAutoTax}
               setManualFedRate={setManualFedRate}
+              investedPct={investedPct}
+              setInvestedPct={setInvestedPct}
               earlyFactor={earlyFactor}
+              earlyMonthlyNet={earlyMonthlyNet}
               earningsTestWithholding={earningsTestWithholding}
               fedMarginalRate={fedMarginalRate}
             />

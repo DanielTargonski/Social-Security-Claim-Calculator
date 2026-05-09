@@ -17,6 +17,7 @@ const sample = {
   postFRAGrossIncome: 30000,
   autoTax: false,
   manualFedRate: 22,
+  investedPct: 60,
 };
 
 describe("shareableState — round-trip", () => {
@@ -49,6 +50,7 @@ describe("shareableState — round-trip", () => {
       "incp",
       "tax",
       "mrate",
+      "inv",
     ]) {
       expect(params.has(key)).toBe(true);
     }
@@ -105,6 +107,7 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "fraBenefit",
         "grossIncome",
         "investStopAge",
+        "investedPct",
         "lifeExpectancy",
         "manualFedRate",
         "mode",

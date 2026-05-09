@@ -37,8 +37,11 @@ export default function InputsPanel({
   autoTax,
   setAutoTax,
   setManualFedRate,
+  investedPct,
+  setInvestedPct,
   // derived from projection
   earlyFactor,
+  earlyMonthlyNet,
   earningsTestWithholding,
   fedMarginalRate,
 }) {
@@ -114,6 +117,22 @@ export default function InputsPanel({
           step={0.5}
           format={(v) => v.toFixed(1) + "%"}
           hint={returnRate === 7 ? "S&P 500 historical" : ""}
+        />
+        <SliderInput
+          label="Invest pct of early checks"
+          value={investedPct}
+          onChange={setInvestedPct}
+          min={0}
+          max={100}
+          step={5}
+          format={(v) => v + "%"}
+          hint={(() => {
+            const invested = earlyMonthlyNet * (investedPct / 100);
+            const cash = earlyMonthlyNet - invested;
+            if (investedPct === 100) return `${fmtMoney(invested)}/mo invested`;
+            if (investedPct === 0) return `${fmtMoney(cash)}/mo cash`;
+            return `${fmtMoney(invested)}/mo invested · ${fmtMoney(cash)}/mo cash`;
+          })()}
         />
         <SliderInput
           label="Stop investing at age"

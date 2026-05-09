@@ -58,6 +58,7 @@ export function computeProjection({
   postFRAGrossIncome = 0,
   autoTax,
   manualFedRate,
+  investedPct = 100,
 }) {
   const {
     earlyFactor,
@@ -185,6 +186,7 @@ export function computeProjection({
     earlyPostFRAMonthlyNet,
     fraMonthlyNet,
     lumpy,
+    investedFraction: investedPct / 100,
   });
 
   const breakEvenAge = findBreakEvenAge({ chartData, claimAge, mode });

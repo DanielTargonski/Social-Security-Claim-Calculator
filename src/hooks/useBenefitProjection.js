@@ -19,6 +19,7 @@ export function useBenefitProjection(inputs) {
       inputs.postFRAGrossIncome,
       inputs.autoTax,
       inputs.manualFedRate,
+      inputs.investedPct,
     ]
   );
 }

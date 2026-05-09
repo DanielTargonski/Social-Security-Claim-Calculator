@@ -324,3 +324,50 @@ describe("findBreakEvenAge", () => {
     expect(r).toBeLessThan(75);
   });
 });
+
+describe("buildChartData — investedFraction", () => {
+  // The "early" line equals (invested pot) + (cumulative cash). investedFraction
+  // shifts how much of each pre-investStopAge check goes to each, but the
+  // early total at lifeExpectancy should change predictably:
+  //   - At return rate 0, fraction is irrelevant (no compounding) — the
+  //     early total equals total checks received regardless of split.
+  //   - At positive return, lower fraction → less compounding → lower total.
+  const baseArgs = {
+    claimAge: 62,
+    investStopAge: 67,
+    lifeExpectancy: 85,
+    earlyMonthlyNet: 1000,
+    earlyPostFRAMonthlyNet: 1000,
+    fraMonthlyNet: 1500,
+  };
+
+  it("at returnRate=0, investedFraction does not affect the early total", () => {
+    const full = buildChartData({ ...baseArgs, returnRate: 0, investedFraction: 1 });
+    const partial = buildChartData({ ...baseArgs, returnRate: 0, investedFraction: 0.3 });
+    const none = buildChartData({ ...baseArgs, returnRate: 0, investedFraction: 0 });
+    expect(closeTo(full.at(-1).early, partial.at(-1).early)).toBe(true);
+    expect(closeTo(partial.at(-1).early, none.at(-1).early)).toBe(true);
+  });
+
+  it("at positive returnRate, lowering investedFraction lowers the early total", () => {
+    const full = buildChartData({ ...baseArgs, returnRate: 7, investedFraction: 1 });
+    const half = buildChartData({ ...baseArgs, returnRate: 7, investedFraction: 0.5 });
+    const none = buildChartData({ ...baseArgs, returnRate: 7, investedFraction: 0 });
+    expect(full.at(-1).early).toBeGreaterThan(half.at(-1).early);
+    expect(half.at(-1).early).toBeGreaterThan(none.at(-1).early);
+  });
+
+  it("investedFraction=0 collapses the early line to a pure linear sum of checks", () => {
+    const none = buildChartData({ ...baseArgs, returnRate: 7, investedFraction: 0 });
+    // 1000/mo × 12 mo/yr × 23 yr (62→85) = 276,000
+    expect(closeTo(none.at(-1).early, 276000, 1)).toBe(true);
+    expect(none.at(-1).pot).toBe(0);
+  });
+
+  it("defaults to investedFraction=1 when omitted (current calculator behavior)", () => {
+    const explicit = buildChartData({ ...baseArgs, returnRate: 7, investedFraction: 1 });
+    const omitted = buildChartData({ ...baseArgs, returnRate: 7 });
+    expect(omitted.at(-1).early).toBe(explicit.at(-1).early);
+    expect(omitted.at(-1).pot).toBe(explicit.at(-1).pot);
+  });
+});

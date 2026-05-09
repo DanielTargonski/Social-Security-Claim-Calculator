@@ -146,6 +146,12 @@ function lumpyContribAtMonth(monthIndex, lumpy, fullMonthlyNet) {
 // withholding pattern is modeled honestly. When `lumpy` is omitted (e.g.
 // in unit tests for the FV helpers), every pre-FRA month contributes the
 // constant `earlyMonthlyNet` — equivalent to the old averaged behavior.
+//
+// `investedFraction` (0..1) splits each pre-investStopAge check between the
+// invested pot and accumulated cash. 1.0 = current behavior (all early
+// checks invested). 0.0 = nothing invested, every check accumulates linearly
+// as cash. The "early" line still represents total received dollars either
+// way — only the compounding portion changes.
 export function buildChartData({
   claimAge,
   investStopAge,
@@ -155,6 +161,7 @@ export function buildChartData({
   earlyPostFRAMonthlyNet,
   fraMonthlyNet,
   lumpy = null,
+  investedFraction = 1,
 }) {
   const data = [];
   const r = returnRate / 100 / 12;
@@ -169,7 +176,8 @@ export function buildChartData({
 
   // monthlyPot[m] = invested-pot value at the END of month m (where month
   // 0 = claimAge, no contribution yet). monthlyCumCash[m] = cumulative
-  // cash collected (Phase 3 only) through end of month m.
+  // cash collected through end of month m. Cash includes both Phase 3
+  // checks AND the non-invested fraction of pre-investStopAge checks.
   const monthlyPot = new Array(totalMonthsLife + 1).fill(0);
   const monthlyCumCash = new Array(totalMonthsLife + 1).fill(0);
   let cumCash = 0;
@@ -180,20 +188,20 @@ export function buildChartData({
     // monthIndex passed to lumpyContrib is (m - 1) so month 1 = year-cycle
     // month 0 (the first withheld month if any).
     const preFRAContrib = lumpyContribAtMonth(m - 1, lumpy, earlyMonthlyNet);
+    const checkThisMonth = ageAtMonthEnd <= FRA
+      ? preFRAContrib
+      : earlyPostFRAMonthlyNet;
 
-    let contribThisMonth;
+    let contribThisMonth = 0;
     let cashThisMonth = 0;
     if (ageAtMonthEnd <= investStopAge) {
-      // Phase 1 or Phase 2 — money goes into the invested pot
-      contribThisMonth = ageAtMonthEnd <= FRA
-        ? preFRAContrib
-        : earlyPostFRAMonthlyNet;
+      // Phase 1 or Phase 2 — split the check between invested pot and cash
+      // per investedFraction. Default 1.0 keeps every dollar going to the pot.
+      contribThisMonth = checkThisMonth * investedFraction;
+      cashThisMonth = checkThisMonth * (1 - investedFraction);
     } else {
-      // Phase 3 — pot just compounds, the check is cash
-      contribThisMonth = 0;
-      cashThisMonth = ageAtMonthEnd <= FRA
-        ? preFRAContrib
-        : earlyPostFRAMonthlyNet;
+      // Phase 3 — pot just compounds, the entire check is cash.
+      cashThisMonth = checkThisMonth;
     }
 
     monthlyPot[m] = monthlyPot[m - 1] * (1 + r) + contribThisMonth;

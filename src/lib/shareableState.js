@@ -26,6 +26,7 @@ const SCHEMA = [
   { key: "postFRAGrossIncome", url: "incp",  type: "num",  default: 0 },
   { key: "autoTax",            url: "tax",   type: "bool", default: true },
   { key: "manualFedRate",      url: "mrate", type: "num",  default: 12 },
+  { key: "investedPct",        url: "inv",   type: "num",  default: 100 },
 ];
 
 export const DEFAULT_STATE = Object.fromEntries(
