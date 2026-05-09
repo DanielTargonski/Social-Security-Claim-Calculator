@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { C } from "./constants/colors.js";
 import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
+import {
+  getInitialStateFromUrl,
+  serializeStateToParams,
+} from "./lib/shareableState.js";
 import GlobalStyles from "./components/GlobalStyles.jsx";
 import Header from "./components/Header.jsx";
 import ModeSwitcher from "./components/ModeSwitcher.jsx";
@@ -17,17 +21,64 @@ import SensitivityTornado from "./components/SensitivityTornado.jsx";
 // derived values down to presentation components. Each visual section lives
 // in its own file under src/components/.
 export default function App() {
-  const [mode, setMode] = useState("retirement");
-  const [fraBenefit, setFraBenefit] = useState(2500);
-  const [ownBenefit, setOwnBenefit] = useState(1500);
-  const [claimAge, setClaimAge] = useState(62);
-  const [returnRate, setReturnRate] = useState(7);
-  const [investStopAge, setInvestStopAge] = useState(67);
-  const [lifeExpectancy, setLifeExpectancy] = useState(85);
-  const [grossIncome, setGrossIncome] = useState(0);
-  const [postFRAGrossIncome, setPostFRAGrossIncome] = useState(0);
-  const [autoTax, setAutoTax] = useState(true);
-  const [manualFedRate, setManualFedRate] = useState(12);
+  // Hydrate initial state from URL query params (set by ShareLinkButton when
+  // someone shared this link). Falls back to defaults for any missing field.
+  // See lib/shareableState.js for the schema and per-field defaults.
+  const initial = getInitialStateFromUrl();
+  const [mode, setMode] = useState(initial.mode);
+  const [fraBenefit, setFraBenefit] = useState(initial.fraBenefit);
+  const [ownBenefit, setOwnBenefit] = useState(initial.ownBenefit);
+  const [claimAge, setClaimAge] = useState(initial.claimAge);
+  const [returnRate, setReturnRate] = useState(initial.returnRate);
+  const [investStopAge, setInvestStopAge] = useState(initial.investStopAge);
+  const [lifeExpectancy, setLifeExpectancy] = useState(initial.lifeExpectancy);
+  const [grossIncome, setGrossIncome] = useState(initial.grossIncome);
+  const [postFRAGrossIncome, setPostFRAGrossIncome] = useState(
+    initial.postFRAGrossIncome
+  );
+  const [autoTax, setAutoTax] = useState(initial.autoTax);
+  const [manualFedRate, setManualFedRate] = useState(initial.manualFedRate);
+
+  // Mirror state into the URL on every change via replaceState (no history
+  // entries — back button shouldn't undo individual slider drags). Stored
+  // raw investStopAge intentionally, not the clamped effective value, so a
+  // shared link preserves the user's actual setting and "comes back" if the
+  // recipient drags claimAge down.
+  useEffect(() => {
+    const params = serializeStateToParams({
+      mode,
+      fraBenefit,
+      ownBenefit,
+      claimAge,
+      returnRate,
+      investStopAge,
+      lifeExpectancy,
+      grossIncome,
+      postFRAGrossIncome,
+      autoTax,
+      manualFedRate,
+    });
+    const newSearch = "?" + params.toString();
+    if (window.location.search !== newSearch) {
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + newSearch + window.location.hash
+      );
+    }
+  }, [
+    mode,
+    fraBenefit,
+    ownBenefit,
+    claimAge,
+    returnRate,
+    investStopAge,
+    lifeExpectancy,
+    grossIncome,
+    postFRAGrossIncome,
+    autoTax,
+    manualFedRate,
+  ]);
 
   // Mode-specific bounds for the claim-age slider.
   let earliest, latest;
