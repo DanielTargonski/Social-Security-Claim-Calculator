@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { FRA, fmtMoney, fmtBig } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
+import Var from "./Var.jsx";
 
 // The main chart card: lifetime payout lines (early / pot / wait) plus the
 // four-card row at the bottom (pot at investStop, pot at lifeExpectancy,
@@ -42,12 +43,18 @@ export default function ChartCard({
             <em>Total dollars in hand</em>
           </h3>
           <p className="text-xs mt-1 max-w-md" style={{ color: C.inkSoft }}>
-            Net of federal tax {taxesActive ? "and earnings test " : ""}·
-            {returnRate > 0
-              ? ` Invested pot until ${investStopAge}, then enjoyed as income · ${returnRate.toFixed(
-                  1
-                )}% real`
-              : ` Checks set aside until ${investStopAge}, then enjoyed as income · 0% real return`}
+            Net of federal tax {taxesActive ? "and earnings test " : ""}·{" "}
+            {returnRate > 0 ? (
+              <>
+                Invested pot until <Var>{investStopAge}</Var>, then enjoyed as
+                income · <Var>{returnRate.toFixed(1)}%</Var> real
+              </>
+            ) : (
+              <>
+                Checks set aside until <Var>{investStopAge}</Var>, then enjoyed
+                as income · 0% real return
+              </>
+            )}
           </p>
         </div>
         <div className="flex gap-4 text-xs num flex-wrap">

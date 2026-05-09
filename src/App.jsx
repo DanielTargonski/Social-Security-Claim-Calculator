@@ -195,6 +195,7 @@ export default function App() {
             claimAge={claimAge}
             lifeExpectancy={lifeExpectancy}
             returnRate={returnRate}
+            investStopAge={investStopAge}
             chartData={chartData}
           />
 

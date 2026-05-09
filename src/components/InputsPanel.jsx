@@ -137,7 +137,7 @@ export default function InputsPanel({
           value={grossIncome}
           onChange={setGrossIncome}
           min={0}
-          max={150000}
+          max={500000}
           step={1000}
           format={fmtIncome}
           hint={

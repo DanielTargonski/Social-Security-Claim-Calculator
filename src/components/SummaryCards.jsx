@@ -1,5 +1,6 @@
 import { fmtMoney, fmtBig } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
+import Var from "./Var.jsx";
 
 // Three at-a-glance cards next to the inputs:
 //   1. Net check at the chosen claim age (early)
@@ -139,14 +140,18 @@ export default function SummaryCards({
             ? `${breakEvenAge}`
             : "—"}
         </div>
-        <div className="text-xs num mt-2" style={{ color: C.inkOnDark }}>
-          {mode === "switch"
-            ? returnRate > 0
-              ? `from investing through ${investStopAge}`
-              : `from setting aside checks through ${investStopAge}`
-            : breakEvenAge
-            ? "where the lines meet"
-            : "no crossover in range"}
+        <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
+          {mode === "switch" ? (
+            returnRate > 0 ? (
+              <>from investing through <Var>{investStopAge}</Var></>
+            ) : (
+              <>from setting aside checks through <Var>{investStopAge}</Var></>
+            )
+          ) : breakEvenAge ? (
+            "where the lines meet"
+          ) : (
+            "no crossover in range"
+          )}
         </div>
       </div>
     </div>

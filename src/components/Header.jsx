@@ -1,4 +1,5 @@
 import { C } from "../constants/colors.js";
+import Var from "./Var.jsx";
 
 // Top-of-page heading: kicker, title, and lede paragraph. The lede references
 // investStopAge so it stays in sync with the user's chosen "stop investing"
@@ -47,9 +48,9 @@ export default function Header({ investStopAge }) {
         style={{ color: C.inkSoft }}
       >
         A break-even study of Social Security claiming. Each early check after
-        taxes and earnings test is invested until {investStopAge}. After{" "}
-        {investStopAge} the pot keeps compounding while net checks come in as
-        cash to enjoy.
+        taxes and earnings test is invested until <Var>{investStopAge}</Var>.
+        After <Var>{investStopAge}</Var> the pot keeps compounding while net
+        checks come in as cash to enjoy.
       </p>
     </div>
   );
