@@ -26,3 +26,6 @@ dist-ssr
 # Vercel
 .vercel
 .env*.local
+
+# Claude Code (personal local overrides — committed settings live in .claude/settings.json)
+.claude/settings.local.json
