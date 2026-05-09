@@ -476,7 +476,7 @@ export default function App() {
                   max={85}
                   step={1}
                   format={fmtAge}
-                  hint={investStopAge === 67 ? "default = FRA" : "checks become cash after"}
+                  hint="checks spent as cash income after this age"
                 />
                 <SliderInput
                   label="Live until"
@@ -697,7 +697,9 @@ export default function App() {
                   style={{ color: C.inkFaint }}
                 >
                   {mode === "switch"
-                    ? `from investing through ${investStopAge}`
+                    ? returnRate > 0
+                      ? `from investing through ${investStopAge}`
+                      : `from setting aside checks through ${investStopAge}`
                     : breakEvenAge
                     ? "where the lines meet"
                     : "no crossover in range"}
@@ -853,7 +855,9 @@ export default function App() {
                   style={{ color: C.inkSoft }}
                 >
                   Net of federal tax {taxesActive ? "and earnings test " : ""}·
-                  Invested pot until {investStopAge}, then enjoyed as income · {returnRate.toFixed(1)}% real
+                  {returnRate > 0
+                    ? ` Invested pot until ${investStopAge}, then enjoyed as income · ${returnRate.toFixed(1)}% real`
+                    : ` Checks set aside until ${investStopAge}, then enjoyed as income · 0% real return`}
                 </p>
               </div>
               <div className="flex gap-4 text-xs num flex-wrap">
