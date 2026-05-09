@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { C } from "./constants/colors.js";
 import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
 import GlobalStyles from "./components/GlobalStyles.jsx";
@@ -106,6 +107,7 @@ export default function App() {
       }}
     >
       <GlobalStyles />
+      <Analytics />
 
       <div style={{ position: "relative" }}>
         <div className="grain" />
