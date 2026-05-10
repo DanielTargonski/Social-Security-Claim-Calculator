@@ -268,8 +268,6 @@ export default function App() {
             advantage={advantage}
           />
 
-          <SensitivityTornado inputs={inputs} />
-
           <PotTable
             claimAge={claimAge}
             lifeExpectancy={lifeExpectancy}
@@ -277,6 +275,8 @@ export default function App() {
             investStopAge={effectiveInvestStopAge}
             chartData={chartData}
           />
+
+          <SensitivityTornado inputs={inputs} />
 
           <Footnotes />
         </div>
