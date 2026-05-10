@@ -34,9 +34,9 @@ export default function SummaryCards({
       ? Math.abs(advantage) / (lifeExpectancy - FRA_YEARS)
       : 0;
   return (
-    <div className="lg:col-span-2 grid grid-cols-2 lg:grid-cols-1 gap-5">
+    <div className="lg:col-span-2 grid grid-cols-2 lg:grid-cols-1 gap-3 lg:sticky lg:top-4 lg:self-start">
       <div
-        className="p-5"
+        className="p-4"
         style={{
           backgroundColor: C.paper,
           border: `1px solid ${C.border}`,
@@ -96,7 +96,7 @@ export default function SummaryCards({
       </div>
 
       <div
-        className="p-5"
+        className="p-4"
         style={{
           backgroundColor: C.paper,
           border: `1px solid ${C.border}`,
@@ -128,7 +128,7 @@ export default function SummaryCards({
       </div>
 
       <div
-        className="p-5 col-span-2 lg:col-span-1 flex flex-col"
+        className="p-4 col-span-2 lg:col-span-1 flex flex-col"
         style={{
           backgroundColor: C.ink,
           color: C.paper,
@@ -175,7 +175,7 @@ export default function SummaryCards({
             </div>
             {crossoverValue !== null && (
               <div
-                className="mt-4 pt-4"
+                className="mt-3 pt-3"
                 style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
               >
                 <div
