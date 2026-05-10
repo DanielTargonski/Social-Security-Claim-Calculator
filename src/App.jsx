@@ -37,6 +37,9 @@ export default function App() {
   const [postFRAGrossIncome, setPostFRAGrossIncome] = useState(
     initial.postFRAGrossIncome
   );
+  const [postFRAWorkYears, setPostFRAWorkYears] = useState(
+    initial.postFRAWorkYears
+  );
   const [autoTax, setAutoTax] = useState(initial.autoTax);
   const [manualFedRate, setManualFedRate] = useState(initial.manualFedRate);
   const [investedPct, setInvestedPct] = useState(initial.investedPct);
@@ -57,6 +60,7 @@ export default function App() {
       lifeExpectancy,
       grossIncome,
       postFRAGrossIncome,
+      postFRAWorkYears,
       autoTax,
       manualFedRate,
       investedPct,
@@ -79,6 +83,7 @@ export default function App() {
     lifeExpectancy,
     grossIncome,
     postFRAGrossIncome,
+    postFRAWorkYears,
     autoTax,
     manualFedRate,
     investedPct,
@@ -135,6 +140,7 @@ export default function App() {
     lifeExpectancy,
     grossIncome,
     postFRAGrossIncome,
+    postFRAWorkYears,
     autoTax,
     manualFedRate,
     investedPct,
@@ -210,6 +216,8 @@ export default function App() {
               setGrossIncome={setGrossIncome}
               postFRAGrossIncome={postFRAGrossIncome}
               setPostFRAGrossIncome={setPostFRAGrossIncome}
+              postFRAWorkYears={postFRAWorkYears}
+              setPostFRAWorkYears={setPostFRAWorkYears}
               autoTax={autoTax}
               setAutoTax={setAutoTax}
               setManualFedRate={setManualFedRate}

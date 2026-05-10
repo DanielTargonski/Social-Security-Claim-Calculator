@@ -31,6 +31,7 @@ const SCHEMA = [
   { key: "lifeExpectancy",     url: "life",  type: "num",  default: 85,   min: 70,   max: 100 },
   { key: "grossIncome",        url: "inc",   type: "num",  default: 0,    min: 0,    max: 500000 },
   { key: "postFRAGrossIncome", url: "incp",  type: "num",  default: 0,    min: 0,    max: 500000 },
+  { key: "postFRAWorkYears",   url: "wy",    type: "num",  default: 0,    min: 0,    max: 20 },
   { key: "autoTax",            url: "tax",   type: "bool", default: true },
   { key: "manualFedRate",      url: "mrate", type: "num",  default: 12,   min: 0,    max: 37 },
   { key: "investedPct",        url: "inv",   type: "num",  default: 100,  min: 0,    max: 100 },

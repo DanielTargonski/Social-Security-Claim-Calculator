@@ -155,6 +155,7 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "mode",
         "ownBenefit",
         "postFRAGrossIncome",
+        "postFRAWorkYears",
         "returnRate",
       ].sort()
     );

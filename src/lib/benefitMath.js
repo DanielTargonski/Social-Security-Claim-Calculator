@@ -56,6 +56,11 @@ export function computeProjection({
   lifeExpectancy,
   grossIncome,
   postFRAGrossIncome = 0,
+  // Years the claimant continues working past FRA. After (FRA + this many)
+  // years their wage income drops to 0 and SS tax tiering recomputes for
+  // the rest of life. Default 0 = "retire at FRA" (most realistic; older
+  // versions of this model implicitly assumed indefinite post-FRA work).
+  postFRAWorkYears = 0,
   autoTax,
   manualFedRate,
   investedPct = 100,
@@ -129,6 +134,22 @@ export function computeProjection({
     ssBasisAnnual: ssBasisAnnualWait,
     grossIncome: postFRAGrossIncome,
   });
+  // "Retired" tax rates for the post-FRA window after the claimant stops
+  // working. Combined-income tier collapses because there's no wage income
+  // anymore — usually pushes SS taxation to 0% if the SS basis alone is
+  // below the lower threshold ($25k single, 2026).
+  const earlyTaxPostFRARetired = computeSSEffectiveTaxRate({
+    autoTax,
+    manualFedRate,
+    ssBasisAnnual: ssBasisAnnualEarlyPostFRA,
+    grossIncome: 0,
+  });
+  const waitTaxRetired = computeSSEffectiveTaxRate({
+    autoTax,
+    manualFedRate,
+    ssBasisAnnual: ssBasisAnnualWait,
+    grossIncome: 0,
+  });
 
   // Headline tax fields exposed to the UI describe the post-FRA early
   // scenario — that's the long-term steady state for the user's chosen
@@ -142,6 +163,18 @@ export function computeProjection({
   const earlyPostFRAMonthlyNet =
     earlyPostFRAMonthlyGross * (1 - earlyTaxPostFRA.ssEffectiveTaxRate);
   const fraMonthlyNet = fraMonthlyGross * (1 - waitTax.ssEffectiveTaxRate);
+  // Net checks during the "retired" portion of the post-FRA window.
+  // Equal to the working versions when postFRAGrossIncome is 0 (no
+  // change in the tax tier) — only diverge when the user actually
+  // models post-FRA wages.
+  const earlyPostFRAMonthlyNetRetired =
+    earlyPostFRAMonthlyGross * (1 - earlyTaxPostFRARetired.ssEffectiveTaxRate);
+  const fraMonthlyNetRetired =
+    fraMonthlyGross * (1 - waitTaxRetired.ssEffectiveTaxRate);
+  // Boundary age in the projection where the claimant stops working.
+  // Capped at lifeExpectancy so silly slider values don't push the
+  // boundary past the chart's right edge.
+  const postFRAWorkEndAge = Math.min(FRA + postFRAWorkYears, lifeExpectancy);
 
   // Lumpy SSA earnings-test withholding parameters. SSA withholds entire
   // monthly checks at the start of each year until the projected annual
@@ -184,7 +217,10 @@ export function computeProjection({
     returnRate,
     earlyMonthlyNet: lumpy ? fullMonthlyNet : earlyMonthlyNet,
     earlyPostFRAMonthlyNet,
+    earlyPostFRAMonthlyNetRetired,
     fraMonthlyNet,
+    fraMonthlyNetRetired,
+    postFRAWorkEndAge,
     lumpy,
     investedFraction: investedPct / 100,
   });

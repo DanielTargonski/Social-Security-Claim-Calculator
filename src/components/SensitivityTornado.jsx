@@ -93,6 +93,15 @@ function makeVariables(inputs) {
       showInModes: ["retirement", "survivor", "switch"],
     },
     {
+      key: "postFRAWorkYears",
+      label: "Years working post-67",
+      delta: 5,
+      defaultValue: 0,
+      formatValue: (v) => `${Math.round(Number(v))} yr`,
+      bounds: () => ({ min: 0, max: 20 }),
+      showInModes: ["retirement", "survivor", "switch"],
+    },
+    {
       key: "investedPct",
       label: "% of checks invested",
       delta: 25,
@@ -199,6 +208,7 @@ export default function SensitivityTornado({ inputs }) {
     inputs.lifeExpectancy,
     inputs.grossIncome,
     inputs.postFRAGrossIncome,
+    inputs.postFRAWorkYears,
     inputs.autoTax,
     inputs.manualFedRate,
     inputs.investedPct,

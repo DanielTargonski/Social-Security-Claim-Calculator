@@ -168,6 +168,29 @@ describe("waitTotalAtAge", () => {
     expect(waitTotalAtAge({ age: 70, fraMonthlyNet: 2000 })).toBe(2000 * 36);
     expect(waitTotalAtAge({ age: 85, fraMonthlyNet: 2000 })).toBe(2000 * 12 * 18);
   });
+  it("splits between working / retired tax tiers when both rates and the boundary age are passed", () => {
+    // 5 years (60 months) at $2000/mo working rate, then 13 years (156 months) at $2300/mo retired rate.
+    // Total: 2000*60 + 2300*156 = 120000 + 358800 = 478800
+    expect(
+      waitTotalAtAge({
+        age: 85,
+        fraMonthlyNet: 2000,
+        fraMonthlyNetRetired: 2300,
+        postFRAWorkEndAge: 72,
+      })
+    ).toBe(478800);
+  });
+  it("workEndAge ≤ FRA degenerates to all-retired (the typical default 0 work years)", () => {
+    // postFRAWorkEndAge=FRA means no working months — everything at the retired rate.
+    expect(
+      waitTotalAtAge({
+        age: 85,
+        fraMonthlyNet: 2000, // ignored
+        fraMonthlyNetRetired: 2300,
+        postFRAWorkEndAge: FRA,
+      })
+    ).toBe(2300 * 12 * 18);
+  });
 });
 
 describe("buildChartData — invariants", () => {

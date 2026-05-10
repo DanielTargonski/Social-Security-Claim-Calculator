@@ -104,10 +104,24 @@ export function potAtAge({
 }
 
 // "Wait" curve: collect the full FRA benefit starting at FRA. Zero before.
-export function waitTotalAtAge({ age, fraMonthlyNet }) {
+//
+// Optionally splits the post-FRA window between a "working" tax tier
+// (FRA → postFRAWorkEndAge, taxed at fraMonthlyNet) and a "retired" tax
+// tier (postFRAWorkEndAge → age, taxed at fraMonthlyNetRetired). When
+// the optional params are omitted the function is back-compat: a single
+// fraMonthlyNet rate for the whole post-FRA window.
+export function waitTotalAtAge({
+  age,
+  fraMonthlyNet,
+  fraMonthlyNetRetired = fraMonthlyNet,
+  postFRAWorkEndAge = FRA,
+}) {
   if (age < FRA) return 0;
-  const months = (age - FRA) * 12;
-  return fraMonthlyNet * months;
+  const monthsWorking =
+    Math.max(0, Math.min(age, postFRAWorkEndAge) - FRA) * 12;
+  const monthsRetired =
+    Math.max(0, age - Math.max(FRA, postFRAWorkEndAge)) * 12;
+  return fraMonthlyNet * monthsWorking + fraMonthlyNetRetired * monthsRetired;
 }
 
 // Returns the after-tax monthly contribution for a given month index
@@ -159,7 +173,12 @@ export function buildChartData({
   returnRate,
   earlyMonthlyNet,
   earlyPostFRAMonthlyNet,
+  // The post-FRA "retired" rates default to the working rates so older
+  // callers (and tests) that don't pass them get the previous behavior.
+  earlyPostFRAMonthlyNetRetired = earlyPostFRAMonthlyNet,
   fraMonthlyNet,
+  fraMonthlyNetRetired = fraMonthlyNet,
+  postFRAWorkEndAge = FRA,
   lumpy = null,
   investedFraction = 1,
 }) {
@@ -188,9 +207,12 @@ export function buildChartData({
     // monthIndex passed to lumpyContrib is (m - 1) so month 1 = year-cycle
     // month 0 (the first withheld month if any).
     const preFRAContrib = lumpyContribAtMonth(m - 1, lumpy, earlyMonthlyNet);
-    const checkThisMonth = ageAtMonthEnd <= FRA
-      ? preFRAContrib
-      : earlyPostFRAMonthlyNet;
+    const checkThisMonth =
+      ageAtMonthEnd <= FRA
+        ? preFRAContrib
+        : ageAtMonthEnd <= postFRAWorkEndAge
+        ? earlyPostFRAMonthlyNet
+        : earlyPostFRAMonthlyNetRetired;
 
     let contribThisMonth = 0;
     let cashThisMonth = 0;
@@ -220,7 +242,12 @@ export function buildChartData({
       cash = monthlyCumCash[idx];
     }
     const early = age >= claimAge ? pot + cash : 0;
-    const wait = waitTotalAtAge({ age, fraMonthlyNet });
+    const wait = waitTotalAtAge({
+      age,
+      fraMonthlyNet,
+      fraMonthlyNetRetired,
+      postFRAWorkEndAge,
+    });
 
     data.push({
       age: parseFloat(age.toFixed(2)),

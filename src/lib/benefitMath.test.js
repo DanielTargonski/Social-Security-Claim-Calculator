@@ -336,3 +336,82 @@ describe("computeProjection — postFRAGrossIncome", () => {
     expect(closeTo(r.fraMonthlyNet, r.fraMonthlyGross, 0.5)).toBe(true);
   });
 });
+
+describe("computeProjection — postFRAWorkYears", () => {
+  // postFRAWorkYears bounds how many years post-FRA the postFRAGrossIncome
+  // applies for tax purposes. After that age the claimant retires and the
+  // SS tax tier recomputes against zero wage income. Default 0 means
+  // "retired at FRA" — postFRAGrossIncome is effectively ignored for the
+  // wait curve and the post-FRA portion of the early curve.
+  it("defaults to 0: postFRAGrossIncome has no impact on the wait line", () => {
+    const noWork = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      // postFRAWorkYears defaults to 0
+    });
+    const noIncome = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 0,
+    });
+    // Wait totals at end of life should be identical because no working
+    // years means no income → no tax tier change.
+    const noWorkFinalWait = noWork.chartData[noWork.chartData.length - 1].wait;
+    const noIncomeFinalWait = noIncome.chartData[noIncome.chartData.length - 1].wait;
+    expect(closeTo(noWorkFinalWait, noIncomeFinalWait, 5)).toBe(true);
+  });
+
+  it("postFRAWorkYears > 0 with high income reduces the wait line vs 0 work years", () => {
+    // With 18 working years post-FRA at $80k, every wait check is taxed
+    // hard. With 0 working years, no checks are taxed. Lifetime wait
+    // total should be smaller in the working-many-years case.
+    const manyWorkYears = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 18, // = lifeExpectancy 85 - FRA 67
+    });
+    const noWorkYears = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 0,
+    });
+    const manyFinal = manyWorkYears.chartData[manyWorkYears.chartData.length - 1].wait;
+    const noneFinal = noWorkYears.chartData[noWorkYears.chartData.length - 1].wait;
+    expect(noneFinal).toBeGreaterThan(manyFinal);
+  });
+
+  it("postFRAWorkYears caps at lifeExpectancy (no tax window past death)", () => {
+    // postFRAWorkYears=20 with life=80 means workEndAge=87 > life=80.
+    // Internally the boundary clamps to lifeExpectancy so the projection
+    // stays self-consistent.
+    const r = computeProjection({
+      ...baseInputs,
+      lifeExpectancy: 80,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 20, // would push past life if uncapped
+    });
+    // No NaN/undefined in chart data
+    expect(r.chartData.every((d) => Number.isFinite(d.wait))).toBe(true);
+    expect(r.chartData.every((d) => Number.isFinite(d.early))).toBe(true);
+  });
+
+  it("partial work years: tax burden falls between fully-working and fully-retired", () => {
+    const allWorking = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 18,
+    });
+    const partial = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 5,
+    });
+    const allRetired = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 0,
+    });
+    const finalWait = (r) => r.chartData[r.chartData.length - 1].wait;
+    expect(finalWait(allWorking)).toBeLessThan(finalWait(partial));
+    expect(finalWait(partial)).toBeLessThan(finalWait(allRetired));
+  });
+});

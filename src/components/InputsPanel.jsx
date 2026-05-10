@@ -35,6 +35,8 @@ export default function InputsPanel({
   setGrossIncome,
   postFRAGrossIncome,
   setPostFRAGrossIncome,
+  postFRAWorkYears,
+  setPostFRAWorkYears,
   autoTax,
   setAutoTax,
   setManualFedRate,
@@ -185,6 +187,22 @@ export default function InputsPanel({
           step={1000}
           format={fmtIncome}
           hint="affects fed tax on SS, not benefits"
+        />
+        <SliderInput
+          label="Years working post-67"
+          value={postFRAWorkYears}
+          onChange={setPostFRAWorkYears}
+          min={0}
+          max={15}
+          step={1}
+          format={(v) => (v === 0 ? "Retired at 67" : v + (v === 1 ? " yr" : " yrs"))}
+          hint={
+            postFRAGrossIncome > 0 && postFRAWorkYears === 0
+              ? "0 yrs → post-67 income above won't apply"
+              : postFRAGrossIncome === 0
+              ? "no effect while post-67 income is $0"
+              : `post-67 income drops to $0 at age ${67 + postFRAWorkYears}`
+          }
         />
         <div>
           <div className="flex justify-between items-baseline mb-2">
