@@ -1,6 +1,6 @@
 # Social Security Claim Calculator
 
-A break-even study of Social Security claiming. Compare claiming early and investing the checks against waiting until full retirement age (67), across three modes — own retirement, survivor benefits, and the widow's own→survivor switch strategy. Models the 2026 earnings test, federal tax tiering on Social Security, the FRA recoup of withheld months, and the NY/NYC state-tax exemption.
+A break-even study of Social Security claiming. Compare claiming early and investing the checks against waiting until full retirement age (67), across three modes — own retirement, survivor benefits, and the surviving-spouse own→survivor switch strategy. Models the 2026 earnings test, federal tax tiering on Social Security, the FRA recoup of withheld months, and the NY/NYC state-tax exemption.
 
 ## Features
 
