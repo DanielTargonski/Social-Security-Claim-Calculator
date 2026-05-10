@@ -228,6 +228,7 @@ export default function App() {
               returnRate={returnRate}
               earlyMonthlyGross={earlyMonthlyGross}
               earlyMonthlyNet={earlyMonthlyNet}
+              earlyPostFRAMonthlyGross={earlyPostFRAMonthlyGross}
               earlyPostFRAMonthlyNet={earlyPostFRAMonthlyNet}
               fraMonthlyGross={fraMonthlyGross}
               fraMonthlyNet={fraMonthlyNet}

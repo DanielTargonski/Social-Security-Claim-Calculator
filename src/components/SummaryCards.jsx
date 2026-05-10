@@ -13,6 +13,7 @@ export default function SummaryCards({
   returnRate,
   earlyMonthlyGross,
   earlyMonthlyNet,
+  earlyPostFRAMonthlyGross,
   earlyPostFRAMonthlyNet,
   fraMonthlyGross,
   fraMonthlyNet,
@@ -33,6 +34,25 @@ export default function SummaryCards({
     lifeExpectancy > FRA_YEARS
       ? Math.abs(advantage) / (lifeExpectancy - FRA_YEARS)
       : 0;
+
+  // Card 2 shows the user's actual check at 67 given their strategy:
+  //   - Switch mode: they switch to the survivor benefit at FRA → fraMonthlyNet
+  //   - Retirement / survivor at FRA or later: they get fraMonthlyNet too
+  //   - Retirement / survivor claiming early: their check is permanently
+  //     reduced (with a partial recoup if earnings-test withholding occurred)
+  //     → earlyPostFRAMonthlyNet
+  // Previously the card always showed fraMonthlyNet, which misled users in
+  // survivor mode who saw the full benefit and assumed they'd get it at 67.
+  const earlyClaimReduces = claimAge < FRA_YEARS && mode !== "switch";
+  const card2Net = earlyClaimReduces ? earlyPostFRAMonthlyNet : fraMonthlyNet;
+  const card2Gross = earlyClaimReduces
+    ? earlyPostFRAMonthlyGross
+    : fraMonthlyGross;
+  // "Down from" only shows when the early-claim reduction actually leaves the
+  // user materially below the full FRA benefit. ($1 floor avoids float noise
+  // when the recoup brings them within rounding of the full amount.)
+  const showsReductionNote =
+    earlyClaimReduces && card2Net < fraMonthlyNet - 1;
   return (
     <div className="lg:col-span-2 grid grid-cols-2 lg:grid-cols-1 gap-3 lg:sticky lg:top-4 lg:self-start">
       <div
@@ -118,12 +138,18 @@ export default function SummaryCards({
             lineHeight: 1,
           }}
         >
-          {fmtMoney(fraMonthlyNet)}
+          {fmtMoney(card2Net)}
         </div>
         <div className="text-xs num mt-2" style={{ color: C.inkFaint }}>
-          {fmtMoney(fraMonthlyNet * 12)}/yr net
+          {fmtMoney(card2Net * 12)}/yr net
           <br />
-          {fmtMoney(fraMonthlyGross)} gross
+          {fmtMoney(card2Gross)} gross
+          {showsReductionNote && (
+            <>
+              <br />
+              down from {fmtMoney(fraMonthlyNet)}/mo full FRA benefit
+            </>
+          )}
         </div>
       </div>
 
