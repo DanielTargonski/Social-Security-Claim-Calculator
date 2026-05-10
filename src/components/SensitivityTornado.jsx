@@ -10,6 +10,9 @@ import { C } from "../constants/colors.js";
 //                 (must handle undefined gracefully)
 //   bounds:       (inputs) => {min, max} hard limits to clamp the perturbation
 //   showInModes:  array of modes this variable applies to
+//   defaultValue: fallback when inputs[key] is undefined (for older callers
+//                 that don't set every field — keeps perturb arithmetic from
+//                 going NaN)
 function makeVariables(inputs) {
   let earliest, latest;
   if (inputs.mode === "retirement") {
@@ -80,6 +83,24 @@ function makeVariables(inputs) {
       bounds: () => ({ min: 300, max: 4000 }),
       showInModes: ["switch"],
     },
+    {
+      key: "postFRAGrossIncome",
+      label: "Post-FRA wage income",
+      delta: 20000,
+      defaultValue: 0,
+      formatValue: (v) => "$" + Math.round(Number(v) / 1000) + "K",
+      bounds: () => ({ min: 0, max: 500000 }),
+      showInModes: ["retirement", "survivor", "switch"],
+    },
+    {
+      key: "investedPct",
+      label: "% of checks invested",
+      delta: 25,
+      defaultValue: 100,
+      formatValue: (v) => `${Math.round(Number(v))}%`,
+      bounds: () => ({ min: 0, max: 100 }),
+      showInModes: ["retirement", "survivor", "switch"],
+    },
   ];
 }
 
@@ -88,7 +109,8 @@ function makeVariables(inputs) {
 // current value, the projection result will simply equal the baseline.
 function perturb(inputs, variable, deltaSigned) {
   const { min, max } = variable.bounds(inputs);
-  const proposed = inputs[variable.key] + deltaSigned;
+  const current = inputs[variable.key] ?? variable.defaultValue;
+  const proposed = current + deltaSigned;
   const clamped = Math.min(max, Math.max(min, proposed));
   return { ...inputs, [variable.key]: clamped };
 }
@@ -119,20 +141,21 @@ export default function SensitivityTornado({ inputs }) {
 
     const rows = [];
     for (const v of variables) {
+      const currentValue = inputs[v.key] ?? v.defaultValue;
       const lowInputs = perturb(inputs, v, -v.delta);
       const highInputs = perturb(inputs, v, +v.delta);
       const lowValue = lowInputs[v.key];
       const highValue = highInputs[v.key];
 
       // Skip variables where neither side actually moved (both bounds collapsed)
-      if (lowValue === inputs[v.key] && highValue === inputs[v.key]) continue;
+      if (lowValue === currentValue && highValue === currentValue) continue;
 
       const lowOutput =
-        lowValue === inputs[v.key]
+        lowValue === currentValue
           ? baselineOutput
           : getOutputForMode(computeProjection(lowInputs), inputs.mode);
       const highOutput =
-        highValue === inputs[v.key]
+        highValue === currentValue
           ? baselineOutput
           : getOutputForMode(computeProjection(highInputs), inputs.mode);
 
@@ -147,6 +170,7 @@ export default function SensitivityTornado({ inputs }) {
       rows.push({
         label: v.label,
         formatValue: v.formatValue,
+        currentValue,
         minOutput,
         maxOutput,
         swing,
@@ -236,12 +260,19 @@ export default function SensitivityTornado({ inputs }) {
 
           return (
             <div key={row.label} className="grid grid-cols-12 items-center gap-3 text-xs">
-              <div
-                className="col-span-3 num uppercase truncate"
-                style={{ color: C.inkSoft, letterSpacing: "0.1em" }}
-                title={row.label}
-              >
-                {row.label}
+              <div className="col-span-3 truncate" title={row.label}>
+                <div
+                  className="num uppercase truncate"
+                  style={{ color: C.inkSoft, letterSpacing: "0.1em" }}
+                >
+                  {row.label}
+                </div>
+                <div
+                  className="num truncate"
+                  style={{ color: C.inkFaint, fontSize: "0.7rem" }}
+                >
+                  now: {row.formatValue(row.currentValue)}
+                </div>
               </div>
 
               <div
