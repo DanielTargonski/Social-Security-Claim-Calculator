@@ -19,6 +19,11 @@ export default function SliderInput({
   hint,
   typeMin,
   typeMax,
+  // Optional inline content rendered in the header row between the label
+  // and the value display. Used by the claim-age slider to show its small
+  // "→ optimal NN yr · +$X" call-to-action right next to the label so the
+  // user sees it without scrolling down to the deeper Optimal panel.
+  accessory,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -41,13 +46,16 @@ export default function SliderInput({
 
   return (
     <div>
-      <div className="flex justify-between items-baseline mb-2">
-        <label
-          className="text-xs tracking-widest uppercase"
-          style={{ color: C.inkSoft, letterSpacing: "0.12em" }}
-        >
-          {label}
-        </label>
+      <div className="flex justify-between items-baseline mb-2 gap-3">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <label
+            className="text-xs tracking-widest uppercase"
+            style={{ color: C.inkSoft, letterSpacing: "0.12em" }}
+          >
+            {label}
+          </label>
+          {accessory}
+        </div>
         {editing ? (
           <input
             type="number"

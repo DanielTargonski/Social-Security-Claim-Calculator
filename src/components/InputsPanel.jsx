@@ -10,51 +10,47 @@ import { C } from "../constants/colors.js";
 import SliderInput from "./SliderInput.jsx";
 import ShareLinkButton from "./ShareLinkButton.jsx";
 
-// Compact "the optimum is over here" chip rendered directly under the
-// claim-age slider. Surfaces the result of the full optimal-age sweep
+// Compact "the optimum is over here" chip, rendered inline in the
+// claim-age slider's header row (between the label and the value
+// display). Surfaces the result of the full optimal-age sweep
 // (computed once at App level via useOptimalClaimAge, shared with the
-// big OptimalClaimAge panel below the chart) so the user doesn't have
-// to scroll to find it. Click applies the optimum to the slider.
+// big OptimalClaimAge panel below the chart) so the user sees it
+// immediately while dragging the slider. Click applies the optimum.
 function OptimalClaimAgeChip({ optimal, onApply }) {
   const { optimalAge, optimalScore, baselineAge, baselineScore } = optimal;
   const ageGapMonths = Math.abs(optimalAge - baselineAge) * 12;
   const atOptimum = ageGapMonths < 0.5;
   const delta = optimalScore - baselineScore;
+  if (atOptimum) {
+    return (
+      <span
+        className="text-xs num truncate"
+        style={{ color: C.wait, fontWeight: 500 }}
+        title="No claim age in the allowed range beats your current pick"
+      >
+        ✓ at optimum
+      </span>
+    );
+  }
   return (
-    <div
-      className="-mt-2 mb-1 flex justify-end items-center"
-      style={{ minHeight: "16px" }}
+    <button
+      type="button"
+      onClick={() => onApply(optimalAge)}
+      className="num truncate"
+      title={`Apply optimal claim age: ${fmtAge(optimalAge)}`}
+      style={{
+        color: C.wait,
+        backgroundColor: "transparent",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 500,
+        fontFamily: "inherit",
+      }}
     >
-      {atOptimum ? (
-        <span
-          className="text-xs num"
-          style={{ color: C.wait, fontWeight: 500 }}
-          title="No claim age in the allowed range beats your current pick"
-        >
-          ✓ at optimum
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => onApply(optimalAge)}
-          className="num"
-          title={`Apply optimal claim age: ${fmtAge(optimalAge)}`}
-          style={{
-            color: C.wait,
-            backgroundColor: "transparent",
-            border: "none",
-            padding: "2px 4px",
-            margin: "-2px -4px",
-            cursor: "pointer",
-            fontSize: "11px",
-            fontWeight: 500,
-            fontFamily: "inherit",
-          }}
-        >
-          → optimal {fmtAge(optimalAge)} · +{fmtBig(delta)}
-        </button>
-      )}
-    </div>
+      → optimal {fmtAge(optimalAge)} · +{fmtBig(delta)}
+    </button>
   );
 }
 
@@ -160,10 +156,12 @@ export default function InputsPanel({
           step={1 / 12}
           format={fmtAge}
           hint={`${(earlyFactor * 100).toFixed(1).replace(/\.0$/, "")}% of full`}
+          accessory={
+            optimal ? (
+              <OptimalClaimAgeChip optimal={optimal} onApply={setClaimAge} />
+            ) : null
+          }
         />
-        {optimal && (
-          <OptimalClaimAgeChip optimal={optimal} onApply={setClaimAge} />
-        )}
 
         <div className="section-divider" style={{ marginTop: "20px" }}>
           Outlook
