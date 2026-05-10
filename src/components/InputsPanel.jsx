@@ -196,13 +196,20 @@ export default function InputsPanel({
           min={0}
           max={15}
           step={1 / 12}
-          format={(v) => (v < 1 / 24 ? "Retired at 67" : fmtDuration(v))}
+          // Show both the duration AND the resulting retirement age so the
+          // user doesn't have to do "67 + 5 yr 3 mo" math in their head.
+          // Special-case 0 to avoid the awkward "0 mo → 67 yr" reading.
+          format={(v) =>
+            v < 1 / 24
+              ? "Retired at 67"
+              : `${fmtDuration(v)} → ${fmtAge(67 + v)}`
+          }
           hint={
             postFRAGrossIncome > 0 && postFRAWorkYears < 1 / 24
-              ? "retired at 67 → post-67 income above won't apply"
+              ? "post-67 income above won't apply at 0 work years"
               : postFRAGrossIncome === 0
               ? "no effect while post-67 income is $0"
-              : `post-67 income drops to $0 at age ${fmtAge(67 + postFRAWorkYears)}`
+              : "post-67 income drops to $0 at retirement"
           }
         />
         <div>
