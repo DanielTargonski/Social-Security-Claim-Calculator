@@ -337,6 +337,45 @@ describe("computeProjection — postFRAGrossIncome", () => {
   });
 });
 
+describe("computeProjection — earlyMonthlyNet for at-FRA / late claimers", () => {
+  // For claimers at or past FRA there is no pre-FRA period. The displayed
+  // "first check" value (Card 1) should therefore use the post-FRA tax tier
+  // — not earlyTaxPreFRA, which is built from the pre-67 wage income that
+  // doesn't apply once the user is past FRA. Without this, Card 1 reports
+  // a heavily-taxed amount the user never actually receives, and silently
+  // disagrees with what the chart projection uses for the same scenario.
+  it("at FRA exactly: earlyMonthlyNet equals earlyPostFRAMonthlyNet", () => {
+    const r = computeProjection({
+      ...baseInputs,
+      claimAge: 67,
+      grossIncome: 100000, // would be a misleading high tax tier if applied
+    });
+    expect(closeTo(r.earlyMonthlyNet, r.earlyPostFRAMonthlyNet, 0.5)).toBe(true);
+  });
+
+  it("late claim (claimAge > FRA): earlyMonthlyNet equals earlyPostFRAMonthlyNet", () => {
+    const r = computeProjection({
+      ...baseInputs,
+      claimAge: 67 + 1 / 12, // 67 yr 1 mo
+      grossIncome: 100000,
+    });
+    expect(closeTo(r.earlyMonthlyNet, r.earlyPostFRAMonthlyNet, 0.5)).toBe(true);
+  });
+
+  it("early claim (claimAge < FRA): earlyMonthlyNet still uses pre-FRA tax tier (unchanged)", () => {
+    // Sanity check that the standard early-claim path is untouched: with
+    // a high pre-67 income the pre-FRA tax tier kicks in and Card 1's
+    // value is materially lower than the post-FRA-tax-tier value.
+    const r = computeProjection({
+      ...baseInputs,
+      claimAge: 62,
+      grossIncome: 100000,
+      postFRAGrossIncome: 0,
+    });
+    expect(r.earlyMonthlyNet).toBeLessThan(r.earlyPostFRAMonthlyNet);
+  });
+});
+
 describe("computeProjection — postFRAWorkYears", () => {
   // postFRAWorkYears bounds how many years post-FRA the postFRAGrossIncome
   // applies for tax purposes. After that age the claimant retires and the

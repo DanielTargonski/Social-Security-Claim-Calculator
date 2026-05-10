@@ -159,9 +159,18 @@ export function computeProjection({
   const ssEffectiveTaxRate = earlyTaxPostFRA.ssEffectiveTaxRate;
   const combinedIncome = postFRAGrossIncome + 0.5 * ssBasisAnnualEarlyPostFRA;
 
-  const earlyMonthlyNet = earlyMonthlyAfterET * (1 - earlyTaxPreFRA.ssEffectiveTaxRate);
+  const earlyMonthlyNetPreFRA =
+    earlyMonthlyAfterET * (1 - earlyTaxPreFRA.ssEffectiveTaxRate);
   const earlyPostFRAMonthlyNet =
     earlyPostFRAMonthlyGross * (1 - earlyTaxPostFRA.ssEffectiveTaxRate);
+  // For claimers at or past FRA there is no pre-FRA period — the first
+  // check arrives already post-FRA. Reporting the pre-FRA-tax-tier value
+  // (which is built from the pre-67 wage income) is misleading: the user
+  // never receives a check at that rate, and the chart projection uses
+  // earlyPostFRAMonthlyNet anyway. Mirror that here so Card 1 lines up
+  // with what the projection actually computes.
+  const earlyMonthlyNet =
+    claimAge >= FRA ? earlyPostFRAMonthlyNet : earlyMonthlyNetPreFRA;
   const fraMonthlyNet = fraMonthlyGross * (1 - waitTax.ssEffectiveTaxRate);
   // Net checks during the "retired" portion of the post-FRA window.
   // Equal to the working versions when postFRAGrossIncome is 0 (no
