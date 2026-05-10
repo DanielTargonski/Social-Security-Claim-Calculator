@@ -16,6 +16,7 @@ import ChartCard from "./components/ChartCard.jsx";
 import PotTable from "./components/PotTable.jsx";
 import Footnotes from "./components/Footnotes.jsx";
 import SensitivityTornado from "./components/SensitivityTornado.jsx";
+import OptimalClaimAge from "./components/OptimalClaimAge.jsx";
 
 // Top-level orchestrator. Owns all UI state and the projection hook; passes
 // derived values down to presentation components. Each visual section lives
@@ -284,6 +285,8 @@ export default function App() {
             investStopAge={effectiveInvestStopAge}
             chartData={chartData}
           />
+
+          <OptimalClaimAge inputs={inputs} setClaimAge={setClaimAge} />
 
           <SensitivityTornado inputs={inputs} />
 
