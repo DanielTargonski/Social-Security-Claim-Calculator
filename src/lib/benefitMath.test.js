@@ -5,7 +5,7 @@
 //   - chartProjection.test.js (phase boundaries, pot at age, cash collection, chart shape)
 
 import { describe, it, expect } from "vitest";
-import { computeProjection, FRA } from "./benefitMath.js";
+import { computeProjection, fmtDuration, FRA } from "./benefitMath.js";
 
 const closeTo = (a, b, tol = 0.001) => Math.abs(a - b) < tol;
 
@@ -382,6 +382,8 @@ describe("computeProjection — postFRAWorkYears", () => {
   // SS tax tier recomputes against zero wage income. Default 0 means
   // "retired at FRA" — postFRAGrossIncome is effectively ignored for the
   // wait curve and the post-FRA portion of the early curve.
+  const finalWait = (r) => r.chartData[r.chartData.length - 1].wait;
+
   it("defaults to 0: postFRAGrossIncome has no impact on the wait line", () => {
     const noWork = computeProjection({
       ...baseInputs,
@@ -394,108 +396,45 @@ describe("computeProjection — postFRAWorkYears", () => {
     });
     // Wait totals at end of life should be identical because no working
     // years means no income → no tax tier change.
-    const noWorkFinalWait = noWork.chartData[noWork.chartData.length - 1].wait;
-    const noIncomeFinalWait = noIncome.chartData[noIncome.chartData.length - 1].wait;
-    expect(closeTo(noWorkFinalWait, noIncomeFinalWait, 5)).toBe(true);
+    expect(closeTo(finalWait(noWork), finalWait(noIncome), 5)).toBe(true);
   });
 
-  it("postFRAWorkYears > 0 with high income reduces the wait line vs 0 work years", () => {
-    // With 18 working years post-FRA at $80k, every wait check is taxed
-    // hard. With 0 working years, no checks are taxed. Lifetime wait
-    // total should be smaller in the working-many-years case.
-    const manyWorkYears = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 18, // = lifeExpectancy 85 - FRA 67
-    });
-    const noWorkYears = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 0,
-    });
-    const manyFinal = manyWorkYears.chartData[manyWorkYears.chartData.length - 1].wait;
-    const noneFinal = noWorkYears.chartData[noWorkYears.chartData.length - 1].wait;
-    expect(noneFinal).toBeGreaterThan(manyFinal);
+  it("more working years monotonically reduce the wait line at any granularity", () => {
+    // Combines what used to be three tests: integer-scale monotonicity
+    // (0 → 5 → 18), fractional-scale monotonicity (5 → 5.5 → 6), and the
+    // "fractional value differs from rounded-down integer" regression
+    // guard (a flooring bug would collapse 5.5 onto 5 and break this).
+    const make = (years) =>
+      computeProjection({
+        ...baseInputs,
+        postFRAGrossIncome: 80000,
+        postFRAWorkYears: years,
+      });
+    const sequence = [0, 5, 5.5, 6, 18].map(make).map(finalWait);
+    for (let i = 1; i < sequence.length; i++) {
+      expect(sequence[i]).toBeLessThan(sequence[i - 1]);
+    }
   });
 
-  it("postFRAWorkYears caps at lifeExpectancy (no tax window past death)", () => {
-    // postFRAWorkYears=20 with life=80 means workEndAge=87 > life=80.
-    // Internally the boundary clamps to lifeExpectancy so the projection
-    // stays self-consistent.
-    const r = computeProjection({
+  it("postFRAWorkYears caps at lifeExpectancy (extending past death is a no-op)", () => {
+    // Internally the boundary clamps to lifeExpectancy so a slider value
+    // past life can't keep applying the higher tax tier from the grave.
+    // Compare a value that exactly hits life with one well past it; both
+    // should produce the same wait curve (and not NaN).
+    const exactlyAtLife = computeProjection({
       ...baseInputs,
       lifeExpectancy: 80,
       postFRAGrossIncome: 80000,
-      postFRAWorkYears: 20, // would push past life if uncapped
+      postFRAWorkYears: 13, // FRA 67 + 13 = 80 = life
     });
-    // No NaN/undefined in chart data
-    expect(r.chartData.every((d) => Number.isFinite(d.wait))).toBe(true);
-    expect(r.chartData.every((d) => Number.isFinite(d.early))).toBe(true);
-  });
-
-  it("partial work years: tax burden falls between fully-working and fully-retired", () => {
-    const allWorking = computeProjection({
+    const wayPastLife = computeProjection({
       ...baseInputs,
+      lifeExpectancy: 80,
       postFRAGrossIncome: 80000,
-      postFRAWorkYears: 18,
+      postFRAWorkYears: 50, // would push the boundary to age 117 if uncapped
     });
-    const partial = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 5,
-    });
-    const allRetired = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 0,
-    });
-    const finalWait = (r) => r.chartData[r.chartData.length - 1].wait;
-    expect(finalWait(allWorking)).toBeLessThan(finalWait(partial));
-    expect(finalWait(partial)).toBeLessThan(finalWait(allRetired));
-  });
-
-  it("fractional postFRAWorkYears (months precision) shifts tax burden monotonically", () => {
-    // The slider now steps by 1/12. A 6-month-difference of post-FRA work
-    // should still move the wait line monotonically — pinning that a
-    // sub-year change is observable end-to-end through computeProjection.
-    const fiveYears = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 5,
-    });
-    const fiveAndAHalf = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 5.5,
-    });
-    const sixYears = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 6,
-    });
-    const finalWait = (r) => r.chartData[r.chartData.length - 1].wait;
-    // More working years (with positive postFRAGrossIncome) → smaller final
-    // wait total because more checks fall in the higher tax tier.
-    expect(finalWait(fiveYears)).toBeGreaterThan(finalWait(fiveAndAHalf));
-    expect(finalWait(fiveAndAHalf)).toBeGreaterThan(finalWait(sixYears));
-  });
-
-  it("fractional postFRAWorkYears differs from the rounded-down integer value", () => {
-    // 1/12 step must propagate — otherwise a slider drag from 5 yr 0 mo
-    // to 5 yr 6 mo would be silently flooring inside the math layer.
-    const fiveExact = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 5,
-    });
-    const fiveAndHalf = computeProjection({
-      ...baseInputs,
-      postFRAGrossIncome: 80000,
-      postFRAWorkYears: 5.5,
-    });
-    const w1 = fiveExact.chartData[fiveExact.chartData.length - 1].wait;
-    const w2 = fiveAndHalf.chartData[fiveAndHalf.chartData.length - 1].wait;
-    expect(w1).not.toBe(w2);
+    expect(finalWait(exactlyAtLife)).toBe(finalWait(wayPastLife));
+    expect(wayPastLife.chartData.every((d) => Number.isFinite(d.wait))).toBe(true);
   });
 });
 
@@ -504,61 +443,111 @@ describe("computeProjection — fractional lifeExpectancy", () => {
   // expected lifespan to month precision. The math layer must accept the
   // fractional value and the chart must terminate AT that age (not at the
   // previous quarter-year sample).
-  it("accepts a fractional life and returns finite numbers throughout", () => {
-    const r = computeProjection({ ...baseInputs, lifeExpectancy: 85.5 });
+  const finalWait = (r) => r.chartData[r.chartData.length - 1].wait;
+
+  it("the final chart sample lands at exactly lifeExpectancy (with finite numbers throughout)", () => {
+    // Without the fractional-end-sample guard, the 0.25-stride loop would
+    // stop at age 85.0 for life=85.0833, leaving the headline "Total at X"
+    // numbers off by a month. Bundles the no-NaN smoke check too.
+    const r = computeProjection({ ...baseInputs, lifeExpectancy: 85 + 1 / 12 });
+    const last = r.chartData[r.chartData.length - 1];
+    expect(last.age).toBeCloseTo(85 + 1 / 12, 3);
     expect(r.chartData.every((d) => Number.isFinite(d.wait))).toBe(true);
     expect(r.chartData.every((d) => Number.isFinite(d.early))).toBe(true);
     expect(r.chartData.every((d) => Number.isFinite(d.pot))).toBe(true);
   });
 
-  it("ensures the final chart sample lands at exactly lifeExpectancy", () => {
-    // Without the fractional-end-sample guard, the 0.25-stride loop would
-    // stop at age 85.0 for life=85.0833, leaving the headline "Total at X"
-    // numbers off by a month.
-    const r = computeProjection({ ...baseInputs, lifeExpectancy: 85 + 1 / 12 });
-    const last = r.chartData[r.chartData.length - 1];
-    expect(last.age).toBeCloseTo(85 + 1 / 12, 3);
+  it("monotonic in life: a longer life accumulates strictly more wait benefits, even at sub-year resolution", () => {
+    // Bracket integer + fractional life values together. A flooring bug in
+    // the chart loop would collapse adjacent fractional lives onto the same
+    // integer year and break this strict monotonicity.
+    const lives = [85, 85 + 1 / 12, 85.5, 86, 90];
+    const totals = lives.map((life) =>
+      finalWait(computeProjection({ ...baseInputs, lifeExpectancy: life }))
+    );
+    for (let i = 1; i < totals.length; i++) {
+      expect(totals[i]).toBeGreaterThan(totals[i - 1]);
+    }
+  });
+});
+
+describe("computeProjection — investedPct", () => {
+  // investedPct (0..100) controls how much of each pre-investStopAge check
+  // is invested vs. taken as cash. The chartProjection unit tests already
+  // pin the math; this is the integration check that the value flows from
+  // computeProjection's `investedPct` (a percentage) through to the chart's
+  // `investedFraction` (a decimal).
+  it("100% (default) maximizes the invested pot at investStopAge", () => {
+    const allInvested = computeProjection({ ...baseInputs, investedPct: 100 });
+    const halfInvested = computeProjection({ ...baseInputs, investedPct: 50 });
+    const noneInvested = computeProjection({ ...baseInputs, investedPct: 0 });
+    expect(allInvested.potAtStopRow).toBeGreaterThan(halfInvested.potAtStopRow);
+    expect(halfInvested.potAtStopRow).toBeGreaterThan(noneInvested.potAtStopRow);
   });
 
-  it("monotonic in life: a longer life accumulates strictly more wait benefits", () => {
-    const shorter = computeProjection({ ...baseInputs, lifeExpectancy: 85 });
-    const longer = computeProjection({ ...baseInputs, lifeExpectancy: 85.5 });
-    const finalWait = (r) => r.chartData[r.chartData.length - 1].wait;
-    expect(finalWait(longer)).toBeGreaterThan(finalWait(shorter));
+  it("0% with a positive return strictly underperforms 100% on lifetime totals", () => {
+    // No compounding when nothing is invested → 'early' line at end of life
+    // collapses to a pure linear sum of net checks.
+    const all = computeProjection({ ...baseInputs, investedPct: 100 });
+    const none = computeProjection({ ...baseInputs, investedPct: 0 });
+    expect(all.finalEarly).toBeGreaterThan(none.finalEarly);
+    expect(none.finalPot).toBe(0);
+  });
+});
+
+describe("computeProjection — fractional claimAge", () => {
+  // Claim age has stepped by 1/12 from day one, but the integration layer
+  // never had a direct end-to-end test that a sub-year shift propagates.
+  // ssRules.test.js pins retirementFactor at half-years but a flooring bug
+  // somewhere downstream wouldn't surface there.
+  it("a one-month shift in claimAge produces a measurably different earlyMonthlyGross", () => {
+    const flat = computeProjection({ ...baseInputs, claimAge: 64 });
+    const oneMonthLater = computeProjection({
+      ...baseInputs,
+      claimAge: 64 + 1 / 12,
+    });
+    // Each month delayed → less reduction → strictly larger gross check.
+    expect(oneMonthLater.earlyMonthlyGross).toBeGreaterThan(flat.earlyMonthlyGross);
+  });
+
+  it("monthly claim ages produce strictly increasing earlyMonthlyGross", () => {
+    // Sweep month-by-month from 64 to 65 — the early-claim factor should be
+    // strictly increasing each step. A flooring bug would create plateaus.
+    let prev = -Infinity;
+    for (let m = 0; m <= 12; m++) {
+      const r = computeProjection({ ...baseInputs, claimAge: 64 + m / 12 });
+      expect(r.earlyMonthlyGross).toBeGreaterThan(prev);
+      prev = r.earlyMonthlyGross;
+    }
   });
 });
 
 describe("fmtDuration formatter", () => {
-  // Imported lazily so the rest of the integration tests don't have to.
-  it("0 → '0 mo'", async () => {
-    const { fmtDuration } = await import("./benefitMath.js");
+  // Static import — the formatter is pure and lives in the same module the
+  // rest of this file already imports. Hand-spot the boundary cases.
+  it("zero duration → '0 mo'", () => {
     expect(fmtDuration(0)).toBe("0 mo");
   });
-  it("a single month → '1 mo'", async () => {
-    const { fmtDuration } = await import("./benefitMath.js");
+
+  it("sub-year durations print as bare months (no '0 yr' prefix)", () => {
     expect(fmtDuration(1 / 12)).toBe("1 mo");
-  });
-  it("six months → '6 mo'", async () => {
-    const { fmtDuration } = await import("./benefitMath.js");
     expect(fmtDuration(0.5)).toBe("6 mo");
   });
-  it("exact one year → '1 yr' (singular)", async () => {
-    const { fmtDuration } = await import("./benefitMath.js");
+
+  it("whole-year durations pluralize correctly", () => {
     expect(fmtDuration(1)).toBe("1 yr");
-  });
-  it("exact two years → '2 yrs' (plural)", async () => {
-    const { fmtDuration } = await import("./benefitMath.js");
     expect(fmtDuration(2)).toBe("2 yrs");
+    expect(fmtDuration(15)).toBe("15 yrs");
   });
-  it("years + months → 'N yr M mo'", async () => {
-    const { fmtDuration } = await import("./benefitMath.js");
+
+  it("years + months print as 'N yr M mo'", () => {
     expect(fmtDuration(1.5)).toBe("1 yr 6 mo");
     expect(fmtDuration(5 + 7 / 12)).toBe("5 yr 7 mo");
   });
-  it("11.999... month tick rolls forward to a clean year", async () => {
-    // Float creep on a 1/12-stepped slider can leave the value at
-    // 0.99999999 instead of 1.0 — must still print as "1 yr".
-    const { fmtDuration } = await import("./benefitMath.js");
+
+  it("float-creep at the year boundary still rolls forward to a clean year", () => {
+    // A 1/12-stepped slider value of 0.99999999 must still print as "1 yr",
+    // not as "0 yr 12 mo" or as some other under/overshoot.
     expect(fmtDuration(11.999999 / 12)).toBe("1 yr");
   });
 });

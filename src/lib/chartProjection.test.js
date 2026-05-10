@@ -10,6 +10,7 @@ import {
   findBreakEvenAge,
 } from "./chartProjection.js";
 import { FRA } from "./ssRules.js";
+import { computeProjection } from "./benefitMath.js";
 
 const closeTo = (a, b, tol = 0.5) => Math.abs(a - b) < tol;
 
@@ -416,52 +417,41 @@ describe("findBreakEvenAge — end-to-end through computeProjection", () => {
   // Scenarios are chosen so the crossover is bounded enough to assert on
   // but not so contrived that minor model tweaks would break the test.
 
-  it("retirement, claim at 62, no return, no income — break-even ~75-80", async () => {
-    // With 0% return, no earnings test, no taxes:
+  // Shared zero-return / zero-income / zero-tax baseline. Each test below
+  // overrides only the variables that matter to its scenario, keeping the
+  // intent of each case visible at a glance.
+  const baseE2E = {
+    mode: "retirement",
+    fraBenefit: 2500,
+    ownBenefit: 1500,
+    claimAge: 62,
+    returnRate: 0,
+    investStopAge: 67,
+    lifeExpectancy: 90,
+    grossIncome: 0,
+    postFRAGrossIncome: 0,
+    autoTax: false,
+    manualFedRate: 0,
+    investedPct: 100,
+  };
+
+  it("retirement, claim at 62, no return, no income — break-even ~75-80", () => {
     // - earlyMonthly = fraBenefit × retirementFactor(62) = 2500 × 0.7 = 1750
     // - 60 months pre-FRA → pot at 67 = 105,000 (linear sum, no compounding)
     // - post-FRA: early collects 1750/mo cash, wait collects 2500/mo
     // Crossover: 105000 + (1750 × 12 × y) = 2500 × 12 × y
     //            105000 = 9000y → y = 11.67 years past FRA → age ~78.7
-    const { computeProjection } = await import("./benefitMath.js");
-    const { breakEvenAge } = computeProjection({
-      mode: "retirement",
-      fraBenefit: 2500,
-      ownBenefit: 1500,
-      claimAge: 62,
-      returnRate: 0,
-      investStopAge: 67,
-      lifeExpectancy: 90,
-      grossIncome: 0,
-      postFRAGrossIncome: 0,
-      autoTax: false,
-      manualFedRate: 0,
-      investedPct: 100,
-    });
+    const { breakEvenAge } = computeProjection(baseE2E);
     expect(breakEvenAge).not.toBeNull();
     expect(breakEvenAge).toBeGreaterThan(75);
     expect(breakEvenAge).toBeLessThan(80);
   });
 
-  it("retirement, claim at 62, 7% return — pot compounds, break-even pushes way out (or null)", async () => {
+  it("retirement, claim at 62, 7% return — pot compounds, break-even pushes way out (or null)", () => {
     // With 7% real return on the early checks, the invested pot compounds
     // significantly. The wait line never catches up within reasonable
     // lifespan — function returns null OR a crossover age very late.
-    const { computeProjection } = await import("./benefitMath.js");
-    const { breakEvenAge } = computeProjection({
-      mode: "retirement",
-      fraBenefit: 2500,
-      ownBenefit: 1500,
-      claimAge: 62,
-      returnRate: 7,
-      investStopAge: 67,
-      lifeExpectancy: 90,
-      grossIncome: 0,
-      postFRAGrossIncome: 0,
-      autoTax: false,
-      manualFedRate: 0,
-      investedPct: 100,
-    });
+    const { breakEvenAge } = computeProjection({ ...baseE2E, returnRate: 7 });
     // Either no crossover at all, or it's very late in life. Both are
     // valid outcomes for "early & invest beats wait at 7% real return".
     if (breakEvenAge !== null) {
@@ -469,47 +459,23 @@ describe("findBreakEvenAge — end-to-end through computeProjection", () => {
     }
   });
 
-  it("survivor mode at 60 produces a crossover (wait collects more pre-FRA than early loses)", async () => {
+  it("survivor mode at 60 produces a crossover (wait collects more pre-FRA than early loses)", () => {
     // Survivor at 60 has the steepest reduction: 71.5% of FRA. The wait
     // line catches up sometime in the 70s.
-    const { computeProjection } = await import("./benefitMath.js");
     const { breakEvenAge } = computeProjection({
+      ...baseE2E,
       mode: "survivor",
-      fraBenefit: 2500,
-      ownBenefit: 1500,
       claimAge: 60,
-      returnRate: 0,
-      investStopAge: 67,
-      lifeExpectancy: 90,
-      grossIncome: 0,
-      postFRAGrossIncome: 0,
-      autoTax: false,
-      manualFedRate: 0,
-      investedPct: 100,
     });
     expect(breakEvenAge).not.toBeNull();
     expect(breakEvenAge).toBeGreaterThan(67);
     expect(breakEvenAge).toBeLessThan(85);
   });
 
-  it("at the crossover age, the early and wait curves are within rounding distance", async () => {
+  it("at the crossover age, the early and wait curves are within rounding distance", () => {
     // Spot-check: the returned crossover age should sit on a sample where
     // |early - wait| is small relative to either value.
-    const { computeProjection } = await import("./benefitMath.js");
-    const projection = computeProjection({
-      mode: "retirement",
-      fraBenefit: 2500,
-      ownBenefit: 1500,
-      claimAge: 62,
-      returnRate: 0,
-      investStopAge: 67,
-      lifeExpectancy: 90,
-      grossIncome: 0,
-      postFRAGrossIncome: 0,
-      autoTax: false,
-      manualFedRate: 0,
-      investedPct: 100,
-    });
+    const projection = computeProjection(baseE2E);
     const crossoverRow = projection.chartData.find(
       (d) => Math.abs(d.age - projection.breakEvenAge) < 0.13
     );
@@ -517,6 +483,24 @@ describe("findBreakEvenAge — end-to-end through computeProjection", () => {
     // Within $1000 — that's the linear-interp residual at the chart's
     // quarter-year sampling resolution given $9K/yr divergence rate.
     expect(Math.abs(crossoverRow.early - crossoverRow.wait)).toBeLessThan(1000);
+  });
+
+  it("a fractional lifeExpectancy doesn't disturb crossover detection", () => {
+    // Regression guard: the appended-final-sample for fractional life adds
+    // a non-quarter-year row at the very end of chartData. findBreakEvenAge
+    // walks every adjacent pair, so an unusually-spaced final pair must not
+    // create a phantom crossover or NaN out the linear-interp formula.
+    const integerLife = computeProjection(baseE2E);
+    const fractionalLife = computeProjection({
+      ...baseE2E,
+      lifeExpectancy: 90 + 1 / 12,
+    });
+    expect(fractionalLife.breakEvenAge).not.toBeNull();
+    // Same scenario shifted by 1 month of life — crossover age should be
+    // essentially unchanged (well within a quarter-year of the integer case).
+    expect(
+      Math.abs(fractionalLife.breakEvenAge - integerLife.breakEvenAge)
+    ).toBeLessThan(0.25);
   });
 });
 
