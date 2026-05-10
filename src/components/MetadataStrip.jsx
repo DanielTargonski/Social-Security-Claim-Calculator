@@ -1,4 +1,4 @@
-import { FRA, fmtMoney } from "../lib/benefitMath.js";
+import { FRA, fmtMoney, fmtAge } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 
 // Compact horizontal strip below the summary cards. Surfaces what's actually
@@ -155,7 +155,7 @@ export default function MetadataStrip({
                 className="num"
                 style={{ color: C.inkFaint, fontSize: "10px" }}
               >
-                net through age {lifeExpectancy}
+                net through age {fmtAge(lifeExpectancy)}
               </span>
             </div>
           )}

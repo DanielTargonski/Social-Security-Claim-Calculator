@@ -2,6 +2,7 @@ import {
   EARNINGS_LIMIT_2026,
   fmtMoney,
   fmtAge,
+  fmtDuration,
   fmtIncome,
 } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
@@ -153,8 +154,8 @@ export default function InputsPanel({
           onChange={setLifeExpectancy}
           min={70}
           max={100}
-          step={1}
-          format={(v) => "age " + v}
+          step={1 / 12}
+          format={(v) => "age " + fmtAge(v)}
         />
 
         <div className="section-divider" style={{ marginTop: "20px" }}>
@@ -194,14 +195,14 @@ export default function InputsPanel({
           onChange={setPostFRAWorkYears}
           min={0}
           max={15}
-          step={1}
-          format={(v) => (v === 0 ? "Retired at 67" : v + (v === 1 ? " yr" : " yrs"))}
+          step={1 / 12}
+          format={(v) => (v < 1 / 24 ? "Retired at 67" : fmtDuration(v))}
           hint={
-            postFRAGrossIncome > 0 && postFRAWorkYears === 0
-              ? "0 yrs → post-67 income above won't apply"
+            postFRAGrossIncome > 0 && postFRAWorkYears < 1 / 24
+              ? "retired at 67 → post-67 income above won't apply"
               : postFRAGrossIncome === 0
               ? "no effect while post-67 income is $0"
-              : `post-67 income drops to $0 at age ${67 + postFRAWorkYears}`
+              : `post-67 income drops to $0 at age ${fmtAge(67 + postFRAWorkYears)}`
           }
         />
         <div>

@@ -453,4 +453,112 @@ describe("computeProjection — postFRAWorkYears", () => {
     expect(finalWait(allWorking)).toBeLessThan(finalWait(partial));
     expect(finalWait(partial)).toBeLessThan(finalWait(allRetired));
   });
+
+  it("fractional postFRAWorkYears (months precision) shifts tax burden monotonically", () => {
+    // The slider now steps by 1/12. A 6-month-difference of post-FRA work
+    // should still move the wait line monotonically — pinning that a
+    // sub-year change is observable end-to-end through computeProjection.
+    const fiveYears = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 5,
+    });
+    const fiveAndAHalf = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 5.5,
+    });
+    const sixYears = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 6,
+    });
+    const finalWait = (r) => r.chartData[r.chartData.length - 1].wait;
+    // More working years (with positive postFRAGrossIncome) → smaller final
+    // wait total because more checks fall in the higher tax tier.
+    expect(finalWait(fiveYears)).toBeGreaterThan(finalWait(fiveAndAHalf));
+    expect(finalWait(fiveAndAHalf)).toBeGreaterThan(finalWait(sixYears));
+  });
+
+  it("fractional postFRAWorkYears differs from the rounded-down integer value", () => {
+    // 1/12 step must propagate — otherwise a slider drag from 5 yr 0 mo
+    // to 5 yr 6 mo would be silently flooring inside the math layer.
+    const fiveExact = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 5,
+    });
+    const fiveAndHalf = computeProjection({
+      ...baseInputs,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 5.5,
+    });
+    const w1 = fiveExact.chartData[fiveExact.chartData.length - 1].wait;
+    const w2 = fiveAndHalf.chartData[fiveAndHalf.chartData.length - 1].wait;
+    expect(w1).not.toBe(w2);
+  });
+});
+
+describe("computeProjection — fractional lifeExpectancy", () => {
+  // The Live Until slider now steps by 1/12 so the user can express their
+  // expected lifespan to month precision. The math layer must accept the
+  // fractional value and the chart must terminate AT that age (not at the
+  // previous quarter-year sample).
+  it("accepts a fractional life and returns finite numbers throughout", () => {
+    const r = computeProjection({ ...baseInputs, lifeExpectancy: 85.5 });
+    expect(r.chartData.every((d) => Number.isFinite(d.wait))).toBe(true);
+    expect(r.chartData.every((d) => Number.isFinite(d.early))).toBe(true);
+    expect(r.chartData.every((d) => Number.isFinite(d.pot))).toBe(true);
+  });
+
+  it("ensures the final chart sample lands at exactly lifeExpectancy", () => {
+    // Without the fractional-end-sample guard, the 0.25-stride loop would
+    // stop at age 85.0 for life=85.0833, leaving the headline "Total at X"
+    // numbers off by a month.
+    const r = computeProjection({ ...baseInputs, lifeExpectancy: 85 + 1 / 12 });
+    const last = r.chartData[r.chartData.length - 1];
+    expect(last.age).toBeCloseTo(85 + 1 / 12, 3);
+  });
+
+  it("monotonic in life: a longer life accumulates strictly more wait benefits", () => {
+    const shorter = computeProjection({ ...baseInputs, lifeExpectancy: 85 });
+    const longer = computeProjection({ ...baseInputs, lifeExpectancy: 85.5 });
+    const finalWait = (r) => r.chartData[r.chartData.length - 1].wait;
+    expect(finalWait(longer)).toBeGreaterThan(finalWait(shorter));
+  });
+});
+
+describe("fmtDuration formatter", () => {
+  // Imported lazily so the rest of the integration tests don't have to.
+  it("0 → '0 mo'", async () => {
+    const { fmtDuration } = await import("./benefitMath.js");
+    expect(fmtDuration(0)).toBe("0 mo");
+  });
+  it("a single month → '1 mo'", async () => {
+    const { fmtDuration } = await import("./benefitMath.js");
+    expect(fmtDuration(1 / 12)).toBe("1 mo");
+  });
+  it("six months → '6 mo'", async () => {
+    const { fmtDuration } = await import("./benefitMath.js");
+    expect(fmtDuration(0.5)).toBe("6 mo");
+  });
+  it("exact one year → '1 yr' (singular)", async () => {
+    const { fmtDuration } = await import("./benefitMath.js");
+    expect(fmtDuration(1)).toBe("1 yr");
+  });
+  it("exact two years → '2 yrs' (plural)", async () => {
+    const { fmtDuration } = await import("./benefitMath.js");
+    expect(fmtDuration(2)).toBe("2 yrs");
+  });
+  it("years + months → 'N yr M mo'", async () => {
+    const { fmtDuration } = await import("./benefitMath.js");
+    expect(fmtDuration(1.5)).toBe("1 yr 6 mo");
+    expect(fmtDuration(5 + 7 / 12)).toBe("5 yr 7 mo");
+  });
+  it("11.999... month tick rolls forward to a clean year", async () => {
+    // Float creep on a 1/12-stepped slider can leave the value at
+    // 0.99999999 instead of 1.0 — must still print as "1 yr".
+    const { fmtDuration } = await import("./benefitMath.js");
+    expect(fmtDuration(11.999999 / 12)).toBe("1 yr");
+  });
 });

@@ -304,5 +304,22 @@ export const fmtAge = (v) => {
   return years + " yr " + months + " mo";
 };
 
+// Display a duration (a length of time, not an age) in years and months.
+// Differs from fmtAge by handling the "less than one year" case as bare
+// months (e.g. 0.5 yr → "6 mo" rather than "0 yr 6 mo") and pluralizing
+// the bare-years case ("2 yrs" not "2 yr"). The 1e-9 fudge mirrors fmtAge.
+export const fmtDuration = (v) => {
+  let years = Math.floor(v + 1e-9);
+  let months = Math.round((v - years) * 12);
+  if (months >= 12) {
+    years += 1;
+    months = 0;
+  }
+  if (years === 0 && months === 0) return "0 mo";
+  if (years === 0) return months + " mo";
+  if (months === 0) return years + (years === 1 ? " yr" : " yrs");
+  return years + " yr " + months + " mo";
+};
+
 export const fmtIncome = (v) =>
   v === 0 ? "Not working" : "$" + v.toLocaleString() + "/yr";

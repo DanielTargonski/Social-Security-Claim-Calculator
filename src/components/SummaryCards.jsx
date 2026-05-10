@@ -1,4 +1,4 @@
-import { fmtMoney, fmtBig, fmtAge } from "../lib/benefitMath.js";
+import { fmtMoney, fmtBig, fmtAge, fmtDuration } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 import Var from "./Var.jsx";
 
@@ -227,7 +227,7 @@ export default function SummaryCards({
                   className="text-xs mt-3"
                   style={{ color: C.inkOnDark }}
                 >
-                  by <Var>{lifeExpectancy}</Var>:{" "}
+                  by <Var>{fmtAge(lifeExpectancy)}</Var>:{" "}
                   {advantage >= 0 ? "early" : "wait"} leads by{" "}
                   <span
                     className="num"
@@ -249,7 +249,7 @@ export default function SummaryCards({
               style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
             >
               {earlyWins ? "Claiming early wins" : "Waiting wins"} through{" "}
-              {lifeExpectancy}
+              {fmtAge(lifeExpectancy)}
             </div>
             <div
               className="num"
@@ -282,7 +282,8 @@ export default function SummaryCards({
                 ≈ {fmtMoney(annualEdge)}/yr
               </div>
               <div className="text-xs mt-1" style={{ color: C.inkOnDark }}>
-                averaged across the {lifeExpectancy - FRA_YEARS} post-FRA years
+                averaged across the {fmtDuration(lifeExpectancy - FRA_YEARS)}{" "}
+                past FRA
               </div>
             </div>
           </>

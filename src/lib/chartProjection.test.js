@@ -241,6 +241,25 @@ describe("buildChartData — invariants", () => {
     const preFRA = r.filter((d) => d.age < FRA);
     for (const row of preFRA) expect(row.early).toBe(0);
   });
+
+  it("appends an exact lifeExpectancy sample when fractional life falls between quarter-year ticks", () => {
+    // 0.25-stride loop from 62 stops at age 85.0 for life=85.0833 (1 month past
+    // age 85). Without the explicit final sample, the chart's headline numbers
+    // would silently report the second-to-last month's totals.
+    const r = buildChartData({ ...baseChart, lifeExpectancy: 85 + 1 / 12 });
+    const last = r[r.length - 1];
+    expect(last.age).toBeCloseTo(85 + 1 / 12, 3);
+  });
+
+  it("does NOT append a duplicate sample when lifeExpectancy is an integer", () => {
+    // Loop already terminates exactly at integer life — appending again would
+    // double-count the final month visually.
+    const r = buildChartData({ ...baseChart, lifeExpectancy: 85 });
+    const last = r[r.length - 1];
+    const secondLast = r[r.length - 2];
+    expect(last.age).toBe(85);
+    expect(secondLast.age).toBeLessThan(last.age);
+  });
 });
 
 describe("buildChartData — lumpy SSA withholding pattern", () => {

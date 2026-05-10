@@ -1,5 +1,10 @@
 import { useMemo } from "react";
-import { computeProjection, fmtBig } from "../lib/benefitMath.js";
+import {
+  computeProjection,
+  fmtBig,
+  fmtAge,
+  fmtDuration,
+} from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 
 // One sensitivity variable. Each entry:
@@ -39,7 +44,7 @@ function makeVariables(inputs) {
       key: "lifeExpectancy",
       label: "Life expectancy",
       delta: 5,
-      formatValue: (v) => `age ${Math.round(Number(v))}`,
+      formatValue: (v) => fmtAge(Number(v)),
       bounds: () => ({ min: 70, max: 100 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
@@ -97,7 +102,7 @@ function makeVariables(inputs) {
       label: "Years working post-67",
       delta: 5,
       defaultValue: 0,
-      formatValue: (v) => `${Math.round(Number(v))} yr`,
+      formatValue: (v) => fmtDuration(Number(v)),
       bounds: () => ({ min: 0, max: 20 }),
       showInModes: ["retirement", "survivor", "switch"],
     },
@@ -137,7 +142,7 @@ function getOutputForMode(projection, mode) {
 
 function getOutputLabelForMode(mode, lifeExpectancy) {
   if (mode === "switch") return "Invested pot at switch age";
-  return `Net lifetime advantage at age ${lifeExpectancy}`;
+  return `Net lifetime advantage at age ${fmtAge(lifeExpectancy)}`;
 }
 
 export default function SensitivityTornado({ inputs }) {

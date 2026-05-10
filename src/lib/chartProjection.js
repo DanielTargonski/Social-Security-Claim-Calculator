@@ -232,7 +232,7 @@ export function buildChartData({
   }
 
   // Sample the simulation at quarter-year intervals for the chart.
-  for (let age = startAge; age <= lifeExpectancy; age += 0.25) {
+  const pushSample = (age) => {
     const m = Math.round((age - claimAge) * 12);
     let pot = 0;
     let cash = 0;
@@ -248,13 +248,24 @@ export function buildChartData({
       fraMonthlyNetRetired,
       postFRAWorkEndAge,
     });
-
     data.push({
-      age: parseFloat(age.toFixed(2)),
+      age: parseFloat(age.toFixed(4)),
       early: Math.round(early),
       pot: Math.round(pot),
       wait: Math.round(wait),
     });
+  };
+
+  for (let age = startAge; age <= lifeExpectancy; age += 0.25) {
+    pushSample(age);
+  }
+  // With a fractional lifeExpectancy (1/12 slider step), the 0.25-stride loop
+  // can stop short of the final age — leaving the chart's headline "Total at
+  // X" cards reading the second-to-last month rather than the user's actual
+  // chosen lifespan. Append an exact-lifeExpectancy sample when that happens.
+  const lastSampledAge = data.length > 0 ? data[data.length - 1].age : -Infinity;
+  if (lastSampledAge < lifeExpectancy - 1e-6) {
+    pushSample(lifeExpectancy);
   }
 
   return data;

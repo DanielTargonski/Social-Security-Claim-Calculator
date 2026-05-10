@@ -256,7 +256,7 @@ export default function ChartCard({
             className="text-xs uppercase mb-1"
             style={{ color: C.inkFaint, letterSpacing: "0.15em" }}
           >
-            Pot at {lifeExpectancy}
+            Pot at {fmtAge(lifeExpectancy)}
           </div>
           <div
             className="num"
@@ -274,7 +274,7 @@ export default function ChartCard({
             className="text-xs uppercase mb-1"
             style={{ color: C.inkFaint, letterSpacing: "0.15em" }}
           >
-            Total at {lifeExpectancy} · Early
+            Total at {fmtAge(lifeExpectancy)} · Early
           </div>
           <div
             className="num"
@@ -296,7 +296,7 @@ export default function ChartCard({
               whiteSpace: "nowrap",
             }}
           >
-            Net advantage at {lifeExpectancy}
+            Net advantage at {fmtAge(lifeExpectancy)}
           </div>
           <div
             className="num"

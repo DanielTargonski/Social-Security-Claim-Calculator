@@ -35,6 +35,22 @@ describe("shareableState — round-trip", () => {
     expect(round.claimAge).toBeCloseTo(62 + 1 / 12, 3);
   });
 
+  it("preserves fractional lifeExpectancy from the 1/12 slider step", () => {
+    // The Live Until slider also steps by 1/12 — share links must survive
+    // a "live until 85 yr 6 mo" without snapping to an integer year.
+    const fractional = { ...sample, lifeExpectancy: 85 + 7 / 12 };
+    const round = parseStateFromParams(serializeStateToParams(fractional));
+    expect(round.lifeExpectancy).toBeCloseTo(85 + 7 / 12, 3);
+  });
+
+  it("preserves fractional postFRAWorkYears from the 1/12 slider step", () => {
+    // Same for the years-working-post-67 slider — month-precision must
+    // round-trip cleanly through the URL.
+    const fractional = { ...sample, postFRAWorkYears: 5 + 4 / 12 };
+    const round = parseStateFromParams(serializeStateToParams(fractional));
+    expect(round.postFRAWorkYears).toBeCloseTo(5 + 4 / 12, 3);
+  });
+
   it("emits every default value (links must be self-contained)", () => {
     // Without this guarantee, a future default change would silently
     // shift the meaning of links shared today.
