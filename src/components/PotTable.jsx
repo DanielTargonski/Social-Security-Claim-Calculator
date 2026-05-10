@@ -65,7 +65,11 @@ export default function PotTable({
           <tbody>
             {(() => {
               const rows = [];
-              const startAge = Math.ceil(claimAge);
+              // Math.floor so dragging claimAge from 64 → 64.083 doesn't
+              // jump the entire table grid by 5 years. With a fractional
+              // claim age the first chart row >= floor(claimAge) lands at
+              // claimAge itself (e.g. 64.083), which round-displays as 64.
+              const startAge = Math.floor(claimAge);
               let prev = 0;
               for (let a = startAge; a <= lifeExpectancy; a += 5) {
                 const row = chartData.find((d) => d.age >= a);
@@ -100,7 +104,7 @@ export default function PotTable({
                       className="py-3 text-right text-xs"
                       style={{ color: C.inkFaint }}
                     >
-                      {row.age < investStopAge ? "Contributing" : "Compounding"}
+                      {row.age <= investStopAge ? "Contributing" : "Compounding"}
                     </td>
                   </tr>
                 );

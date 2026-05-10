@@ -28,6 +28,7 @@ export default function InputsPanel({
   setReturnRate,
   investStopAge,
   setInvestStopAge,
+  // lifeExpectancy bounds the invest-stop slider's visible max — see below.
   lifeExpectancy,
   setLifeExpectancy,
   grossIncome,
@@ -139,7 +140,7 @@ export default function InputsPanel({
           value={investStopAge}
           onChange={setInvestStopAge}
           min={Math.max(60, Math.ceil(claimAge))}
-          max={85}
+          max={Math.min(85, lifeExpectancy)}
           step={1}
           format={fmtAge}
           hint="checks spent as cash income after this age"

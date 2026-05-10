@@ -13,21 +13,37 @@
 // That means a default-value change in a future release won't silently
 // shift the meaning of links shared today: the link captures literal
 // values, not "default + diff". URL stays well under 200 chars.
+//
+// `min`/`max` per numeric field: clamped on parse so a hand-crafted URL
+// can't push state outside what the sliders allow. Without this, a URL
+// like `?mode=survivor&age=70` would leave React state holding 70 even
+// though the survivor slider only goes to 67 — the slider visually
+// clamps to its max but the state, label, and math still see 70.
+// claimAge bounds depend on `mode` and are applied separately below.
 
 const SCHEMA = [
   { key: "mode",               url: "mode",  type: "enum", options: ["retirement", "survivor", "switch"], default: "retirement" },
-  { key: "fraBenefit",         url: "fra",   type: "num",  default: 2500 },
-  { key: "ownBenefit",         url: "own",   type: "num",  default: 1500 },
-  { key: "claimAge",           url: "age",   type: "num",  default: 62 },
-  { key: "returnRate",         url: "ret",   type: "num",  default: 7 },
-  { key: "investStopAge",      url: "stop",  type: "num",  default: 67 },
-  { key: "lifeExpectancy",     url: "life",  type: "num",  default: 85 },
-  { key: "grossIncome",        url: "inc",   type: "num",  default: 0 },
-  { key: "postFRAGrossIncome", url: "incp",  type: "num",  default: 0 },
+  { key: "fraBenefit",         url: "fra",   type: "num",  default: 2500, min: 500, max: 5000 },
+  { key: "ownBenefit",         url: "own",   type: "num",  default: 1500, min: 300, max: 4000 },
+  { key: "claimAge",           url: "age",   type: "num",  default: 62 }, // mode-aware clamp below
+  { key: "returnRate",         url: "ret",   type: "num",  default: 7,    min: 0,    max: 10 },
+  { key: "investStopAge",      url: "stop",  type: "num",  default: 67,   min: 60,   max: 85 },
+  { key: "lifeExpectancy",     url: "life",  type: "num",  default: 85,   min: 70,   max: 100 },
+  { key: "grossIncome",        url: "inc",   type: "num",  default: 0,    min: 0,    max: 500000 },
+  { key: "postFRAGrossIncome", url: "incp",  type: "num",  default: 0,    min: 0,    max: 500000 },
   { key: "autoTax",            url: "tax",   type: "bool", default: true },
-  { key: "manualFedRate",      url: "mrate", type: "num",  default: 12 },
-  { key: "investedPct",        url: "inv",   type: "num",  default: 100 },
+  { key: "manualFedRate",      url: "mrate", type: "num",  default: 12,   min: 0,    max: 37 },
+  { key: "investedPct",        url: "inv",   type: "num",  default: 100,  min: 0,    max: 100 },
 ];
+
+// Mode-specific claim-age bounds — duplicated from App.jsx and
+// SensitivityTornado.jsx. If a fourth caller appears, hoist this to a
+// shared util.
+const CLAIM_AGE_BOUNDS = {
+  retirement: { min: 62, max: 70 },
+  survivor:   { min: 60, max: 67 },
+  switch:     { min: 62, max: 66.5 },
+};
 
 export const DEFAULT_STATE = Object.fromEntries(
   SCHEMA.map((s) => [s.key, s.default])
@@ -49,7 +65,10 @@ function parseOne(field, raw) {
   if (raw == null || raw === "") return undefined;
   if (field.type === "num") {
     const n = parseFloat(raw);
-    return Number.isFinite(n) ? n : undefined;
+    if (!Number.isFinite(n)) return undefined;
+    if (field.min !== undefined && n < field.min) return field.min;
+    if (field.max !== undefined && n > field.max) return field.max;
+    return n;
   }
   if (field.type === "bool") return raw === "1";
   if (field.type === "enum") {
@@ -77,13 +96,26 @@ export function parseStateFromParams(params) {
   return out;
 }
 
+// Clamp claimAge to the mode-appropriate range. Done as a post-process
+// step because the bounds depend on another parsed field (`mode`).
+// Exported for testability — the production caller is getInitialStateFromUrl
+// below, which can't run in the node test env (no window).
+export function clampClaimAge(state) {
+  const bounds = CLAIM_AGE_BOUNDS[state.mode];
+  if (!bounds) return state;
+  if (state.claimAge < bounds.min) return { ...state, claimAge: bounds.min };
+  if (state.claimAge > bounds.max) return { ...state, claimAge: bounds.max };
+  return state;
+}
+
 // Read the current page URL and merge over defaults. Safe to call during
 // React's initial render — returns plain defaults when there's no window
 // (SSR, tests not running in jsdom).
 export function getInitialStateFromUrl() {
   if (typeof window === "undefined") return { ...DEFAULT_STATE };
-  return {
+  const merged = {
     ...DEFAULT_STATE,
     ...parseStateFromParams(new URLSearchParams(window.location.search)),
   };
+  return clampClaimAge(merged);
 }

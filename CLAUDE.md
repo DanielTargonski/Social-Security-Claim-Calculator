@@ -160,7 +160,7 @@ npm run preview          # serve the production build at :4173
 npm run lint             # eslint
 ```
 
-`npm test` should always pass before committing. **140 tests** as of this writing across 8 files: 108 math tests in `src/lib/` and 32 React render tests in `src/components/` and `src/App.test.jsx`. Vitest defaults to the node environment for speed; component test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
+`npm test` should always pass before committing. **171 tests across 9 files** as of this writing: math tests in `src/lib/` and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
 
 ---
 

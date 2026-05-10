@@ -32,8 +32,9 @@ describe("App — initial render", () => {
   it("renders the inputs, summary cards, chart card, tornado, pot table, and footnotes sections", () => {
     render(<App />);
     expect(screen.getByText("Inputs")).toBeInTheDocument();
-    expect(screen.getByText("Net check at 62")).toBeInTheDocument(); // early card
-    expect(screen.getByText("Net check at 67")).toBeInTheDocument(); // wait card
+    // Card heading uses fmtAge() — "62 yr" / "67" rather than the raw float.
+    expect(screen.getByText("Net check at 62 yr")).toBeInTheDocument(); // early card
+    expect(screen.getByText("Net check at 67")).toBeInTheDocument(); // wait card (FRA — hardcoded "67")
     expect(screen.getByText("Total dollars in hand")).toBeInTheDocument();
     expect(screen.getByText("What moves the answer")).toBeInTheDocument();
     expect(screen.getByText("The pot, year by year")).toBeInTheDocument();

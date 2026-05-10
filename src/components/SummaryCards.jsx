@@ -1,4 +1,4 @@
-import { fmtMoney, fmtBig } from "../lib/benefitMath.js";
+import { fmtMoney, fmtBig, fmtAge } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 import Var from "./Var.jsx";
 
@@ -35,7 +35,7 @@ export default function SummaryCards({
           className="text-xs uppercase mb-2"
           style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
         >
-          Net check at {claimAge}
+          Net check at {fmtAge(claimAge)}
         </div>
         <div
           className="num"

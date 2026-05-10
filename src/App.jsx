@@ -24,7 +24,8 @@ export default function App() {
   // Hydrate initial state from URL query params (set by ShareLinkButton when
   // someone shared this link). Falls back to defaults for any missing field.
   // See lib/shareableState.js for the schema and per-field defaults.
-  const initial = getInitialStateFromUrl();
+  // Lazy useState so the URL is parsed once on mount, not on every render.
+  const [initial] = useState(getInitialStateFromUrl);
   const [mode, setMode] = useState(initial.mode);
   const [fraBenefit, setFraBenefit] = useState(initial.fraBenefit);
   const [ownBenefit, setOwnBenefit] = useState(initial.ownBenefit);
@@ -96,15 +97,17 @@ export default function App() {
     latest = 66.5;
   }
 
-  // Keep investStopAge >= ceil(claimAge). When the user drags claimAge past
-  // investStopAge (e.g. claimAge 70 with investStopAge stuck at 67), the
-  // model handles the invalid state gracefully (no investing happens) but
-  // the slider would otherwise display its raw value below its dynamic min.
-  // We derive an effective value here and pass it everywhere downstream;
-  // the underlying `investStopAge` state is preserved so dragging claimAge
-  // back down restores the user's earlier choice.
+  // Keep investStopAge bounded by both ends: at least ceil(claimAge) (can't
+  // stop investing before you've started), at most lifeExpectancy (can't
+  // stop investing after you're dead — otherwise downstream UI shows
+  // "Pot at age 80" reading $0 when life=70 because the chart never
+  // reaches that age). Underlying `investStopAge` state is preserved so
+  // dragging claim/life back to a wider window restores the user's choice.
   const minInvestStopAge = Math.max(60, Math.ceil(claimAge));
-  const effectiveInvestStopAge = Math.max(investStopAge, minInvestStopAge);
+  const effectiveInvestStopAge = Math.min(
+    Math.max(investStopAge, minInvestStopAge),
+    lifeExpectancy
+  );
 
   // When the user switches modes, snap claimAge into the new mode's range so
   // the projection stays sensible. Picks a neutral midpoint when wildly out.

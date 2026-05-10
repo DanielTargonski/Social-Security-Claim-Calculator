@@ -3,6 +3,7 @@ import {
   DEFAULT_STATE,
   serializeStateToParams,
   parseStateFromParams,
+  clampClaimAge,
 } from "./shareableState.js";
 
 const sample = {
@@ -95,6 +96,47 @@ describe("shareableState — parsing partial / malformed input", () => {
     expect(merged.mode).toBe("survivor");
     expect(merged.fraBenefit).toBe(2800);
     expect(merged.claimAge).toBe(DEFAULT_STATE.claimAge);
+  });
+});
+
+describe("shareableState — clamping out-of-range values", () => {
+  it("clamps numeric fields to their min/max during parse", () => {
+    // Hand-crafted URL with values outside slider ranges. Without
+    // clamping, React state would hold these and downstream math/UI
+    // would silently render nonsense (e.g. negative net checks from
+    // mrate=999, or 100% survivor factor from age=70 in survivor mode).
+    const params = new URLSearchParams(
+      "fra=99999&own=0&ret=50&stop=10&life=200&inc=-5000&incp=9999999&mrate=999&inv=200"
+    );
+    const out = parseStateFromParams(params);
+    expect(out.fraBenefit).toBe(5000);
+    expect(out.ownBenefit).toBe(300);
+    expect(out.returnRate).toBe(10);
+    expect(out.investStopAge).toBe(60);
+    expect(out.lifeExpectancy).toBe(100);
+    expect(out.grossIncome).toBe(0);
+    expect(out.postFRAGrossIncome).toBe(500000);
+    expect(out.manualFedRate).toBe(37);
+    expect(out.investedPct).toBe(100);
+  });
+
+  it("clamps claimAge to the mode's allowed range (survivor max = 67)", () => {
+    // Locks in the bug: ?mode=survivor&age=70 used to leave React state
+    // holding 70 even though the survivor slider only allows 60–67.
+    expect(clampClaimAge({ mode: "survivor", claimAge: 70 }).claimAge).toBe(67);
+    expect(clampClaimAge({ mode: "survivor", claimAge: 55 }).claimAge).toBe(60);
+  });
+
+  it("clamps claimAge per mode (retirement: 62–70, switch: 62–66.5)", () => {
+    expect(clampClaimAge({ mode: "retirement", claimAge: 75 }).claimAge).toBe(70);
+    expect(clampClaimAge({ mode: "retirement", claimAge: 50 }).claimAge).toBe(62);
+    expect(clampClaimAge({ mode: "switch", claimAge: 70 }).claimAge).toBe(66.5);
+    expect(clampClaimAge({ mode: "switch", claimAge: 50 }).claimAge).toBe(62);
+  });
+
+  it("leaves claimAge alone when it's already in range", () => {
+    const inRange = { mode: "retirement", claimAge: 65 };
+    expect(clampClaimAge(inRange)).toBe(inRange); // same reference, no copy
   });
 });
 

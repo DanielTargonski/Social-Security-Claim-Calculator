@@ -236,6 +236,21 @@ export function buildChartData({
 // Find the age at which the early-claim total crosses the wait-claim total.
 // Returns null when no crossover exists in the projected range, or when the
 // comparison doesn't apply (switch mode, claim at FRA exactly).
+//
+// When multiple crossovers exist (rare — only with high returns where the
+// pot compounds back past the wait line after wait briefly took the lead),
+// returns the FIRST. The chart shows both curves so a second crossover is
+// visible even if not labeled.
+//
+// Two ways a crossover is detected per sample-pair:
+//   1. Sign change between consecutive samples (the standard case) —
+//      linear-interp the exact age between them.
+//   2. Exact zero at the current sample with both curves already non-trivial
+//      (b.early > 0 guards against the trivial pre-claim startup where
+//      both curves sit at 0). Without this branch, an integer-aligned setup
+//      whose crossover lands exactly on a quarter-year sample (e.g. r=0,
+//      early=$1000/mo, wait=$1500/mo, investStop=67 → crossover at age 77.0)
+//      reports null because the sign-change product is exactly 0.
 export function findBreakEvenAge({ chartData, claimAge, mode }) {
   if (mode === "switch") return null;
   if (Math.abs(claimAge - FRA) < 0.01) return null;
@@ -244,6 +259,9 @@ export function findBreakEvenAge({ chartData, claimAge, mode }) {
     const b = chartData[i];
     const prevDiff = a.early - a.wait;
     const currDiff = b.early - b.wait;
+    if (currDiff === 0 && b.early > 0) {
+      return parseFloat(b.age.toFixed(1));
+    }
     if (prevDiff * currDiff < 0) {
       const t = prevDiff / (prevDiff - currDiff);
       return parseFloat((a.age + t * (b.age - a.age)).toFixed(1));

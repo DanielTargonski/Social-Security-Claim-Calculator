@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { FRA, fmtMoney, fmtBig } from "../lib/benefitMath.js";
+import { FRA, fmtMoney, fmtBig, fmtAge } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 import Var from "./Var.jsx";
 
@@ -66,7 +66,7 @@ export default function ChartCard({
                 backgroundColor: C.early,
               }}
             />
-            <span style={{ color: C.ink }}>Claim at {claimAge}</span>
+            <span style={{ color: C.ink }}>Claim at {fmtAge(claimAge)}</span>
           </div>
           <div className="flex items-center gap-2">
             <svg width="20" height="4">
@@ -161,7 +161,7 @@ export default function ChartCard({
               labelFormatter={(v) => `Age ${Number(v).toFixed(1)}`}
               formatter={(value, name) => {
                 const labelMap = {
-                  early: `Claim at ${claimAge}`,
+                  early: `Claim at ${fmtAge(claimAge)}`,
                   pot: returnRate > 0 ? "Invested pot" : "Set-aside checks",
                   wait: "Wait to 67",
                 };
