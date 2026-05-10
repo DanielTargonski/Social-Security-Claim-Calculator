@@ -158,7 +158,7 @@ export default function ChartCard({
                 fontWeight: 600,
                 marginBottom: 4,
               }}
-              labelFormatter={(v) => `Age ${Number(v).toFixed(1)}`}
+              labelFormatter={(v) => `Age ${fmtAge(Number(v))}`}
               formatter={(value, name) => {
                 const labelMap = {
                   early: `Claim at ${fmtAge(claimAge)}`,
@@ -188,7 +188,7 @@ export default function ChartCard({
                 strokeWidth={1.5}
                 strokeDasharray="4 4"
                 label={{
-                  value: `↓ Crossover ${breakEvenAge}`,
+                  value: `↓ Crossover ${fmtAge(breakEvenAge)}`,
                   fill: C.cross,
                   fontSize: 11,
                   fontFamily: "JetBrains Mono",

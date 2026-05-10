@@ -194,7 +194,7 @@ export default function SummaryCards({
               className="num"
               style={{ fontSize: "1.875rem", fontWeight: 600, lineHeight: 1 }}
             >
-              {breakEvenAge}
+              {fmtAge(breakEvenAge)}
             </div>
             <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
               where the lines meet

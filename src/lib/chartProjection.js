@@ -297,12 +297,18 @@ export function findBreakEvenAge({ chartData, claimAge, mode }) {
     const b = chartData[i];
     const prevDiff = a.early - a.wait;
     const currDiff = b.early - b.wait;
+    // Return full precision so callers can format at month resolution
+    // (fmtAge → "79 yr 10 mo"). Rounding to one decimal here would lose
+    // the month-level fidelity — e.g. 79.7083 ("79 yr 8 mo") would round
+    // to 79.7, which fmtAge would then read back as "79 yr 8 mo" via
+    // 0.7 × 12 = 8.4 → 8 (correct by accident here, but other true ages
+    // get pulled to the wrong month bucket).
     if (currDiff === 0 && b.early > 0) {
-      return parseFloat(b.age.toFixed(1));
+      return b.age;
     }
     if (prevDiff * currDiff < 0) {
       const t = prevDiff / (prevDiff - currDiff);
-      return parseFloat((a.age + t * (b.age - a.age)).toFixed(1));
+      return a.age + t * (b.age - a.age);
     }
   }
   return null;
