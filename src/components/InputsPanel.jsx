@@ -2,12 +2,61 @@ import {
   EARNINGS_LIMIT_2026,
   fmtMoney,
   fmtAge,
+  fmtBig,
   fmtDuration,
   fmtIncome,
 } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 import SliderInput from "./SliderInput.jsx";
 import ShareLinkButton from "./ShareLinkButton.jsx";
+
+// Compact "the optimum is over here" chip rendered directly under the
+// claim-age slider. Surfaces the result of the full optimal-age sweep
+// (computed once at App level via useOptimalClaimAge, shared with the
+// big OptimalClaimAge panel below the chart) so the user doesn't have
+// to scroll to find it. Click applies the optimum to the slider.
+function OptimalClaimAgeChip({ optimal, onApply }) {
+  const { optimalAge, optimalScore, baselineAge, baselineScore } = optimal;
+  const ageGapMonths = Math.abs(optimalAge - baselineAge) * 12;
+  const atOptimum = ageGapMonths < 0.5;
+  const delta = optimalScore - baselineScore;
+  return (
+    <div
+      className="-mt-2 mb-1 flex justify-end items-center"
+      style={{ minHeight: "16px" }}
+    >
+      {atOptimum ? (
+        <span
+          className="text-xs num"
+          style={{ color: C.wait, fontWeight: 500 }}
+          title="No claim age in the allowed range beats your current pick"
+        >
+          ✓ at optimum
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onApply(optimalAge)}
+          className="num"
+          title={`Apply optimal claim age: ${fmtAge(optimalAge)}`}
+          style={{
+            color: C.wait,
+            backgroundColor: "transparent",
+            border: "none",
+            padding: "2px 4px",
+            margin: "-2px -4px",
+            cursor: "pointer",
+            fontSize: "11px",
+            fontWeight: 500,
+            fontFamily: "inherit",
+          }}
+        >
+          → optimal {fmtAge(optimalAge)} · +{fmtBig(delta)}
+        </button>
+      )}
+    </div>
+  );
+}
 
 // All input controls live here: benefits, outlook, income & tax. The earliest/
 // latest claim-age bounds depend on `mode` and are computed by the caller and
@@ -48,6 +97,10 @@ export default function InputsPanel({
   earlyMonthlyNet,
   earningsTestWithholding,
   fedMarginalRate,
+  // Result of the optimal-claim-age sweep, computed at App level via
+  // useOptimalClaimAge so the chip below the slider and the full panel
+  // below the chart share one computation.
+  optimal,
 }) {
   return (
     <div
@@ -108,6 +161,9 @@ export default function InputsPanel({
           format={fmtAge}
           hint={`${(earlyFactor * 100).toFixed(1).replace(/\.0$/, "")}% of full`}
         />
+        {optimal && (
+          <OptimalClaimAgeChip optimal={optimal} onApply={setClaimAge} />
+        )}
 
         <div className="section-divider" style={{ marginTop: "20px" }}>
           Outlook

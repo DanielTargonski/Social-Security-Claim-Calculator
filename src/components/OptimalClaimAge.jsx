@@ -1,38 +1,18 @@
-import { useMemo } from "react";
-import { findOptimalClaimAge, rangeForMode } from "../lib/optimalClaimAge.js";
+import { rangeForMode } from "../lib/optimalClaimAge.js";
 import { fmtAge, fmtBig } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 
 // "What's the best age to claim, given everything else above?" panel.
-// Sweeps the mode's full claim-age range with computeProjection, finds the
-// peak, and surfaces the comparison vs the user's current pick. One-click
-// applies the optimum to the slider.
+// Receives the precomputed sweep result from useOptimalClaimAge (shared
+// with the small chip under the claim-age slider) so the 96-call sweep
+// runs once per input change, not twice.
 //
 // The metric is mode-aware (matches SensitivityTornado convention):
 //   retirement / survivor → finalEarly  (total wealth at lifeExpectancy)
 //   switch                → potAtStopRow (invested pot at investStopAge)
-//
-// Heavy: 96 computeProjection calls in retirement mode (8 yrs × 12 months).
-// Wrapped in useMemo with the same input deps the tornado uses.
-export default function OptimalClaimAge({ inputs, setClaimAge }) {
-  const result = useMemo(() => findOptimalClaimAge(inputs), [
-    inputs.mode,
-    inputs.fraBenefit,
-    inputs.ownBenefit,
-    inputs.claimAge,
-    inputs.returnRate,
-    inputs.investStopAge,
-    inputs.lifeExpectancy,
-    inputs.grossIncome,
-    inputs.postFRAGrossIncome,
-    inputs.postFRAWorkYears,
-    inputs.autoTax,
-    inputs.manualFedRate,
-    inputs.investedPct,
-  ]);
-
+export default function OptimalClaimAge({ inputs, optimal, setClaimAge }) {
   const { earliest, latest } = rangeForMode(inputs.mode);
-  const { optimalAge, optimalScore, baselineAge, baselineScore } = result;
+  const { optimalAge, optimalScore, baselineAge, baselineScore } = optimal;
 
   // "Already optimized" detection: when the user's current age is within
   // half a month of the sweep's winner, the comparison is noise — display a

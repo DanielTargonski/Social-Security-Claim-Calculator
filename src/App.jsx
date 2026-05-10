@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { C } from "./constants/colors.js";
 import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
+import { useOptimalClaimAge } from "./hooks/useOptimalClaimAge.js";
 import {
   getInitialStateFromUrl,
   serializeStateToParams,
@@ -171,6 +172,11 @@ export default function App() {
     crossoverValue,
   } = useBenefitProjection(inputs);
 
+  // Sweeps claimAge across the mode's range and reports the peak. Shared
+  // between the small chip under the claim-age slider (in InputsPanel)
+  // and the full OptimalClaimAge panel below the chart.
+  const optimal = useOptimalClaimAge(inputs);
+
   const primaryBenefitLabel =
     mode === "retirement" ? "Your benefit at 67" : "Survivor benefit at 67";
 
@@ -228,6 +234,7 @@ export default function App() {
               earlyMonthlyNet={earlyMonthlyNet}
               earningsTestWithholding={earningsTestWithholding}
               fedMarginalRate={fedMarginalRate}
+              optimal={optimal}
             />
 
             <SummaryCards
@@ -286,7 +293,11 @@ export default function App() {
             chartData={chartData}
           />
 
-          <OptimalClaimAge inputs={inputs} setClaimAge={setClaimAge} />
+          <OptimalClaimAge
+            inputs={inputs}
+            optimal={optimal}
+            setClaimAge={setClaimAge}
+          />
 
           <SensitivityTornado inputs={inputs} />
 
