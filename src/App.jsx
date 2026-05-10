@@ -161,6 +161,7 @@ export default function App() {
     finalPot,
     advantage,
     potAtStopRow,
+    crossoverValue,
   } = useBenefitProjection(inputs);
 
   const primaryBenefitLabel =
@@ -234,6 +235,9 @@ export default function App() {
               recoupedFactor={recoupedFactor}
               potAtStopRow={potAtStopRow}
               breakEvenAge={breakEvenAge}
+              advantage={advantage}
+              lifeExpectancy={lifeExpectancy}
+              crossoverValue={crossoverValue}
             />
           </div>
 

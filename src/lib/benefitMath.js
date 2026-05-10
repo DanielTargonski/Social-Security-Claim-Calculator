@@ -198,6 +198,12 @@ export function computeProjection({
   const potAtFRARow = chartData.find((d) => d.age >= FRA)?.pot || 0;
   const potAtStopRow = chartData.find((d) => d.age >= investStopAge)?.pot || 0;
 
+  // Dollar value of either strategy at the crossover age — they're equal
+  // there by definition. Used by the SummaryCards "lines meet at $X" stat.
+  const crossoverValue = breakEvenAge
+    ? chartData.find((d) => d.age >= breakEvenAge)?.early ?? null
+    : null;
+
   return {
     earlyFactor,
     earlyMonthlyGross,
@@ -221,6 +227,7 @@ export function computeProjection({
     advantage,
     potAtFRARow,
     potAtStopRow,
+    crossoverValue,
   };
 }
 

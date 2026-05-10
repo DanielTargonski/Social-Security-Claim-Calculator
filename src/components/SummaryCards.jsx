@@ -20,7 +20,19 @@ export default function SummaryCards({
   recoupedFactor,
   potAtStopRow,
   breakEvenAge,
+  // For the third card's enhanced content (verdict & context lines)
+  advantage,
+  lifeExpectancy,
+  crossoverValue,
 }) {
+  // FRA is hardcoded as 67 throughout the app — see ssRules.js.
+  // Used for the "annual edge" stat = advantage averaged across post-FRA years.
+  const FRA_YEARS = 67;
+  const earlyWins = advantage >= 0;
+  const annualEdge =
+    lifeExpectancy > FRA_YEARS
+      ? Math.abs(advantage) / (lifeExpectancy - FRA_YEARS)
+      : 0;
   return (
     <div className="lg:col-span-2 grid grid-cols-2 lg:grid-cols-1 gap-5">
       <div
@@ -116,43 +128,139 @@ export default function SummaryCards({
       </div>
 
       <div
-        className="p-5 col-span-2 lg:col-span-1"
+        className="p-5 col-span-2 lg:col-span-1 flex flex-col"
         style={{
           backgroundColor: C.ink,
           color: C.paper,
         }}
       >
-        <div
-          className="text-xs uppercase mb-2"
-          style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
-        >
-          {mode === "switch"
-            ? `Pot at ${investStopAge} (pure upside)`
-            : "Crossover age"}
-        </div>
-        <div
-          className="num"
-          style={{ fontSize: "1.875rem", fontWeight: 600, lineHeight: 1 }}
-        >
-          {mode === "switch"
-            ? fmtBig(potAtStopRow)
-            : breakEvenAge
-            ? `${breakEvenAge}`
-            : "—"}
-        </div>
-        <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
-          {mode === "switch" ? (
-            returnRate > 0 ? (
-              <>from investing through <Var>{investStopAge}</Var></>
-            ) : (
-              <>from setting aside checks through <Var>{investStopAge}</Var></>
-            )
-          ) : breakEvenAge ? (
-            "where the lines meet"
-          ) : (
-            "no crossover in range"
-          )}
-        </div>
+        {mode === "switch" ? (
+          <>
+            <div
+              className="text-xs uppercase mb-2"
+              style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+            >
+              Pot at {investStopAge} (pure upside)
+            </div>
+            <div
+              className="num"
+              style={{ fontSize: "1.875rem", fontWeight: 600, lineHeight: 1 }}
+            >
+              {fmtBig(potAtStopRow)}
+            </div>
+            <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
+              {returnRate > 0 ? (
+                <>from investing through <Var>{investStopAge}</Var></>
+              ) : (
+                <>from setting aside checks through <Var>{investStopAge}</Var></>
+              )}
+            </div>
+          </>
+        ) : breakEvenAge ? (
+          <>
+            <div
+              className="text-xs uppercase mb-2"
+              style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+            >
+              Crossover age
+            </div>
+            <div
+              className="num"
+              style={{ fontSize: "1.875rem", fontWeight: 600, lineHeight: 1 }}
+            >
+              {breakEvenAge}
+            </div>
+            <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
+              where the lines meet
+            </div>
+            {crossoverValue !== null && (
+              <div
+                className="mt-4 pt-4"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <div
+                  className="text-xs uppercase mb-1"
+                  style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+                >
+                  Each strategy holds
+                </div>
+                <div
+                  className="num"
+                  style={{ fontSize: "1.125rem", fontWeight: 500 }}
+                >
+                  {fmtBig(crossoverValue)}
+                </div>
+                <div
+                  className="text-xs mt-1"
+                  style={{ color: C.inkOnDark }}
+                >
+                  at the crossover · then{" "}
+                  {advantage >= 0 ? "early" : "wait"} pulls ahead
+                </div>
+                <div
+                  className="text-xs mt-3"
+                  style={{ color: C.inkOnDark }}
+                >
+                  by <Var>{lifeExpectancy}</Var>:{" "}
+                  {advantage >= 0 ? "early" : "wait"} leads by{" "}
+                  <span
+                    className="num"
+                    style={{ color: C.paper, fontWeight: 500 }}
+                  >
+                    {fmtBig(Math.abs(advantage))}
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          // No crossover in range — early wins for life. Replace the bare
+          // "—" with a verdict + dollar advantage + annual-edge breakdown
+          // so this card pulls its weight visually.
+          <>
+            <div
+              className="text-xs uppercase mb-2"
+              style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+            >
+              {earlyWins ? "Claiming early wins" : "Waiting wins"} through{" "}
+              {lifeExpectancy}
+            </div>
+            <div
+              className="num"
+              style={{
+                fontSize: "1.875rem",
+                fontWeight: 600,
+                lineHeight: 1,
+              }}
+            >
+              {earlyWins ? "+" : "−"}
+              {fmtBig(Math.abs(advantage))}
+            </div>
+            <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
+              ahead at end of life · no crossover in range
+            </div>
+            <div
+              className="mt-4 pt-4"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+            >
+              <div
+                className="text-xs uppercase mb-1"
+                style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+              >
+                Annual edge
+              </div>
+              <div
+                className="num"
+                style={{ fontSize: "1.125rem", fontWeight: 500 }}
+              >
+                ≈ {fmtMoney(annualEdge)}/yr
+              </div>
+              <div className="text-xs mt-1" style={{ color: C.inkOnDark }}>
+                averaged across the {lifeExpectancy - FRA_YEARS} post-FRA years
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
