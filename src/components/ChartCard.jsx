@@ -47,12 +47,13 @@ export default function ChartCard({
             {returnRate > 0 ? (
               <>
                 Invested pot until <Var>{investStopAge}</Var>, then enjoyed as
-                income · <Var>{returnRate.toFixed(1)}%</Var> real
+                income · <Var>{returnRate.toFixed(1)}%</Var> real (after
+                inflation)
               </>
             ) : (
               <>
                 Checks set aside until <Var>{investStopAge}</Var>, then enjoyed
-                as income · 0% real return
+                as income · 0% real return (after inflation)
               </>
             )}
           </p>

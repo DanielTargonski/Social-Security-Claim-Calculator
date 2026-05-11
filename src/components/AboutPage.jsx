@@ -163,9 +163,10 @@ export default function AboutPage() {
           style={{ color: C.ink }}
         >
           Each <span className="num">$1,756</span> check, invested as it
-          arrives at a 5% real return (achievable in a 60/40 portfolio), grows
-          to roughly <span className="num">$68,040</span> by the time the
-          claimant turns 67. The wait scenario starts at 67 with{" "}
+          arrives at a 5% real return (5% above inflation — achievable in a
+          60/40 portfolio), grows to roughly{" "}
+          <span className="num">$68,040</span> by the time the claimant turns
+          67. The wait scenario starts at 67 with{" "}
           <span className="num">$0</span> invested but a higher monthly check.
           The {" "}
           <span className="num">$244</span>/mo gap between the two now has to

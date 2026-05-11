@@ -60,13 +60,28 @@ export default function Footnotes() {
           className="display text-sm mb-2"
           style={{ color: C.ink, fontStyle: "italic" }}
         >
+          What "real return" means
+        </div>
+        Every dollar in the calculator is in today's dollars, and the return
+        rate is "real" — meaning after inflation has been subtracted. A 7%
+        real return roughly matches the S&P 500's long-run average once you
+        strip out the ~3% per year that inflation eats. Working in real terms
+        keeps the numbers honest: a $2,500 check at 67 is comparable to a
+        $2,500 check at 85 because inflation is already factored out. The
+        nominal numbers (what your bank statement actually shows) would be
+        much higher, but they'd buy the same groceries.
+      </div>
+      <div>
+        <div
+          className="display text-sm mb-2"
+          style={{ color: C.ink, fontStyle: "italic" }}
+        >
           Caveats this model leaves out
         </div>
         Sequence of returns risk on the invested side. The senior bonus
         deduction (up to $6,000 extra for 65+, phasing out above $75K MAGI)
         which can reduce or eliminate SS taxation. Tax drag on the investment
-        portfolio. Medicare Part B premiums. Numbers in today's dollars
-        assuming a real return.
+        portfolio. Medicare Part B premiums.
       </div>
     </div>
 

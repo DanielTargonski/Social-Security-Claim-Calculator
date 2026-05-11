@@ -217,7 +217,14 @@ export default function InputsPanel({
           max={10}
           step={0.5}
           format={(v) => v.toFixed(1) + "%"}
-          hint={returnRate === 7 ? "S&P 500 historical" : ""}
+          // "Real" is finance jargon for "after inflation" — the explainer
+          // sits in the slider's hint area so it's visible the first time
+          // the user encounters the term, not buried in a footnote.
+          hint={
+            returnRate === 7
+              ? "after inflation · S&P 500 historical"
+              : "after inflation"
+          }
         />
         <SliderInput
           label="Invest pct of early checks"
