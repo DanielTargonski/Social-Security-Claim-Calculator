@@ -109,7 +109,7 @@ describe("App — input wiring", () => {
     expect(
       screen.getByText((_, el) =>
         el?.tagName === "LABEL" &&
-        /invest pct of wait checks/i.test(el.textContent || "")
+        /invest % of wait-claim checks/i.test(el.textContent || "")
       )
     ).toBeInTheDocument();
     // Both invested-% sliders default to 100, so the chip starts in the
