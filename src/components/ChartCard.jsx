@@ -24,6 +24,7 @@ export default function ChartCard({
   taxesActive,
   chartData,
   breakEvenAge,
+  waitInvestedBreakEvenAge,
   potAtStopRow,
   finalPot,
   finalEarly,
@@ -206,6 +207,22 @@ export default function ChartCard({
                   fontFamily: "JetBrains Mono",
                   fontWeight: 600,
                   position: "top",
+                }}
+              />
+            )}
+            {waitInvestedBreakEvenAge && (
+              <ReferenceLine
+                x={waitInvestedBreakEvenAge}
+                stroke={C.waitInvested}
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                label={{
+                  value: `↓ Wait+invest ${fmtAge(waitInvestedBreakEvenAge)}`,
+                  fill: C.waitInvested,
+                  fontSize: 11,
+                  fontFamily: "JetBrains Mono",
+                  fontWeight: 600,
+                  position: "insideTop",
                 }}
               />
             )}

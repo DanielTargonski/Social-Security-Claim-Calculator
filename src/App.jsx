@@ -290,6 +290,7 @@ export default function App() {
             />
           </div>
 
+
           <MetadataStrip
             autoTax={autoTax}
             annualEarlyGross={annualEarlyGross}
@@ -311,6 +312,7 @@ export default function App() {
             taxesActive={taxesActive}
             chartData={chartData}
             breakEvenAge={breakEvenAge}
+            waitInvestedBreakEvenAge={waitInvestedBreakEvenAge}
             potAtStopRow={potAtStopRow}
             finalPot={finalPot}
             finalEarly={finalEarly}

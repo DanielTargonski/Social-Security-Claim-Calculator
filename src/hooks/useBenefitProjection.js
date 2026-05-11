@@ -21,6 +21,7 @@ export function useBenefitProjection(inputs) {
       inputs.autoTax,
       inputs.manualFedRate,
       inputs.investedPct,
+      inputs.investedPctWait,
     ]
   );
 }
