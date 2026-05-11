@@ -128,3 +128,32 @@ describe("App — pot table", () => {
     expect(within(table).getAllByText("Compounding").length).toBeGreaterThan(0);
   });
 });
+
+describe("App — top-level tab nav", () => {
+  // The TabNav controls which subtree mounts — calculator vs the AboutPage
+  // explainer. Pinning the round-trip catches the kind of conditional-render
+  // bug where one branch's JSX accidentally survives into the other branch.
+  it("starts on the Calculator tab by default", () => {
+    render(<App />);
+    expect(screen.getByText("Inputs")).toBeInTheDocument();
+    expect(screen.queryByText("What the SSA shows you")).toBeNull();
+  });
+
+  it("switching to 'Why this exists' shows the AboutPage and hides the calculator UI", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /Why this exists/i }));
+    expect(screen.getByText("What the SSA shows you")).toBeInTheDocument();
+    expect(screen.queryByText("Inputs")).toBeNull();
+    // Footnotes still render on both views, so don't assert against them.
+  });
+
+  it("switching back to Calculator restores the calculator UI", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /Why this exists/i }));
+    await user.click(screen.getByRole("button", { name: /^Calculator$/ }));
+    expect(screen.getByText("Inputs")).toBeInTheDocument();
+    expect(screen.queryByText("What the SSA shows you")).toBeNull();
+  });
+});

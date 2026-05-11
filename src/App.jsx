@@ -18,11 +18,20 @@ import PotTable from "./components/PotTable.jsx";
 import Footnotes from "./components/Footnotes.jsx";
 import SensitivityTornado from "./components/SensitivityTornado.jsx";
 import OptimalClaimAge from "./components/OptimalClaimAge.jsx";
+import AboutPage from "./components/AboutPage.jsx";
+import TabNav from "./components/TabNav.jsx";
 
 // Top-level orchestrator. Owns all UI state and the projection hook; passes
 // derived values down to presentation components. Each visual section lives
 // in its own file under src/components/.
 export default function App() {
+  // Top-level view: "calculator" (default) or "about" (the explainer page
+  // with the worked example and sources). Lives at App level so the tab
+  // remains in scope across re-renders. Not URL-persisted on purpose —
+  // share links should drop people directly into the calculator they
+  // configured, not the explainer.
+  const [view, setView] = useState("calculator");
+
   // Hydrate initial state from URL query params (set by ShareLinkButton when
   // someone shared this link). Falls back to defaults for any missing field.
   // See lib/shareableState.js for the schema and per-field defaults.
@@ -197,6 +206,15 @@ export default function App() {
         <div className="grain" />
 
         <div className="max-w-5xl mx-auto px-5 py-8 md:py-12 relative">
+          <TabNav view={view} onChange={setView} />
+
+          {view === "about" ? (
+            <>
+              <AboutPage />
+              <Footnotes />
+            </>
+          ) : (
+          <>
           <Header investStopAge={effectiveInvestStopAge} />
 
           <ModeSwitcher mode={mode} onChange={switchMode} />
@@ -302,6 +320,8 @@ export default function App() {
           <SensitivityTornado inputs={inputs} />
 
           <Footnotes />
+          </>
+          )}
         </div>
       </div>
     </div>
