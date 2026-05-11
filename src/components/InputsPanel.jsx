@@ -227,7 +227,21 @@ export default function InputsPanel({
           }
         />
         <SliderInput
-          label="Invest pct of early checks"
+          label={
+            <>
+              Invest % of{" "}
+              <span
+                title="“Early-claim” = the scenario you're modeling: claim at the chosen age and start receiving smaller checks. This slider controls how much of every check this scenario receives — from your claim age through “Stop investing at age” — gets invested. Same fraction applies to pre-67 reduced checks and post-67 recouped checks."
+                style={{
+                  borderBottom: `1px dotted ${C.borderDark}`,
+                  cursor: "help",
+                }}
+              >
+                early-claim
+              </span>{" "}
+              checks
+            </>
+          }
           value={investedPct}
           onChange={setInvestedPct}
           min={0}
@@ -243,7 +257,21 @@ export default function InputsPanel({
           })()}
         />
         <SliderInput
-          label="Invest pct of wait checks"
+          label={
+            <>
+              Invest % of{" "}
+              <span
+                title="“Wait-claim” = the parallel comparison scenario where the claimant waits until FRA (67) to claim and gets the larger check from then on. This slider controls how much of those post-67 checks get invested. Pre-67 the wait scenario has no checks to invest yet."
+                style={{
+                  borderBottom: `1px dotted ${C.borderDark}`,
+                  cursor: "help",
+                }}
+              >
+                wait-claim
+              </span>{" "}
+              checks
+            </>
+          }
           value={investedPctWait}
           onChange={setInvestedPctWait}
           min={0}

@@ -104,7 +104,14 @@ describe("App — input wiring", () => {
 
   it("the wait-checks-invested slider renders with default 100% and the chip reads 'matches early'", () => {
     render(<App />);
-    expect(screen.getByText(/Invest pct of wait checks/i)).toBeInTheDocument();
+    // The "wait" word is wrapped in a tooltip span, so the label is split
+    // across multiple text nodes — match by the <label> element's full text.
+    expect(
+      screen.getByText((_, el) =>
+        el?.tagName === "LABEL" &&
+        /invest % of wait-claim checks/i.test(el.textContent || "")
+      )
+    ).toBeInTheDocument();
     // Both invested-% sliders default to 100, so the chip starts in the
     // matched state.
     expect(screen.getByText(/matches early/i)).toBeInTheDocument();
