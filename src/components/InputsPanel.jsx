@@ -227,7 +227,21 @@ export default function InputsPanel({
           }
         />
         <SliderInput
-          label="Invest % of early-claim checks"
+          label={
+            <>
+              Invest % of{" "}
+              <span
+                title="“Early-claim” = the scenario you're modeling: claim at the chosen age and start receiving smaller checks. This slider controls how much of every check this scenario receives — from your claim age through “Stop investing at age” — gets invested. Same fraction applies to pre-67 reduced checks and post-67 recouped checks."
+                style={{
+                  borderBottom: `1px dotted ${C.borderDark}`,
+                  cursor: "help",
+                }}
+              >
+                early-claim
+              </span>{" "}
+              checks
+            </>
+          }
           value={investedPct}
           onChange={setInvestedPct}
           min={0}
