@@ -17,7 +17,11 @@ import {
   getMarginalRate2026,
   computeSSEffectiveTaxRate,
 } from "./taxMath.js";
-import { buildChartData, findBreakEvenAge } from "./chartProjection.js";
+import {
+  buildChartData,
+  findBreakEvenAge,
+  findCrossoverAge,
+} from "./chartProjection.js";
 
 // Re-exports so call sites that imported from benefitMath.js still work.
 export {
@@ -34,6 +38,7 @@ export {
   computeSSEffectiveTaxRate,
   buildChartData,
   findBreakEvenAge,
+  findCrossoverAge,
 };
 
 // Single entry point for all derived values. Takes raw inputs, returns
@@ -64,6 +69,13 @@ export function computeProjection({
   autoTax,
   manualFedRate,
   investedPct = 100,
+  // Share of each post-FRA "wait" check that goes into a parallel invested
+  // pot for the wait+invest comparison line. 100 = invest every FRA check
+  // until investStopAge; 0 = collapses to the existing `wait` cumulative
+  // line (no investment effect). Defaults to 100 so the comparison is
+  // always visible on first load; users dial it down if they want a
+  // looser assumption.
+  investedPctWait = 100,
 }) {
   const {
     earlyFactor,
@@ -232,6 +244,7 @@ export function computeProjection({
     postFRAWorkEndAge,
     lumpy,
     investedFraction: investedPct / 100,
+    waitInvestedFraction: investedPctWait / 100,
   });
 
   const breakEvenAge = findBreakEvenAge({ chartData, claimAge, mode });
@@ -239,7 +252,13 @@ export function computeProjection({
   const finalEarly = chartData[chartData.length - 1]?.early || 0;
   const finalWait = chartData[chartData.length - 1]?.wait || 0;
   const finalPot = chartData[chartData.length - 1]?.pot || 0;
+  const finalWaitInvested =
+    chartData[chartData.length - 1]?.waitInvested || 0;
   const advantage = finalEarly - finalWait;
+  // Same shape as `advantage` but vs the wait+invest scenario — gives the
+  // user the "fair fight" number: how much does early still win by (or
+  // lose by) when wait also invests at investedPctWait?
+  const waitInvestedAdvantage = finalEarly - finalWaitInvested;
   const potAtFRARow = chartData.find((d) => d.age >= FRA)?.pot || 0;
   const potAtStopRow = chartData.find((d) => d.age >= investStopAge)?.pot || 0;
 
@@ -247,6 +266,20 @@ export function computeProjection({
   // there by definition. Used by the SummaryCards "lines meet at $X" stat.
   const crossoverValue = breakEvenAge
     ? chartData.find((d) => d.age >= breakEvenAge)?.early ?? null
+    : null;
+
+  // Same idea, but for the early-vs-wait+invest crossover (the fair-fight
+  // break-even). Null when no crossover exists (early stays ahead forever
+  // in the projected range, or the mode doesn't apply).
+  const waitInvestedBreakEvenAge = findCrossoverAge({
+    chartData,
+    claimAge,
+    mode,
+    leftKey: "early",
+    rightKey: "waitInvested",
+  });
+  const waitInvestedCrossoverValue = waitInvestedBreakEvenAge
+    ? chartData.find((d) => d.age >= waitInvestedBreakEvenAge)?.early ?? null
     : null;
 
   return {
@@ -269,10 +302,14 @@ export function computeProjection({
     finalEarly,
     finalWait,
     finalPot,
+    finalWaitInvested,
     advantage,
+    waitInvestedAdvantage,
     potAtFRARow,
     potAtStopRow,
     crossoverValue,
+    waitInvestedBreakEvenAge,
+    waitInvestedCrossoverValue,
   };
 }
 

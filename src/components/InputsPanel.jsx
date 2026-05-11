@@ -10,6 +10,46 @@ import { C } from "../constants/colors.js";
 import SliderInput from "./SliderInput.jsx";
 import ShareLinkButton from "./ShareLinkButton.jsx";
 
+// Compact "set me to match the early-checks slider" chip, rendered in the
+// wait-checks-invested slider's accessory slot. The natural reading order
+// is to tune the early-checks % first (it's the slider above), so this
+// only flows one way: copy investedPct → investedPctWait. When the two
+// values already match it switches to a non-interactive ✓ matches early
+// indicator, mirroring the OptimalClaimAgeChip pattern below.
+function MatchEarlyChip({ investedPctWait, investedPct, onApply }) {
+  if (investedPctWait === investedPct) {
+    return (
+      <span
+        className="text-xs num truncate"
+        style={{ color: C.wait, fontWeight: 500 }}
+        title="Wait+invest % matches the pre-FRA invested %"
+      >
+        ✓ matches early
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onApply(investedPct)}
+      className="num truncate"
+      title={`Set wait+invest to match the pre-FRA invested % (${investedPct}%)`}
+      style={{
+        color: C.wait,
+        backgroundColor: "transparent",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 500,
+        fontFamily: "inherit",
+      }}
+    >
+      → match early ({investedPct}%)
+    </button>
+  );
+}
+
 // Compact "the optimum is over here" chip, rendered inline in the
 // claim-age slider's header row (between the label and the value
 // display). Surfaces the result of the full optimal-age sweep
@@ -88,9 +128,12 @@ export default function InputsPanel({
   setManualFedRate,
   investedPct,
   setInvestedPct,
+  investedPctWait,
+  setInvestedPctWait,
   // derived from projection
   earlyFactor,
   earlyMonthlyNet,
+  fraMonthlyNet,
   earningsTestWithholding,
   fedMarginalRate,
   // Result of the optimal-claim-age sweep, computed at App level via
@@ -191,6 +234,31 @@ export default function InputsPanel({
             if (investedPct === 0) return `${fmtMoney(cash)}/mo cash`;
             return `${fmtMoney(invested)}/mo invested · ${fmtMoney(cash)}/mo cash`;
           })()}
+        />
+        <SliderInput
+          label="Invest pct of wait checks"
+          value={investedPctWait}
+          onChange={setInvestedPctWait}
+          min={0}
+          max={100}
+          step={5}
+          format={(v) => v + "%"}
+          hint={(() => {
+            const invested = fraMonthlyNet * (investedPctWait / 100);
+            const cash = fraMonthlyNet - invested;
+            if (investedPctWait === 100)
+              return `${fmtMoney(invested)}/mo invested from 67`;
+            if (investedPctWait === 0)
+              return `${fmtMoney(cash)}/mo cash from 67`;
+            return `${fmtMoney(invested)}/mo invested · ${fmtMoney(cash)}/mo cash`;
+          })()}
+          accessory={
+            <MatchEarlyChip
+              investedPctWait={investedPctWait}
+              investedPct={investedPct}
+              onApply={setInvestedPctWait}
+            />
+          }
         />
         <SliderInput
           label="Stop investing at age"

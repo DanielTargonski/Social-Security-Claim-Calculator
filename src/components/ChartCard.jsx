@@ -94,6 +94,16 @@ export default function ChartCard({
             />
             <span style={{ color: C.ink }}>Wait until 67</span>
           </div>
+          <div className="flex items-center gap-2">
+            <div
+              style={{
+                width: "18px",
+                height: "2px",
+                backgroundColor: C.waitInvested,
+              }}
+            />
+            <span style={{ color: C.ink }}>Wait + invest</span>
+          </div>
         </div>
       </div>
 
@@ -164,6 +174,7 @@ export default function ChartCard({
                   early: `Claim at ${fmtAge(claimAge)}`,
                   pot: returnRate > 0 ? "Invested pot" : "Set-aside checks",
                   wait: "Wait to 67",
+                  waitInvested: "Wait + invest",
                 };
                 return [fmtMoney(value), labelMap[name] || name];
               }}
@@ -220,6 +231,15 @@ export default function ChartCard({
               type="monotone"
               dataKey="wait"
               stroke={C.wait}
+              strokeWidth={2.5}
+              dot={false}
+              isAnimationActive={true}
+              animationDuration={600}
+            />
+            <Line
+              type="monotone"
+              dataKey="waitInvested"
+              stroke={C.waitInvested}
               strokeWidth={2.5}
               dot={false}
               isAnimationActive={true}

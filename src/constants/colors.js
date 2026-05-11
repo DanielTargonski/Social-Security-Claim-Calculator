@@ -1,10 +1,13 @@
 // Single source of truth for the calculator's color palette.
 // Lives outside any component so it can be imported anywhere without prop
 // drilling. The chart conventions:
-//   - early       (dark red)   = "claim early" line, also "worse outcome" in tornado
-//   - earlySoft   (soft red)   = invested-pot trajectory (dashed)
-//   - wait        (dark green) = "wait until FRA" line, also "better outcome" in tornado
-//   - cross       (gold)       = crossover marker
+//   - early        (dark red)    = "claim early" line, also "worse outcome" in tornado
+//   - earlySoft    (soft red)    = invested-pot trajectory (dashed)
+//   - wait         (dark green)  = "wait until FRA" line, also "better outcome" in tornado
+//   - waitInvested (medium green) = "wait + invest the checks" line
+//                                   visually related to `wait` but distinct so they
+//                                   read as a family
+//   - cross        (gold)        = crossover marker
 //
 // Text-on-background contrast (AA = 4.5:1 for normal text):
 //   - ink        on paper/bg → ~14:1   (primary copy)
@@ -25,5 +28,6 @@ export const C = {
   early: "#A02B2B",
   earlySoft: "#C97070",
   wait: "#1F4D3F",
+  waitInvested: "#3F7D5F",
   cross: "#B8860B",
 };

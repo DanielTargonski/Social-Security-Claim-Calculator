@@ -101,6 +101,35 @@ describe("App — input wiring", () => {
     // The value should now be reflected in the page (button label refreshes).
     expect(screen.getByRole("button", { name: "$3,000/mo" })).toBeInTheDocument();
   });
+
+  it("the wait-checks-invested slider renders with default 100% and the chip reads 'matches early'", () => {
+    render(<App />);
+    expect(screen.getByText(/Invest pct of wait checks/i)).toBeInTheDocument();
+    // Both invested-% sliders default to 100, so the chip starts in the
+    // matched state.
+    expect(screen.getByText(/matches early/i)).toBeInTheDocument();
+  });
+
+  it("clicking the 'match early' chip syncs investedPctWait to investedPct", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    // Lower the early-checks slider via click-to-edit so the two values diverge.
+    const earlyValue = screen.getAllByRole("button", { name: "100%" })[0];
+    await user.click(earlyValue);
+    const numInput = screen.getByRole("spinbutton");
+    await user.clear(numInput);
+    await user.type(numInput, "50{Enter}");
+
+    // Now the chip should offer to match the new early value (50%).
+    const matchChip = await screen.findByRole("button", {
+      name: /match early \(50%\)/i,
+    });
+    await user.click(matchChip);
+
+    // After clicking, the chip flips back to the "matches" state.
+    expect(screen.getByText(/matches early/i)).toBeInTheDocument();
+  });
 });
 
 describe("App — metadata strip visibility", () => {

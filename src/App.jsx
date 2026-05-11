@@ -54,6 +54,9 @@ export default function App() {
   const [autoTax, setAutoTax] = useState(initial.autoTax);
   const [manualFedRate, setManualFedRate] = useState(initial.manualFedRate);
   const [investedPct, setInvestedPct] = useState(initial.investedPct);
+  const [investedPctWait, setInvestedPctWait] = useState(
+    initial.investedPctWait
+  );
 
   // Mirror state into the URL on every change via replaceState (no history
   // entries — back button shouldn't undo individual slider drags). Stored
@@ -75,6 +78,7 @@ export default function App() {
       autoTax,
       manualFedRate,
       investedPct,
+      investedPctWait,
     });
     const newSearch = "?" + params.toString();
     if (window.location.search !== newSearch) {
@@ -98,6 +102,7 @@ export default function App() {
     autoTax,
     manualFedRate,
     investedPct,
+    investedPctWait,
   ]);
 
   // Mode-specific bounds for the claim-age slider.
@@ -155,6 +160,7 @@ export default function App() {
     autoTax,
     manualFedRate,
     investedPct,
+    investedPctWait,
   };
 
   const {
@@ -179,6 +185,8 @@ export default function App() {
     advantage,
     potAtStopRow,
     crossoverValue,
+    waitInvestedAdvantage,
+    waitInvestedBreakEvenAge,
   } = useBenefitProjection(inputs);
 
   // Sweeps claimAge across the mode's range and reports the peak. Shared
@@ -248,8 +256,11 @@ export default function App() {
               setManualFedRate={setManualFedRate}
               investedPct={investedPct}
               setInvestedPct={setInvestedPct}
+              investedPctWait={investedPctWait}
+              setInvestedPctWait={setInvestedPctWait}
               earlyFactor={earlyFactor}
               earlyMonthlyNet={earlyMonthlyNet}
+              fraMonthlyNet={fraMonthlyNet}
               earningsTestWithholding={earningsTestWithholding}
               fedMarginalRate={fedMarginalRate}
               optimal={optimal}
@@ -273,6 +284,9 @@ export default function App() {
               advantage={advantage}
               lifeExpectancy={lifeExpectancy}
               crossoverValue={crossoverValue}
+              investedPctWait={investedPctWait}
+              waitInvestedAdvantage={waitInvestedAdvantage}
+              waitInvestedBreakEvenAge={waitInvestedBreakEvenAge}
             />
           </div>
 

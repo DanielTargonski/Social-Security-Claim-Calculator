@@ -166,6 +166,7 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "grossIncome",
         "investStopAge",
         "investedPct",
+        "investedPctWait",
         "lifeExpectancy",
         "manualFedRate",
         "mode",

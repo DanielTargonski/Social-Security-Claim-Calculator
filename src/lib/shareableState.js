@@ -35,6 +35,7 @@ const SCHEMA = [
   { key: "autoTax",            url: "tax",   type: "bool", default: true },
   { key: "manualFedRate",      url: "mrate", type: "num",  default: 12,   min: 0,    max: 37 },
   { key: "investedPct",        url: "inv",   type: "num",  default: 100,  min: 0,    max: 100 },
+  { key: "investedPctWait",    url: "invw",  type: "num",  default: 100,  min: 0,    max: 100 },
 ];
 
 // Mode-specific claim-age bounds — duplicated from App.jsx and

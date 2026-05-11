@@ -151,10 +151,12 @@ function lumpyContribAtMonth(monthIndex, lumpy, fullMonthlyNet) {
 
 // Build the full chartData array used by the recharts <LineChart>.
 // One row per quarter-year between min(claimAge, FRA) and lifeExpectancy.
-//   age, early, pot, wait
-//   - early = pot + cashCollectedSinceInvestStop (the total claim-and-invest position)
-//   - pot   = invested-pot value alone (dashed line on the chart)
-//   - wait  = wait-until-FRA cumulative
+//   age, early, pot, wait, waitPot, waitInvested
+//   - early        = pot + cashCollectedSinceInvestStop (total claim-and-invest position)
+//   - pot          = invested-pot value alone (dashed line on the chart)
+//   - wait         = wait-until-FRA cumulative, no investment (uninvested baseline)
+//   - waitPot      = invested-FRA-check pot value alone
+//   - waitInvested = waitPot + cumulative wait-side cash (the "wait + invest" total)
 //
 // The implementation runs a month-by-month simulation so the SSA lumpy
 // withholding pattern is modeled honestly. When `lumpy` is omitted (e.g.
@@ -166,6 +168,13 @@ function lumpyContribAtMonth(monthIndex, lumpy, fullMonthlyNet) {
 // checks invested). 0.0 = nothing invested, every check accumulates linearly
 // as cash. The "early" line still represents total received dollars either
 // way — only the compounding portion changes.
+//
+// `waitInvestedFraction` (0..1) is the analogous knob for the wait+invest
+// scenario: the share of each post-FRA check (in the wait scenario) that
+// goes to its own invested pot rather than to cash. 1.0 = invest the full
+// FRA check until investStopAge. 0.0 = waitInvested === wait (no investment
+// effect). The wait scenario has no pre-FRA contributions: nothing is being
+// claimed yet, so monthlyWaitPot stays 0 until age FRA.
 export function buildChartData({
   claimAge,
   investStopAge,
@@ -181,6 +190,7 @@ export function buildChartData({
   postFRAWorkEndAge = FRA,
   lumpy = null,
   investedFraction = 1,
+  waitInvestedFraction = 1,
 }) {
   const data = [];
   const r = returnRate / 100 / 12;
@@ -200,6 +210,14 @@ export function buildChartData({
   const monthlyPot = new Array(totalMonthsLife + 1).fill(0);
   const monthlyCumCash = new Array(totalMonthsLife + 1).fill(0);
   let cumCash = 0;
+
+  // Parallel arrays for the "wait + invest" scenario: invest the FRA-claim
+  // checks from age FRA through investStopAge, then let the pot compound
+  // while remaining checks become cash. Nothing happens pre-FRA — the wait
+  // scenario hasn't claimed yet.
+  const monthlyWaitPot = new Array(totalMonthsLife + 1).fill(0);
+  const monthlyWaitCumCash = new Array(totalMonthsLife + 1).fill(0);
+  let waitCumCash = 0;
 
   for (let m = 1; m <= totalMonthsLife; m++) {
     const ageAtMonthEnd = claimAge + m / 12;
@@ -229,6 +247,29 @@ export function buildChartData({
     monthlyPot[m] = monthlyPot[m - 1] * (1 + r) + contribThisMonth;
     cumCash += cashThisMonth;
     monthlyCumCash[m] = cumCash;
+
+    // Wait-side: no check pre-FRA. From FRA onward, the wait scenario gets
+    // fraMonthlyNet (or fraMonthlyNetRetired after postFRAWorkEndAge).
+    // Split between pot and cash per waitInvestedFraction until investStopAge,
+    // then all-cash. The pot compounds at the same monthly rate as the
+    // early-side pot.
+    let waitContribThisMonth = 0;
+    let waitCashThisMonth = 0;
+    if (ageAtMonthEnd > FRA) {
+      const waitCheck =
+        ageAtMonthEnd <= postFRAWorkEndAge
+          ? fraMonthlyNet
+          : fraMonthlyNetRetired;
+      if (ageAtMonthEnd <= investStopAge) {
+        waitContribThisMonth = waitCheck * waitInvestedFraction;
+        waitCashThisMonth = waitCheck * (1 - waitInvestedFraction);
+      } else {
+        waitCashThisMonth = waitCheck;
+      }
+    }
+    monthlyWaitPot[m] = monthlyWaitPot[m - 1] * (1 + r) + waitContribThisMonth;
+    waitCumCash += waitCashThisMonth;
+    monthlyWaitCumCash[m] = waitCumCash;
   }
 
   // Sample the simulation at quarter-year intervals for the chart.
@@ -236,10 +277,14 @@ export function buildChartData({
     const m = Math.round((age - claimAge) * 12);
     let pot = 0;
     let cash = 0;
+    let waitPot = 0;
+    let waitCash = 0;
     if (m >= 0) {
       const idx = Math.min(m, totalMonthsLife);
       pot = monthlyPot[idx];
       cash = monthlyCumCash[idx];
+      waitPot = monthlyWaitPot[idx];
+      waitCash = monthlyWaitCumCash[idx];
     }
     const early = age >= claimAge ? pot + cash : 0;
     const wait = waitTotalAtAge({
@@ -248,11 +293,14 @@ export function buildChartData({
       fraMonthlyNetRetired,
       postFRAWorkEndAge,
     });
+    const waitInvested = age >= FRA ? waitPot + waitCash : 0;
     data.push({
       age: parseFloat(age.toFixed(4)),
       early: Math.round(early),
       pot: Math.round(pot),
       wait: Math.round(wait),
+      waitPot: Math.round(waitPot),
+      waitInvested: Math.round(waitInvested),
     });
   };
 
@@ -271,9 +319,9 @@ export function buildChartData({
   return data;
 }
 
-// Find the age at which the early-claim total crosses the wait-claim total.
-// Returns null when no crossover exists in the projected range, or when the
-// comparison doesn't apply (switch mode, claim at FRA exactly).
+// Find the age at which series `leftKey` crosses series `rightKey` in
+// chartData. Returns null when no crossover exists in the projected range,
+// or when the comparison doesn't apply (switch mode, claim at FRA exactly).
 //
 // When multiple crossovers exist (rare — only with high returns where the
 // pot compounds back past the wait line after wait briefly took the lead),
@@ -283,27 +331,34 @@ export function buildChartData({
 // Two ways a crossover is detected per sample-pair:
 //   1. Sign change between consecutive samples (the standard case) —
 //      linear-interp the exact age between them.
-//   2. Exact zero at the current sample with both curves already non-trivial
-//      (b.early > 0 guards against the trivial pre-claim startup where
-//      both curves sit at 0). Without this branch, an integer-aligned setup
-//      whose crossover lands exactly on a quarter-year sample (e.g. r=0,
-//      early=$1000/mo, wait=$1500/mo, investStop=67 → crossover at age 77.0)
-//      reports null because the sign-change product is exactly 0.
-export function findBreakEvenAge({ chartData, claimAge, mode }) {
+//   2. Exact zero at the current sample with the LEFT curve already
+//      non-trivial (b[leftKey] > 0 guards against the trivial pre-claim
+//      startup where both curves sit at 0). Without this branch, an
+//      integer-aligned setup whose crossover lands exactly on a
+//      quarter-year sample (e.g. r=0, early=$1000/mo, wait=$1500/mo,
+//      investStop=67 → crossover at age 77.0) reports null because the
+//      sign-change product is exactly 0.
+export function findCrossoverAge({
+  chartData,
+  claimAge,
+  mode,
+  leftKey = "early",
+  rightKey = "wait",
+}) {
   if (mode === "switch") return null;
   if (Math.abs(claimAge - FRA) < 0.01) return null;
   for (let i = 1; i < chartData.length; i++) {
     const a = chartData[i - 1];
     const b = chartData[i];
-    const prevDiff = a.early - a.wait;
-    const currDiff = b.early - b.wait;
+    const prevDiff = a[leftKey] - a[rightKey];
+    const currDiff = b[leftKey] - b[rightKey];
     // Return full precision so callers can format at month resolution
     // (fmtAge → "79 yr 10 mo"). Rounding to one decimal here would lose
     // the month-level fidelity — e.g. 79.7083 ("79 yr 8 mo") would round
     // to 79.7, which fmtAge would then read back as "79 yr 8 mo" via
     // 0.7 × 12 = 8.4 → 8 (correct by accident here, but other true ages
     // get pulled to the wrong month bucket).
-    if (currDiff === 0 && b.early > 0) {
+    if (currDiff === 0 && b[leftKey] > 0) {
       return b.age;
     }
     if (prevDiff * currDiff < 0) {
@@ -312,4 +367,15 @@ export function findBreakEvenAge({ chartData, claimAge, mode }) {
     }
   }
   return null;
+}
+
+// Back-compat wrapper: early vs wait (the original break-even).
+export function findBreakEvenAge({ chartData, claimAge, mode }) {
+  return findCrossoverAge({
+    chartData,
+    claimAge,
+    mode,
+    leftKey: "early",
+    rightKey: "wait",
+  });
 }

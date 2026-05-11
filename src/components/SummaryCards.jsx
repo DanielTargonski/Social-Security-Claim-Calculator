@@ -25,6 +25,12 @@ export default function SummaryCards({
   advantage,
   lifeExpectancy,
   crossoverValue,
+  // Wait+invest comparison (the "fair fight" — what if wait also invested
+  // its checks at the same return rate?). Surfaced as a small addendum at
+  // the bottom of Card 3.
+  investedPctWait = 0,
+  waitInvestedAdvantage = 0,
+  waitInvestedBreakEvenAge = null,
 }) {
   // FRA is hardcoded as 67 throughout the app — see ssRules.js.
   // Used for the "annual edge" stat = advantage averaged across post-FRA years.
@@ -53,6 +59,47 @@ export default function SummaryCards({
   // when the recoup brings them within rounding of the full amount.)
   const showsReductionNote =
     earlyClaimReduces && card2Net < fraMonthlyNet - 1;
+
+  // The "if wait also invested" addendum at the bottom of Card 3. Only
+  // renders when the user has the wait-invest slider above 0 (so the
+  // comparison is meaningful) and the mode isn't switch (Card 3's switch
+  // branch is a different shape and doesn't include a wait curve).
+  const waitInvestedAddendum =
+    investedPctWait > 0 && mode !== "switch" ? (
+      <div
+        className="mt-3 pt-3"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <div
+          className="text-xs uppercase mb-1"
+          style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+        >
+          If wait also invested {investedPctWait}%
+        </div>
+        {waitInvestedBreakEvenAge ? (
+          <div className="text-xs" style={{ color: C.inkOnDark }}>
+            {waitInvestedAdvantage >= 0
+              ? "early still leads"
+              : "wait+invest pulls ahead"}{" "}
+            — crossover at{" "}
+            <span className="num" style={{ color: C.paper, fontWeight: 500 }}>
+              {fmtAge(waitInvestedBreakEvenAge)}
+            </span>
+          </div>
+        ) : (
+          <div className="text-xs" style={{ color: C.inkOnDark }}>
+            {waitInvestedAdvantage >= 0
+              ? "early still leads by "
+              : "wait+invest leads by "}
+            <span className="num" style={{ color: C.paper, fontWeight: 500 }}>
+              {fmtBig(Math.abs(waitInvestedAdvantage))}
+            </span>{" "}
+            at {fmtAge(lifeExpectancy)}
+          </div>
+        )}
+      </div>
+    ) : null;
+
   return (
     <div className="lg:col-span-2 grid grid-cols-2 lg:grid-cols-1 gap-3 lg:sticky lg:top-4 lg:self-start">
       <div
@@ -238,6 +285,7 @@ export default function SummaryCards({
                 </div>
               </div>
             )}
+            {waitInvestedAddendum}
           </>
         ) : (
           // No crossover in range — early wins for life. Replace the bare
@@ -286,6 +334,7 @@ export default function SummaryCards({
                 past FRA
               </div>
             </div>
+            {waitInvestedAddendum}
           </>
         )}
       </div>

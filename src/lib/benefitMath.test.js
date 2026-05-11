@@ -551,3 +551,61 @@ describe("fmtDuration formatter", () => {
     expect(fmtDuration(11.999999 / 12)).toBe("1 yr");
   });
 });
+
+describe("computeProjection — wait+invest (investedPctWait)", () => {
+  // Defaults: 100% wait check invested. Chart line `waitInvested` and the
+  // matching summary fields (finalWaitInvested, waitInvestedAdvantage,
+  // waitInvestedBreakEvenAge, waitInvestedCrossoverValue) should be wired up.
+  const args = {
+    ...baseInputs,
+    investStopAge: 70, // > FRA so wait pot has runway
+    lifeExpectancy: 90,
+    returnRate: 7,
+  };
+
+  it("exposes the new wait+invest outputs on the projection", () => {
+    const r = computeProjection(args);
+    expect(typeof r.finalWaitInvested).toBe("number");
+    expect(typeof r.waitInvestedAdvantage).toBe("number");
+    // breakEvenAge / crossoverValue can legitimately be null when no
+    // crossover exists in range, but the keys must be present.
+    expect(r).toHaveProperty("waitInvestedBreakEvenAge");
+    expect(r).toHaveProperty("waitInvestedCrossoverValue");
+  });
+
+  it("finalWaitInvested > finalWait when returnRate>0 and investedPctWait>0", () => {
+    const r = computeProjection({ ...args, investedPctWait: 100 });
+    expect(r.finalWaitInvested).toBeGreaterThan(r.finalWait);
+  });
+
+  it("waitInvestedAdvantage < advantage when wait also invests (fair fight closes the gap)", () => {
+    const r = computeProjection({ ...args, investedPctWait: 100 });
+    expect(r.waitInvestedAdvantage).toBeLessThan(r.advantage);
+  });
+
+  it("investedPctWait=0 collapses waitInvested back to wait", () => {
+    const r = computeProjection({ ...args, investedPctWait: 0 });
+    // Allow a tiny rounding tolerance (each row is rounded to int).
+    expect(Math.abs(r.finalWaitInvested - r.finalWait)).toBeLessThan(2);
+    expect(Math.abs(r.waitInvestedAdvantage - r.advantage)).toBeLessThan(2);
+  });
+
+  it("waitInvestedAdvantage decreases monotonically as investedPctWait rises 0 → 100", () => {
+    const r0 = computeProjection({ ...args, investedPctWait: 0 });
+    const r50 = computeProjection({ ...args, investedPctWait: 50 });
+    const r100 = computeProjection({ ...args, investedPctWait: 100 });
+    expect(r0.waitInvestedAdvantage).toBeGreaterThan(
+      r50.waitInvestedAdvantage
+    );
+    expect(r50.waitInvestedAdvantage).toBeGreaterThan(
+      r100.waitInvestedAdvantage
+    );
+  });
+
+  it("defaults to investedPctWait=100 when omitted", () => {
+    const explicit = computeProjection({ ...args, investedPctWait: 100 });
+    const omitted = computeProjection(args); // no investedPctWait
+    expect(omitted.finalWaitInvested).toBe(explicit.finalWaitInvested);
+    expect(omitted.waitInvestedAdvantage).toBe(explicit.waitInvestedAdvantage);
+  });
+});

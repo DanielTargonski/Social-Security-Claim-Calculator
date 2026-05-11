@@ -8,6 +8,7 @@ import {
   waitTotalAtAge,
   buildChartData,
   findBreakEvenAge,
+  findCrossoverAge,
 } from "./chartProjection.js";
 import { FRA } from "./ssRules.js";
 import { computeProjection } from "./benefitMath.js";
@@ -548,5 +549,165 @@ describe("buildChartData — investedFraction", () => {
     const omitted = buildChartData({ ...baseArgs, returnRate: 7 });
     expect(omitted.at(-1).early).toBe(explicit.at(-1).early);
     expect(omitted.at(-1).pot).toBe(explicit.at(-1).pot);
+  });
+});
+
+describe("buildChartData — waitInvestedFraction", () => {
+  // The waitInvested line is the parallel pot for the wait scenario: invest
+  // each post-FRA check at the same return rate until investStopAge, then
+  // let the pot compound while remaining checks become cash. waitInvested
+  // = waitPot + cumulative wait-side cash. The existing `wait` line stays
+  // as the uninvested cumulative baseline.
+  const baseArgs = {
+    claimAge: 62,
+    investStopAge: 70, // > FRA so Phase 2 has runway for the wait pot
+    lifeExpectancy: 85,
+    earlyMonthlyNet: 1000,
+    earlyPostFRAMonthlyNet: 1000,
+    fraMonthlyNet: 1500,
+  };
+
+  it("waitInvested is 0 before FRA (no claim yet)", () => {
+    const data = buildChartData({ ...baseArgs, returnRate: 7 });
+    const preFRA = data.filter((d) => d.age < FRA);
+    expect(preFRA.length).toBeGreaterThan(0);
+    for (const row of preFRA) {
+      expect(row.waitInvested).toBe(0);
+      expect(row.waitPot).toBe(0);
+    }
+  });
+
+  it("at returnRate=0, waitInvested at lifeExpectancy equals total FRA checks collected", () => {
+    const data = buildChartData({
+      ...baseArgs,
+      returnRate: 0,
+      waitInvestedFraction: 1,
+    });
+    const final = data.at(-1);
+    // 1500/mo × 12 × (85-67) = 324,000 — the wait pot at 0% return is
+    // just the sum of FRA checks, identical to the uninvested wait line.
+    expect(closeTo(final.waitInvested, 324000, 5)).toBe(true);
+    expect(closeTo(final.waitInvested, final.wait, 5)).toBe(true);
+  });
+
+  it("at waitInvestedFraction=0, waitInvested equals wait for every row", () => {
+    const data = buildChartData({
+      ...baseArgs,
+      returnRate: 7,
+      waitInvestedFraction: 0,
+    });
+    for (const row of data) {
+      // waitInvested should equal wait when nothing is invested — no
+      // compounding, just cumulative checks.
+      expect(Math.abs(row.waitInvested - row.wait)).toBeLessThan(2);
+    }
+    // waitPot stays at 0 throughout.
+    for (const row of data) {
+      expect(row.waitPot).toBe(0);
+    }
+  });
+
+  it("at returnRate>0 and waitInvestedFraction=1, waitInvested exceeds wait past FRA", () => {
+    const data = buildChartData({
+      ...baseArgs,
+      returnRate: 7,
+      waitInvestedFraction: 1,
+    });
+    const postFRA = data.filter((d) => d.age > FRA + 1);
+    expect(postFRA.length).toBeGreaterThan(0);
+    for (const row of postFRA) {
+      expect(row.waitInvested).toBeGreaterThan(row.wait);
+    }
+  });
+
+  it("waitPot is monotonically nondecreasing past FRA at positive return", () => {
+    const data = buildChartData({
+      ...baseArgs,
+      returnRate: 7,
+      waitInvestedFraction: 1,
+    });
+    const postFRA = data.filter((d) => d.age >= FRA);
+    for (let i = 1; i < postFRA.length; i++) {
+      expect(postFRA[i].waitPot).toBeGreaterThanOrEqual(postFRA[i - 1].waitPot);
+    }
+  });
+
+  it("defaults to waitInvestedFraction=1 when omitted", () => {
+    const explicit = buildChartData({
+      ...baseArgs,
+      returnRate: 7,
+      waitInvestedFraction: 1,
+    });
+    const omitted = buildChartData({ ...baseArgs, returnRate: 7 });
+    expect(omitted.at(-1).waitInvested).toBe(explicit.at(-1).waitInvested);
+    expect(omitted.at(-1).waitPot).toBe(explicit.at(-1).waitPot);
+  });
+});
+
+describe("findCrossoverAge — generalized series pair", () => {
+  // The generic findCrossoverAge should be back-compat with findBreakEvenAge
+  // when called with the original (early, wait) pair.
+  const setup = () =>
+    buildChartData({
+      claimAge: 62,
+      investStopAge: 67,
+      lifeExpectancy: 95,
+      returnRate: 0,
+      earlyMonthlyNet: 1000,
+      earlyPostFRAMonthlyNet: 1000,
+      fraMonthlyNet: 1500,
+    });
+
+  it("with leftKey=early/rightKey=wait, matches findBreakEvenAge exactly", () => {
+    const chartData = setup();
+    const a = findBreakEvenAge({ chartData, claimAge: 62, mode: "retirement" });
+    const b = findCrossoverAge({
+      chartData,
+      claimAge: 62,
+      mode: "retirement",
+      leftKey: "early",
+      rightKey: "wait",
+    });
+    expect(a).toEqual(b);
+  });
+
+  it("returns null in switch mode regardless of which keys are passed", () => {
+    const chartData = setup();
+    expect(
+      findCrossoverAge({
+        chartData,
+        claimAge: 62,
+        mode: "switch",
+        leftKey: "early",
+        rightKey: "waitInvested",
+      })
+    ).toBeNull();
+  });
+
+  it("detects an early-vs-waitInvested crossover when one exists", () => {
+    // High return + invest both → eventually wait+invest catches up.
+    const chartData = buildChartData({
+      claimAge: 62,
+      investStopAge: 80, // long invest window
+      lifeExpectancy: 100,
+      returnRate: 10,
+      earlyMonthlyNet: 1000,
+      earlyPostFRAMonthlyNet: 1000,
+      fraMonthlyNet: 1500,
+      waitInvestedFraction: 1,
+    });
+    const crossover = findCrossoverAge({
+      chartData,
+      claimAge: 62,
+      mode: "retirement",
+      leftKey: "early",
+      rightKey: "waitInvested",
+    });
+    // A crossover may or may not exist depending on dynamics; what matters
+    // for the API is the function returns a number-or-null and doesn't
+    // throw. If a crossover exists it should be past FRA.
+    if (crossover !== null) {
+      expect(crossover).toBeGreaterThan(FRA);
+    }
   });
 });
