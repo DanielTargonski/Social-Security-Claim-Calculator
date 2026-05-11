@@ -243,7 +243,21 @@ export default function InputsPanel({
           })()}
         />
         <SliderInput
-          label="Invest pct of wait checks"
+          label={
+            <>
+              Invest pct of{" "}
+              <span
+                title="“Wait” = the larger benefit you’d start collecting at FRA (67) if you didn’t claim early. Only post-67 checks are invested in this scenario; nothing is being received pre-67."
+                style={{
+                  borderBottom: `1px dotted ${C.borderDark}`,
+                  cursor: "help",
+                }}
+              >
+                wait
+              </span>{" "}
+              checks
+            </>
+          }
           value={investedPctWait}
           onChange={setInvestedPctWait}
           min={0}
