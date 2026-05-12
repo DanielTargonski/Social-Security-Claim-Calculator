@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { C } from "./constants/colors.js";
 import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
 import { useOptimalClaimAge } from "./hooks/useOptimalClaimAge.js";
-import {
-  getInitialStateFromUrl,
-  serializeStateToParams,
-} from "./lib/shareableState.js";
+import { useFormState } from "./hooks/useFormState.js";
+import { useUrlSync } from "./hooks/useUrlSync.js";
+import { getInitialStateFromUrl } from "./lib/shareableState.js";
 import GlobalStyles from "./components/GlobalStyles.jsx";
 import Header from "./components/Header.jsx";
 import ModeSwitcher from "./components/ModeSwitcher.jsx";
@@ -34,61 +33,14 @@ export default function App() {
 
   // Hydrate initial state from URL query params (set by ShareLinkButton when
   // someone shared this link). Falls back to defaults for any missing field.
-  // See lib/shareableState.js for the schema and per-field defaults.
-  // Lazy useState so the URL is parsed once on mount, not on every render.
-  const [initial] = useState(getInitialStateFromUrl);
-  const [mode, setMode] = useState(initial.mode);
-  const [fraBenefit, setFraBenefit] = useState(initial.fraBenefit);
-  const [ownBenefit, setOwnBenefit] = useState(initial.ownBenefit);
-  const [claimAge, setClaimAge] = useState(initial.claimAge);
-  const [returnRate, setReturnRate] = useState(initial.returnRate);
-  const [investStopAge, setInvestStopAge] = useState(initial.investStopAge);
-  const [lifeExpectancy, setLifeExpectancy] = useState(initial.lifeExpectancy);
-  const [grossIncome, setGrossIncome] = useState(initial.grossIncome);
-  const [postFRAGrossIncome, setPostFRAGrossIncome] = useState(
-    initial.postFRAGrossIncome
-  );
-  const [postFRAWorkYears, setPostFRAWorkYears] = useState(
-    initial.postFRAWorkYears
-  );
-  const [autoTax, setAutoTax] = useState(initial.autoTax);
-  const [manualFedRate, setManualFedRate] = useState(initial.manualFedRate);
-  const [investedPct, setInvestedPct] = useState(initial.investedPct);
-  const [investedPctWait, setInvestedPctWait] = useState(
-    initial.investedPctWait
-  );
-
-  // Mirror state into the URL on every change via replaceState (no history
-  // entries — back button shouldn't undo individual slider drags). Stored
-  // raw investStopAge intentionally, not the clamped effective value, so a
-  // shared link preserves the user's actual setting and "comes back" if the
-  // recipient drags claimAge down.
-  useEffect(() => {
-    const params = serializeStateToParams({
-      mode,
-      fraBenefit,
-      ownBenefit,
-      claimAge,
-      returnRate,
-      investStopAge,
-      lifeExpectancy,
-      grossIncome,
-      postFRAGrossIncome,
-      postFRAWorkYears,
-      autoTax,
-      manualFedRate,
-      investedPct,
-      investedPctWait,
-    });
-    const newSearch = "?" + params.toString();
-    if (window.location.search !== newSearch) {
-      window.history.replaceState(
-        null,
-        "",
-        window.location.pathname + newSearch + window.location.hash
-      );
-    }
-  }, [
+  // See lib/shareableState.js for the schema and per-field defaults. Lazy
+  // initializer so the URL is parsed once on mount, not on every render.
+  // useFormState bundles all form fields into a single state object and
+  // auto-generates per-field setters keyed off the initial keys — adding a
+  // new input is a one-line change in the shareableState SCHEMA, not a
+  // four-place edit here.
+  const [state, setters] = useFormState(getInitialStateFromUrl);
+  const {
     mode,
     fraBenefit,
     ownBenefit,
@@ -103,7 +55,29 @@ export default function App() {
     manualFedRate,
     investedPct,
     investedPctWait,
-  ]);
+  } = state;
+  const {
+    setMode,
+    setFraBenefit,
+    setOwnBenefit,
+    setClaimAge,
+    setReturnRate,
+    setInvestStopAge,
+    setLifeExpectancy,
+    setGrossIncome,
+    setPostFRAGrossIncome,
+    setPostFRAWorkYears,
+    setAutoTax,
+    setManualFedRate,
+    setInvestedPct,
+    setInvestedPctWait,
+  } = setters;
+
+  // Mirror state into the URL on every change. Stored raw investStopAge
+  // intentionally, not the clamped effective value, so a shared link
+  // preserves the user's actual setting and "comes back" if the recipient
+  // drags claimAge down.
+  useUrlSync(state);
 
   // Mode-specific bounds for the claim-age slider.
   let earliest, latest;
