@@ -5,6 +5,7 @@ import {
   fmtAge,
   fmtDuration,
 } from "../lib/benefitMath.js";
+import { rangeForMode } from "../lib/modeConfig.js";
 import { C } from "../constants/colors.js";
 
 // One sensitivity variable. Each entry:
@@ -19,17 +20,7 @@ import { C } from "../constants/colors.js";
 //                 that don't set every field — keeps perturb arithmetic from
 //                 going NaN)
 function makeVariables(inputs) {
-  let earliest, latest;
-  if (inputs.mode === "retirement") {
-    earliest = 62;
-    latest = 70;
-  } else if (inputs.mode === "survivor") {
-    earliest = 60;
-    latest = 67;
-  } else {
-    earliest = 62;
-    latest = 66.5;
-  }
+  const { earliest, latest } = rangeForMode(inputs.mode);
 
   return [
     {

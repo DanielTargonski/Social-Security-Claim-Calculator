@@ -7,6 +7,11 @@
 // from a useMemo or from tests.
 
 import { computeProjection } from "./benefitMath.js";
+import { rangeForMode } from "./modeConfig.js";
+
+// Re-export so existing callers (OptimalClaimAge.jsx, this module's tests)
+// don't have to change their import paths.
+export { rangeForMode };
 
 // Mode-aware headline metric. Both choices give the same `argmax` as the
 // alternatives (e.g. `advantage` ranks identically to `finalEarly` because
@@ -25,12 +30,6 @@ import { computeProjection } from "./benefitMath.js";
 function scoreForMode(projection, mode) {
   if (mode === "switch") return projection.potAtStopRow;
   return projection.finalEarly;
-}
-
-export function rangeForMode(mode) {
-  if (mode === "retirement") return { earliest: 62, latest: 70 };
-  if (mode === "survivor") return { earliest: 60, latest: 67 };
-  return { earliest: 62, latest: 66.5 }; // switch
 }
 
 // Mirror of App.jsx's effectiveInvestStopAge derivation. Keeps each candidate

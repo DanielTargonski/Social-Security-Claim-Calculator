@@ -6,6 +6,7 @@ import { useOptimalClaimAge } from "./hooks/useOptimalClaimAge.js";
 import { useFormState } from "./hooks/useFormState.js";
 import { useUrlSync } from "./hooks/useUrlSync.js";
 import { getInitialStateFromUrl } from "./lib/shareableState.js";
+import { rangeForMode, snapClaimAgeOnModeSwitch } from "./lib/modeConfig.js";
 import GlobalStyles from "./components/GlobalStyles.jsx";
 import Header from "./components/Header.jsx";
 import ModeSwitcher from "./components/ModeSwitcher.jsx";
@@ -80,17 +81,7 @@ export default function App() {
   useUrlSync(state);
 
   // Mode-specific bounds for the claim-age slider.
-  let earliest, latest;
-  if (mode === "retirement") {
-    earliest = 62;
-    latest = 70;
-  } else if (mode === "survivor") {
-    earliest = 60;
-    latest = 67;
-  } else {
-    earliest = 62;
-    latest = 66.5;
-  }
+  const { earliest, latest } = rangeForMode(mode);
 
   // Keep investStopAge bounded by both ends: at least ceil(claimAge) (can't
   // stop investing before you've started), at most lifeExpectancy (can't
@@ -105,19 +96,12 @@ export default function App() {
   );
 
   // When the user switches modes, snap claimAge into the new mode's range so
-  // the projection stays sensible. Picks a neutral midpoint when wildly out.
+  // the projection stays sensible. Picks a mode-specific landing age when
+  // wildly out — see snapClaimAgeOnModeSwitch in modeConfig.js.
   const switchMode = (newMode) => {
     setMode(newMode);
-    if (newMode === "survivor") {
-      if (claimAge < 60) setClaimAge(60);
-      if (claimAge > 67) setClaimAge(65);
-    } else if (newMode === "switch") {
-      if (claimAge < 62) setClaimAge(62);
-      if (claimAge > 66.5) setClaimAge(64);
-    } else {
-      if (claimAge < 62) setClaimAge(62);
-      if (claimAge > 70) setClaimAge(70);
-    }
+    const snapped = snapClaimAgeOnModeSwitch(newMode, claimAge);
+    if (snapped !== claimAge) setClaimAge(snapped);
   };
 
   const inputs = {

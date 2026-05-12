@@ -19,7 +19,10 @@
 // like `?mode=survivor&age=70` would leave React state holding 70 even
 // though the survivor slider only goes to 67 — the slider visually
 // clamps to its max but the state, label, and math still see 70.
-// claimAge bounds depend on `mode` and are applied separately below.
+// claimAge bounds depend on `mode` and are applied separately below via
+// clampClaimAge — the per-mode bounds table lives in modeConfig.js.
+
+import { clampClaimAgeToBounds } from "./modeConfig.js";
 
 const SCHEMA = [
   { key: "mode",               url: "mode",  type: "enum", options: ["retirement", "survivor", "switch"], default: "retirement" },
@@ -37,15 +40,6 @@ const SCHEMA = [
   { key: "investedPct",        url: "inv",   type: "num",  default: 100,  min: 0,    max: 100 },
   { key: "investedPctWait",    url: "invw",  type: "num",  default: 100,  min: 0,    max: 100 },
 ];
-
-// Mode-specific claim-age bounds — duplicated from App.jsx and
-// SensitivityTornado.jsx. If a fourth caller appears, hoist this to a
-// shared util.
-const CLAIM_AGE_BOUNDS = {
-  retirement: { min: 62, max: 70 },
-  survivor:   { min: 60, max: 67 },
-  switch:     { min: 62, max: 66.5 },
-};
 
 export const DEFAULT_STATE = Object.fromEntries(
   SCHEMA.map((s) => [s.key, s.default])
@@ -103,11 +97,9 @@ export function parseStateFromParams(params) {
 // Exported for testability — the production caller is getInitialStateFromUrl
 // below, which can't run in the node test env (no window).
 export function clampClaimAge(state) {
-  const bounds = CLAIM_AGE_BOUNDS[state.mode];
-  if (!bounds) return state;
-  if (state.claimAge < bounds.min) return { ...state, claimAge: bounds.min };
-  if (state.claimAge > bounds.max) return { ...state, claimAge: bounds.max };
-  return state;
+  const clamped = clampClaimAgeToBounds(state.mode, state.claimAge);
+  if (clamped === state.claimAge) return state;
+  return { ...state, claimAge: clamped };
 }
 
 // Read the current page URL and merge over defaults. Safe to call during
