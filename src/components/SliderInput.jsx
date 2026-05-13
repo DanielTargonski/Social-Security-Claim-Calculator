@@ -8,6 +8,12 @@ import { C } from "../constants/colors.js";
 // `typeMin` / `typeMax` (optional) widen the bounds for typed values only —
 // the slider stays at min/max for easy maneuvering, but power users can type
 // values outside that visible range. When omitted they fall back to min/max.
+//
+// `editToString` / `parseEdit` (optional) let the caller drive the click-to-edit
+// in a different unit than the underlying value. Used by the invest sliders to
+// offer a "$" mode where the user types a dollar amount but the stored value
+// stays as a percentage. When omitted they fall back to plain numeric editing
+// clamped to editMin/editMax. `parseEdit` returns `null` to cancel the commit.
 export default function SliderInput({
   label,
   value,
@@ -24,6 +30,8 @@ export default function SliderInput({
   // "→ optimal NN yr · +$X" call-to-action right next to the label so the
   // user sees it without scrolling down to the deeper Optimal panel.
   accessory,
+  editToString,
+  parseEdit,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -31,15 +39,20 @@ export default function SliderInput({
   const editMax = typeMax ?? max;
 
   const startEdit = () => {
-    setDraft(String(value));
+    setDraft(editToString ? editToString(value) : String(value));
     setEditing(true);
   };
 
   const commit = () => {
-    const parsed = parseFloat(draft);
-    if (!Number.isNaN(parsed)) {
-      const clamped = Math.min(editMax, Math.max(editMin, parsed));
-      onChange(clamped);
+    if (parseEdit) {
+      const next = parseEdit(draft);
+      if (next != null) onChange(next);
+    } else {
+      const parsed = parseFloat(draft);
+      if (!Number.isNaN(parsed)) {
+        const clamped = Math.min(editMax, Math.max(editMin, parsed));
+        onChange(clamped);
+      }
     }
     setEditing(false);
   };
@@ -62,9 +75,9 @@ export default function SliderInput({
             autoFocus
             className="num"
             value={draft}
-            min={editMin}
-            max={editMax}
-            step={step}
+            min={parseEdit ? undefined : editMin}
+            max={parseEdit ? undefined : editMax}
+            step={parseEdit ? "any" : step}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commit}
             onFocus={(e) => e.target.select()}

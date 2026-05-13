@@ -154,6 +154,89 @@ describe("SliderInput — click-to-edit", () => {
     expect(screen.getByRole("button", { name: "age 64.0" })).toBeInTheDocument();
   });
 
+  it("editToString prefills the edit input with a caller-controlled string", async () => {
+    // Used by the invest sliders' "$" mode: underlying value is a percentage,
+    // but the edit input shows the dollar equivalent so the user can type a
+    // dollar figure directly.
+    const user = userEvent.setup();
+    render(
+      <SliderInput
+        {...baseProps}
+        min={0}
+        max={100}
+        value={50}
+        format={(v) => `${v}%`}
+        editToString={(pct) => String(pct * 20)}
+        onChange={() => {}}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "50%" }));
+    const numInput = screen.getByRole("spinbutton");
+    // 50% × $20/pt = "$1000" — prefilled in the edit input as the dollar value.
+    expect(numInput).toHaveValue(1000);
+  });
+
+  it("parseEdit converts typed text back to the underlying value and clamps", async () => {
+    // The dollar-mode parser converts typed dollars back to a percentage and
+    // clamps anything above the monthly check down to 100%.
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const monthly = 2000;
+    render(
+      <SliderInput
+        {...baseProps}
+        min={0}
+        max={100}
+        value={25}
+        format={(v) => `${v}%`}
+        parseEdit={(text) => {
+          const dollars = parseFloat(text);
+          if (Number.isNaN(dollars)) return null;
+          return Math.min(100, Math.max(0, (dollars / monthly) * 100));
+        }}
+        onChange={onChange}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "25%" }));
+    const numInput = screen.getByRole("spinbutton");
+    await user.clear(numInput);
+    await user.type(numInput, "1500{Enter}");
+
+    // $1500 of a $2000 check → 75%.
+    expect(onChange).toHaveBeenCalledWith(75);
+  });
+
+  it("parseEdit clamps a typed dollar amount above the monthly check to 100%", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const monthly = 2000;
+    render(
+      <SliderInput
+        {...baseProps}
+        min={0}
+        max={100}
+        value={25}
+        format={(v) => `${v}%`}
+        parseEdit={(text) => {
+          const dollars = parseFloat(text);
+          if (Number.isNaN(dollars)) return null;
+          return Math.min(100, Math.max(0, (dollars / monthly) * 100));
+        }}
+        onChange={onChange}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "25%" }));
+    const numInput = screen.getByRole("spinbutton");
+    await user.clear(numInput);
+    // $5000 ≫ $2000 monthly check — caller maps this to the full check (100%).
+    await user.type(numInput, "5000{Enter}");
+
+    expect(onChange).toHaveBeenCalledWith(100);
+  });
+
   it("blur commits the typed value", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

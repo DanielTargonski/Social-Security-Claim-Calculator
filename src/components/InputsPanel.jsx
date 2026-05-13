@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   EARNINGS_LIMIT_2026,
   fmtMoney,
@@ -10,6 +11,77 @@ import { C } from "../constants/colors.js";
 import SliderInput from "./SliderInput.jsx";
 import ShareLinkButton from "./ShareLinkButton.jsx";
 
+// Tiny "% / $" pill toggle rendered in the accessory slot of the two invest
+// sliders. Underlying state stays as a percentage of the monthly net check
+// (so the value still makes sense if the monthly net later changes), but the
+// user can flip to "$" to type an exact dollar amount instead.
+function UnitToggle({ mode, onChange }) {
+  const pill = (active) => ({
+    padding: "1px 6px",
+    backgroundColor: active ? C.ink : "transparent",
+    color: active ? C.bg : C.inkSoft,
+    border: `1px solid ${active ? C.ink : C.border}`,
+    cursor: "pointer",
+    fontWeight: 500,
+    fontFamily: "inherit",
+    fontSize: "10px",
+    lineHeight: 1.4,
+  });
+  return (
+    <span style={{ display: "inline-flex", gap: "2px" }} className="num">
+      <button
+        type="button"
+        onClick={() => onChange("%")}
+        title="Enter as percentage of the monthly check"
+        style={pill(mode === "%")}
+      >
+        %
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("$")}
+        title="Enter as a fixed dollar amount per month (capped at the full check)"
+        style={pill(mode === "$")}
+      >
+        $
+      </button>
+    </span>
+  );
+}
+
+// Build the { format, editToString, parseEdit } trio for an invest slider in
+// dollar-input mode. `monthly` is the monthly net check the percentage
+// applies to. The underlying value stays as a 0-100 percentage; this just
+// drives the click-to-edit and value display in dollars. Typed dollar
+// amounts above `monthly` clamp to 100% (= the full check) per spec.
+function dollarModeProps(monthly) {
+  const safeMonthly = monthly > 0 ? monthly : 0;
+  return {
+    format: (pct) =>
+      "$" +
+      Math.round(safeMonthly * (pct / 100)).toLocaleString() +
+      "/mo",
+    editToString: (pct) =>
+      String(Math.round(safeMonthly * (pct / 100))),
+    parseEdit: (text) => {
+      const dollars = parseFloat(text);
+      if (Number.isNaN(dollars)) return null;
+      if (safeMonthly <= 0) return 0;
+      const pct = (dollars / safeMonthly) * 100;
+      return Math.min(100, Math.max(0, pct));
+    },
+  };
+}
+
+// Display-rounded percentage: at most one decimal, strip trailing ".0" so
+// whole numbers stay clean. Used by chips/labels — never for math. The $-mode
+// input can land the underlying percentage on a long decimal (e.g. $500 of a
+// $1,750 check → 28.571428…%) and we don't want every UI surface that quotes
+// it back to look like a JavaScript dump.
+function fmtPct(v) {
+  return Number(v.toFixed(1)) + "%";
+}
+
 // Compact "set me to match the early-checks slider" chip, rendered in the
 // wait-checks-invested slider's accessory slot. The natural reading order
 // is to tune the early-checks % first (it's the slider above), so this
@@ -17,7 +89,13 @@ import ShareLinkButton from "./ShareLinkButton.jsx";
 // values already match it switches to a non-interactive ✓ matches early
 // indicator, mirroring the OptimalClaimAgeChip pattern below.
 function MatchEarlyChip({ investedPctWait, investedPct, onApply }) {
-  if (investedPctWait === investedPct) {
+  // Tolerance-based match (≤ 0.05pp) instead of strict equality: with the
+  // $-mode invest entry the underlying percentage can be a long decimal, so
+  // even a fresh "match early" click followed by no other change would fail
+  // === if we re-derived one side from a different code path. 0.05pp is
+  // below our one-decimal display rounding, so anything that displays as
+  // identical also reads as matching here.
+  if (Math.abs(investedPctWait - investedPct) < 0.05) {
     return (
       <span
         className="text-xs num truncate"
@@ -33,7 +111,7 @@ function MatchEarlyChip({ investedPctWait, investedPct, onApply }) {
       type="button"
       onClick={() => onApply(investedPct)}
       className="num truncate"
-      title={`Set wait+invest to match the pre-FRA invested % (${investedPct}%)`}
+      title={`Set wait+invest to match the pre-FRA invested % (${fmtPct(investedPct)})`}
       style={{
         color: C.wait,
         backgroundColor: "transparent",
@@ -45,7 +123,7 @@ function MatchEarlyChip({ investedPctWait, investedPct, onApply }) {
         fontFamily: "inherit",
       }}
     >
-      → match early ({investedPct}%)
+      → match early ({fmtPct(investedPct)})
     </button>
   );
 }
@@ -141,6 +219,16 @@ export default function InputsPanel({
   // below the chart share one computation.
   optimal,
 }) {
+  // Per-slider input-unit preference. Local UI state, not URL-persisted:
+  // the underlying stored value is always a percentage, so a shared link
+  // round-trips identically no matter which mode the sender used.
+  const [investedPctEarlyMode, setInvestedPctEarlyMode] = useState("%");
+  const [investedPctWaitMode, setInvestedPctWaitMode] = useState("%");
+  const earlyDollarProps =
+    investedPctEarlyMode === "$" ? dollarModeProps(earlyMonthlyNet) : null;
+  const waitDollarProps =
+    investedPctWaitMode === "$" ? dollarModeProps(fraMonthlyNet) : null;
+
   return (
     <div
       className="lg:col-span-3 p-6 md:p-7"
@@ -247,7 +335,9 @@ export default function InputsPanel({
           min={0}
           max={100}
           step={5}
-          format={(v) => v + "%"}
+          format={earlyDollarProps ? earlyDollarProps.format : (v) => v + "%"}
+          editToString={earlyDollarProps?.editToString}
+          parseEdit={earlyDollarProps?.parseEdit}
           hint={(() => {
             const invested = earlyMonthlyNet * (investedPct / 100);
             const cash = earlyMonthlyNet - invested;
@@ -255,6 +345,12 @@ export default function InputsPanel({
             if (investedPct === 0) return `${fmtMoney(cash)}/mo cash`;
             return `${fmtMoney(invested)}/mo invested · ${fmtMoney(cash)}/mo cash`;
           })()}
+          accessory={
+            <UnitToggle
+              mode={investedPctEarlyMode}
+              onChange={setInvestedPctEarlyMode}
+            />
+          }
         />
         <SliderInput
           label={
@@ -277,7 +373,9 @@ export default function InputsPanel({
           min={0}
           max={100}
           step={5}
-          format={(v) => v + "%"}
+          format={waitDollarProps ? waitDollarProps.format : (v) => v + "%"}
+          editToString={waitDollarProps?.editToString}
+          parseEdit={waitDollarProps?.parseEdit}
           hint={(() => {
             const invested = fraMonthlyNet * (investedPctWait / 100);
             const cash = fraMonthlyNet - invested;
@@ -288,11 +386,24 @@ export default function InputsPanel({
             return `${fmtMoney(invested)}/mo invested · ${fmtMoney(cash)}/mo cash`;
           })()}
           accessory={
-            <MatchEarlyChip
-              investedPctWait={investedPctWait}
-              investedPct={investedPct}
-              onApply={setInvestedPctWait}
-            />
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                minWidth: 0,
+              }}
+            >
+              <UnitToggle
+                mode={investedPctWaitMode}
+                onChange={setInvestedPctWaitMode}
+              />
+              <MatchEarlyChip
+                investedPctWait={investedPctWait}
+                investedPct={investedPct}
+                onApply={setInvestedPctWait}
+              />
+            </span>
           }
         />
         <SliderInput
