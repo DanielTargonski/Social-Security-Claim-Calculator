@@ -335,8 +335,11 @@ export default function InputsPanel({
           min={0}
           max={100}
           step={5}
-          format={earlyDollarProps ? earlyDollarProps.format : (v) => v + "%"}
-          editToString={earlyDollarProps?.editToString}
+          format={earlyDollarProps ? earlyDollarProps.format : fmtPct}
+          editToString={
+            earlyDollarProps?.editToString ??
+            ((v) => String(Number(v.toFixed(1))))
+          }
           parseEdit={earlyDollarProps?.parseEdit}
           hint={(() => {
             const invested = earlyMonthlyNet * (investedPct / 100);
@@ -373,8 +376,11 @@ export default function InputsPanel({
           min={0}
           max={100}
           step={5}
-          format={waitDollarProps ? waitDollarProps.format : (v) => v + "%"}
-          editToString={waitDollarProps?.editToString}
+          format={waitDollarProps ? waitDollarProps.format : fmtPct}
+          editToString={
+            waitDollarProps?.editToString ??
+            ((v) => String(Number(v.toFixed(1))))
+          }
           parseEdit={waitDollarProps?.parseEdit}
           hint={(() => {
             const invested = fraMonthlyNet * (investedPctWait / 100);
