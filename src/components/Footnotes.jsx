@@ -81,7 +81,11 @@ export default function Footnotes() {
         Sequence of returns risk on the invested side. The senior bonus
         deduction (up to $6,000 extra for 65+, phasing out above $75K MAGI)
         which can reduce or eliminate SS taxation. Tax drag on the investment
-        portfolio. Medicare Part B premiums.
+        portfolio. Medicare Part B premiums. The $25K and $34K combined-income
+        thresholds that determine taxable SS are frozen by statute (not
+        inflation-indexed), so in real terms they shrink every year — the
+        model treats them as flat, which slightly understates lifetime tax
+        drag on both scenarios, more so on the larger "wait" checks.
       </div>
     </div>
 
