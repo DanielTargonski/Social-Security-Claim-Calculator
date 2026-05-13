@@ -73,6 +73,15 @@ function dollarModeProps(monthly) {
   };
 }
 
+// Display-rounded percentage: at most one decimal, strip trailing ".0" so
+// whole numbers stay clean. Used by chips/labels — never for math. The $-mode
+// input can land the underlying percentage on a long decimal (e.g. $500 of a
+// $1,750 check → 28.571428…%) and we don't want every UI surface that quotes
+// it back to look like a JavaScript dump.
+function fmtPct(v) {
+  return Number(v.toFixed(1)) + "%";
+}
+
 // Compact "set me to match the early-checks slider" chip, rendered in the
 // wait-checks-invested slider's accessory slot. The natural reading order
 // is to tune the early-checks % first (it's the slider above), so this
@@ -80,7 +89,13 @@ function dollarModeProps(monthly) {
 // values already match it switches to a non-interactive ✓ matches early
 // indicator, mirroring the OptimalClaimAgeChip pattern below.
 function MatchEarlyChip({ investedPctWait, investedPct, onApply }) {
-  if (investedPctWait === investedPct) {
+  // Tolerance-based match (≤ 0.05pp) instead of strict equality: with the
+  // $-mode invest entry the underlying percentage can be a long decimal, so
+  // even a fresh "match early" click followed by no other change would fail
+  // === if we re-derived one side from a different code path. 0.05pp is
+  // below our one-decimal display rounding, so anything that displays as
+  // identical also reads as matching here.
+  if (Math.abs(investedPctWait - investedPct) < 0.05) {
     return (
       <span
         className="text-xs num truncate"
@@ -96,7 +111,7 @@ function MatchEarlyChip({ investedPctWait, investedPct, onApply }) {
       type="button"
       onClick={() => onApply(investedPct)}
       className="num truncate"
-      title={`Set wait+invest to match the pre-FRA invested % (${investedPct}%)`}
+      title={`Set wait+invest to match the pre-FRA invested % (${fmtPct(investedPct)})`}
       style={{
         color: C.wait,
         backgroundColor: "transparent",
@@ -108,7 +123,7 @@ function MatchEarlyChip({ investedPctWait, investedPct, onApply }) {
         fontFamily: "inherit",
       }}
     >
-      → match early ({investedPct}%)
+      → match early ({fmtPct(investedPct)})
     </button>
   );
 }
