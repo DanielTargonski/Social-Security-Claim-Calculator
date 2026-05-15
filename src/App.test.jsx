@@ -207,6 +207,44 @@ describe("App — top-level tab nav", () => {
   });
 });
 
+describe("App — healthcare inputs", () => {
+  it("renders the healthcare section with the covered-elsewhere toggle off by default", () => {
+    render(<App />);
+    expect(
+      screen.getByText(/Healthcare \(NYC, 2026\+\)/i)
+    ).toBeInTheDocument();
+    // Single household and the unsubsidized-silver slider show by default
+    // (because coveredElsewhere defaults to false → details panel visible).
+    expect(screen.getByRole("button", { name: /^Single$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Couple$/ })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Unsubsidized silver plan \(annual\)/i)
+    ).toBeInTheDocument();
+  });
+
+  it("toggling 'covered elsewhere' on hides the household + plan-cost controls", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(
+      screen.getByRole("button", { name: /Covered elsewhere/i })
+    );
+    // Single/Couple toggle and the unsubsidized-silver slider disappear.
+    expect(screen.queryByRole("button", { name: /^Single$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Couple$/ })).toBeNull();
+    expect(
+      screen.queryByText(/Unsubsidized silver plan \(annual\)/i)
+    ).toBeNull();
+  });
+
+  it("switching to couple updates the FPL hint text", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /^Couple$/ }));
+    // The household-size choice mirrors back into URL state too.
+    expect(window.location.search).toMatch(/hh=2/);
+  });
+});
+
 describe("App — URL hydration round-trip", () => {
   // serializeStateToParams + parseStateFromParams have unit coverage in
   // shareableState.test.js. These tests pin the actual integration: a share

@@ -56,6 +56,9 @@ export default function App() {
     manualFedRate,
     investedPct,
     investedPctWait,
+    householdSize,
+    coveredElsewhere,
+    unsubsidizedSilverAnnual,
   } = state;
   const {
     setMode,
@@ -72,6 +75,9 @@ export default function App() {
     setManualFedRate,
     setInvestedPct,
     setInvestedPctWait,
+    setHouseholdSize,
+    setCoveredElsewhere,
+    setUnsubsidizedSilverAnnual,
   } = setters;
 
   // Mirror state into the URL on every change. Stored raw investStopAge
@@ -216,6 +222,12 @@ export default function App() {
               setInvestedPct={setInvestedPct}
               investedPctWait={investedPctWait}
               setInvestedPctWait={setInvestedPctWait}
+              householdSize={householdSize}
+              setHouseholdSize={setHouseholdSize}
+              coveredElsewhere={coveredElsewhere}
+              setCoveredElsewhere={setCoveredElsewhere}
+              unsubsidizedSilverAnnual={unsubsidizedSilverAnnual}
+              setUnsubsidizedSilverAnnual={setUnsubsidizedSilverAnnual}
               earlyFactor={earlyFactor}
               earlyMonthlyNet={earlyMonthlyNet}
               fraMonthlyNet={fraMonthlyNet}
