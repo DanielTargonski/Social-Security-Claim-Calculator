@@ -22,6 +22,12 @@ import {
   findBreakEvenAge,
   findCrossoverAge,
 } from "./chartProjection.js";
+import {
+  computeMagiACA,
+  computeMagiIRMAA,
+  computeAnnualHealthcareCost,
+  NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
+} from "./healthcareCost.js";
 
 // Re-exports so call sites that imported from benefitMath.js still work.
 export {
@@ -76,6 +82,13 @@ export function computeProjection({
   // always visible on first load; users dial it down if they want a
   // looser assumption.
   investedPctWait = 100,
+  // Healthcare-cost modeling (OBBBA / NYC). Defaults make the math a no-op
+  // (coveredElsewhere=true → zero delta) so existing call sites and tests
+  // that don't pass these stay neutral. The UI passes the user's actual
+  // toggle/household-size/silver-rate values.
+  householdSize = 1,
+  coveredElsewhere = true,
+  unsubsidizedSilverAnnual = NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
 }) {
   const {
     earlyFactor,
@@ -231,14 +244,107 @@ export function computeProjection({
   const fullMonthlyNet =
     fullMonthlyPreTaxGross * (1 - earlyTaxPreFRA.ssEffectiveTaxRate);
 
+  // Healthcare-cost differential between the early-claim and wait scenarios.
+  // The break-even chart compares cumulative dollars from the claim decision;
+  // healthcare cost paid in BOTH scenarios cancels out, so what shifts the
+  // recommendation is the EXTRA cost early-claiming imposes (higher MAGI →
+  // ACA cliff or IRMAA tier crossing). Compute the delta in two windows
+  // (pre-FRA and post-FRA — different cost regimes) and reduce the early-
+  // scenario monthly nets by delta/12. Yields a chart where the break-even
+  // age and lifetime advantage reflect the OBBBA cliff exposure.
+  //
+  // Pre-FRA: early scenario has SS in MAGI (drives ACA cost up if pre-65,
+  // IRMAA if claim age ≥ 65). Wait scenario has no SS yet.
+  const magiACAEarlyPre = computeMagiACA({
+    grossIncome,
+    ssAnnualGross: ssBasisAnnualEarlyPreFRA,
+  });
+  const magiIRMAAEarlyPre = computeMagiIRMAA({
+    grossIncome,
+    ssAnnualGross: ssBasisAnnualEarlyPreFRA,
+    taxableSSPct: earlyTaxPreFRA.taxableSSPct,
+  });
+  const magiACAWaitPre = computeMagiACA({ grossIncome, ssAnnualGross: 0 });
+  const magiIRMAAWaitPre = computeMagiIRMAA({
+    grossIncome,
+    ssAnnualGross: 0,
+    taxableSSPct: 0,
+  });
+  // Use claimAge as the representative pre-FRA age (the user's chosen entry
+  // point). For claimers past 65 this drives Medicare/IRMAA; for claimers
+  // 62–64 this drives ACA. The wait scenario sees the same age but with
+  // ssAnnualGross=0.
+  const healthcareEarlyAnnualPre = computeAnnualHealthcareCost({
+    age: claimAge,
+    magiACA: magiACAEarlyPre,
+    magiIRMAA: magiIRMAAEarlyPre,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const healthcareWaitAnnualPre = computeAnnualHealthcareCost({
+    age: claimAge,
+    magiACA: magiACAWaitPre,
+    magiIRMAA: magiIRMAAWaitPre,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const healthcareDeltaAnnualPre =
+    healthcareEarlyAnnualPre - healthcareWaitAnnualPre;
+  // Post-FRA: both scenarios are on Medicare. Wait now has SS (full FRA
+  // benefit) in MAGI; early has the recouped post-FRA benefit. IRMAA tier
+  // crossings in this window can favor either scenario depending on which
+  // has the higher post-FRA SS.
+  const magiIRMAAEarlyPost = computeMagiIRMAA({
+    grossIncome: postFRAGrossIncome,
+    ssAnnualGross: ssBasisAnnualEarlyPostFRA,
+    taxableSSPct: earlyTaxPostFRA.taxableSSPct,
+  });
+  const magiIRMAAWaitPost = computeMagiIRMAA({
+    grossIncome: postFRAGrossIncome,
+    ssAnnualGross: ssBasisAnnualWait,
+    taxableSSPct: waitTax.taxableSSPct,
+  });
+  const healthcareEarlyAnnualPost = computeAnnualHealthcareCost({
+    age: FRA, // = 67, locked in 2026 model
+    magiACA: 0, // unused at 65+
+    magiIRMAA: magiIRMAAEarlyPost,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const healthcareWaitAnnualPost = computeAnnualHealthcareCost({
+    age: FRA,
+    magiACA: 0,
+    magiIRMAA: magiIRMAAWaitPost,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const healthcareDeltaAnnualPost =
+    healthcareEarlyAnnualPost - healthcareWaitAnnualPost;
+  // Apply the deltas to the early-scenario monthly nets. Positive delta =
+  // claiming early costs more in healthcare than waiting → reduce monthly
+  // contribution. Negative delta (rare — happens when waiting pushes the
+  // larger FRA benefit across an IRMAA cliff that early avoided) = bonus.
+  const healthcareDeltaMonthlyPre = healthcareDeltaAnnualPre / 12;
+  const healthcareDeltaMonthlyPost = healthcareDeltaAnnualPost / 12;
+  const adjustedEarlyMonthlyNet = earlyMonthlyNet - healthcareDeltaMonthlyPre;
+  const adjustedFullMonthlyNet = fullMonthlyNet - healthcareDeltaMonthlyPre;
+  const adjustedEarlyPostFRAMonthlyNet =
+    earlyPostFRAMonthlyNet - healthcareDeltaMonthlyPost;
+  const adjustedEarlyPostFRAMonthlyNetRetired =
+    earlyPostFRAMonthlyNetRetired - healthcareDeltaMonthlyPost;
+
   const chartData = buildChartData({
     claimAge,
     investStopAge,
     lifeExpectancy,
     returnRate,
-    earlyMonthlyNet: lumpy ? fullMonthlyNet : earlyMonthlyNet,
-    earlyPostFRAMonthlyNet,
-    earlyPostFRAMonthlyNetRetired,
+    earlyMonthlyNet: lumpy ? adjustedFullMonthlyNet : adjustedEarlyMonthlyNet,
+    earlyPostFRAMonthlyNet: adjustedEarlyPostFRAMonthlyNet,
+    earlyPostFRAMonthlyNetRetired: adjustedEarlyPostFRAMonthlyNetRetired,
     fraMonthlyNet,
     fraMonthlyNetRetired,
     postFRAWorkEndAge,
@@ -310,6 +416,12 @@ export function computeProjection({
     crossoverValue,
     waitInvestedBreakEvenAge,
     waitInvestedCrossoverValue,
+    // Healthcare-cost differential (early scenario minus wait), surfaced
+    // for UI display. The chart's break-even already reflects these via
+    // the adjusted monthly nets above; consumers use these for "claiming
+    // early costs $X/yr extra in healthcare" copy.
+    healthcareDeltaAnnualPre,
+    healthcareDeltaAnnualPost,
   };
 }
 

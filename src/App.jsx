@@ -131,6 +131,9 @@ export default function App() {
     manualFedRate,
     investedPct,
     investedPctWait,
+    householdSize,
+    coveredElsewhere,
+    unsubsidizedSilverAnnual,
   };
 
   const {
@@ -157,6 +160,7 @@ export default function App() {
     crossoverValue,
     waitInvestedAdvantage,
     waitInvestedBreakEvenAge,
+    healthcareDeltaAnnualPre,
   } = useBenefitProjection(inputs);
 
   // Sweeps claimAge across the mode's range and reports the peak. Shared
