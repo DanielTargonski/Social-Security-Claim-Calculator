@@ -324,6 +324,7 @@ export default function App() {
               medicareAnnualCost={medicareAnnualCost}
               magiACAPre65={magiACAPre65}
               magiIRMAA65Plus={magiIRMAA65Plus}
+              grossIncome={grossIncome}
             />
           </div>
 

@@ -47,6 +47,7 @@ export default function SummaryCards({
   medicareAnnualCost = 0,
   magiACAPre65 = 0,
   magiIRMAA65Plus = 0,
+  grossIncome = 0,
 }) {
   // Healthcare-card derived values. Compute the pre-65 ACA band label and
   // 65+ MSP-vs-IRMAA status from the MAGI inputs. Kept local rather than
@@ -79,6 +80,12 @@ export default function SummaryCards({
     : medicareAnnualCost > 2500
     ? "Standard + IRMAA"
     : "Standard Part B";
+  // SS portions of each MAGI (derived from the totals already computed
+  // upstream in App.jsx). ACA counts 100% of gross SS pre-65; IRMAA counts
+  // only the taxable portion. Clamped to 0 to avoid negative display from
+  // float noise when both grossIncome and the SS contribution are 0.
+  const acaSsPortion = Math.max(0, magiACAPre65 - grossIncome);
+  const irmaaSsPortion = Math.max(0, magiIRMAA65Plus - grossIncome);
 
   // FRA is hardcoded as 67 throughout the app — see ssRules.js.
   // Used for the "annual edge" stat = advantage averaged across post-FRA years.
@@ -430,6 +437,20 @@ export default function SummaryCards({
               <div className="text-xs num" style={{ color: C.inkFaint }}>
                 pre-65 · {(acaFplPct * 100).toFixed(0)}% FPL
               </div>
+              <div
+                className="text-xs num mt-1"
+                style={{ color: C.inkFaint, lineHeight: 1.5 }}
+              >
+                {fmtMoney(grossIncome)} wage
+                {acaSsPortion > 0 && (
+                  <>
+                    {" + "}
+                    {fmtMoney(acaSsPortion)} SS
+                  </>
+                )}
+                <br />
+                = {fmtMoney(magiACAPre65)} ÷ {fmtMoney(fpl)} FPL
+              </div>
             </div>
             <div
               className="pt-2"
@@ -459,6 +480,20 @@ export default function SummaryCards({
               </div>
               <div className="text-xs num" style={{ color: C.inkFaint }}>
                 65+ · {(irmaaFplPct * 100).toFixed(0)}% FPL
+              </div>
+              <div
+                className="text-xs num mt-1"
+                style={{ color: C.inkFaint, lineHeight: 1.5 }}
+              >
+                {fmtMoney(grossIncome)} wage
+                {irmaaSsPortion > 0 && (
+                  <>
+                    {" + "}
+                    {fmtMoney(irmaaSsPortion)} taxable SS
+                  </>
+                )}
+                <br />
+                = {fmtMoney(magiIRMAA65Plus)} ÷ {fmtMoney(fpl)} FPL
               </div>
             </div>
           </div>
