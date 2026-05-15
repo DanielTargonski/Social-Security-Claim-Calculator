@@ -28,8 +28,8 @@ Node 26.1.0 was used locally; Vercel uses Node 22 LTS by default. No version-spe
 
 ```
 src/
-├─ App.jsx                       Top-level orchestrator (~200 lines, just hooks + composition)
-├─ App.test.jsx                  Smoke tests (mode switching, white-page regressions)
+├─ App.jsx                       Top-level orchestrator (just hooks + composition)
+├─ App.test.jsx                  Smoke tests + URL-hydration round-trip + healthcare-toggle tests
 ├─ main.jsx                      Standard Vite entry point
 ├─ index.css                     Tailwind import + minimal resets
 ├─ constants/
@@ -38,19 +38,31 @@ src/
 │  ├─ GlobalStyles.jsx           Inline <style> block (Google Fonts, range thumb, .num/.display)
 │  ├─ Header.jsx                 Title + lede paragraph
 │  ├─ ModeSwitcher.jsx           Three-mode picker + the switch-mode banner
+│  ├─ ModeSwitcher.test.jsx
+│  ├─ TabNav.jsx                 Calculator / "Why this exists" tab strip
+│  ├─ TabNav.test.jsx
+│  ├─ AboutPage.jsx              Explainer page (worked example, sources)
+│  ├─ AboutPage.test.jsx
 │  ├─ SliderInput.jsx            Click-to-edit slider used by every input
 │  ├─ SliderInput.test.jsx       (range/click/edit/clamp/blur/escape behaviors)
-│  ├─ InputsPanel.jsx            Benefits + Outlook + Income & Tax sliders
+│  ├─ InputsPanel.jsx            Benefits + Outlook + Income & Tax + Healthcare sliders
 │  ├─ SummaryCards.jsx           Net check at claim age / at 67 / pot-or-crossover
-│  ├─ MetadataStrip.jsx          Earnings test, FRA recoup, combined income, taxable SS
+│  ├─ MetadataStrip.jsx          Earnings test, FRA recoup, taxable SS, healthcare cost + cliff
+│  ├─ MetadataStrip.test.jsx     (render gate, recoup rows, healthcare rows, covered-elsewhere)
 │  ├─ ChartCard.jsx              Lifetime-payout chart + 4-stat row
 │  ├─ PotTable.jsx               Five-year pot snapshots with phase labels
 │  ├─ Footnotes.jsx              Static footnote grid
+│  ├─ OptimalClaimAge.jsx        Sweep result panel ("the optimal claim age is …")
+│  ├─ ShareLinkButton.jsx        Copies window.location.href (state in query params)
 │  ├─ SensitivityTornado.jsx     "What moves the answer" panel
 │  ├─ SensitivityTornado.test.jsx (mode-by-mode + bounds-collapse regression)
-│  └─ ModeSwitcher.test.jsx
+│  └─ Var.jsx                    Tiny inline pill for dynamic numbers in prose
 ├─ hooks/
-│  └─ useBenefitProjection.js   useMemo wrapper around computeProjection
+│  ├─ useBenefitProjection.js   useMemo wrapper around computeProjection
+│  ├─ useOptimalClaimAge.js     useMemo wrapper around the claim-age sweep
+│  ├─ useFormState.js           Single state bag + auto-generated setX setters
+│  ├─ useFormState.test.js
+│  └─ useUrlSync.js             Mirror form state into window.location.search
 ├─ test/
 │  └─ setup.js                  Vitest setup (jsdom: ResizeObserver/matchMedia stubs, RTL cleanup)
 └─ lib/
@@ -60,8 +72,16 @@ src/
    ├─ taxMath.test.js
    ├─ chartProjection.js         3-phase pot model (the chart math)
    ├─ chartProjection.test.js
+   ├─ healthcareCost.js          ACA cliffs (200%/400% FPL) + Medicare IRMAA tiers (OBBBA 2026+)
+   ├─ healthcareCost.test.js
+   ├─ optimalClaimAge.js         96-step claim-age sweep that finds the peak
+   ├─ optimalClaimAge.test.js
+   ├─ shareableState.js          URL ↔ state schema + clamp on hydrate
+   ├─ shareableState.test.js
+   ├─ modeConfig.js              Per-mode claim-age bounds + snap-on-mode-switch
+   ├─ modeConfig.test.js
    ├─ benefitMath.js             Slim orchestrator: computeProjection composes the above
-   └─ benefitMath.test.js        Integration tests
+   └─ benefitMath.test.js        Integration tests (now incl. healthcare delta wiring)
 ```
 
 **App.jsx is now just a composition root** — owns all `useState` calls and the projection hook, then passes derived values down. Each visual section lives in its own file under `src/components/`. The `C` color palette lives in `src/constants/colors.js` and is imported wherever needed (no prop drilling).
@@ -117,6 +137,19 @@ The effective tax rate on SS = `taxableSSPct × marginal_rate`. Standard deducti
 
 NY/NYC do not tax SS — noted in a footnote, not modeled.
 
+### Healthcare cost layer (OBBBA / NYC, 2026+)
+
+Lives in `src/lib/healthcareCost.js`. Post-OBBBA, healthcare cost is a real annual drag on the claim-age decision that the calculator now bakes into the break-even:
+
+- **ACA Premium Tax Credit cliff at 400% FPL** ($62,600 single / $84,600 couple in 2026, using 2025 FPL per ACA prior-year convention). The IRA-era enhanced PTCs expired Dec 31, 2025 and OBBBA didn't renew them — so $1 over the cliff → lose all subsidies. Default NYC unsubsidized silver = **$9,679/yr** (NY State of Health LCSP, age-neutral via NY's pure community rating, user-overridable).
+- **NY Essential Plan ceiling drops 250% → 200% FPL effective July 1, 2026** because OBBBA defunded the lawfully-present-immigrant PTC that was financing the 200–250% band. Below 200% FPL: $0 premium. Above 200%, into the subsidized band: capped at **9.5% of MAGI** (simplification of the graduated 2.0–9.83% scale).
+- **Medicare IRMAA tiers at 65+**: standard Part B = $202.90/mo flat. Surcharges stack on top per six MAGI brackets ($109K / $137K / $171K / $205K / $500K thresholds; +$1,148 / +$2,885 / +$4,620 / +$6,355 / +$6,936 annually for tiers 1–5).
+- **Two MAGI definitions** because ACA and IRMAA define MAGI differently. ACA counts **100% of gross SS**; IRMAA counts only the taxable portion (reuses `taxMath.computeTaxableSSPct`). Important for not double-counting at age 65+.
+
+How it shifts the chart: `benefitMath.computeProjection` computes the **healthcare-cost differential between early and wait scenarios** in two windows (pre-FRA and post-FRA), then subtracts `delta / 12` from the early-claim monthly nets. Both scenarios pay healthcare; what shifts the break-even is the **extra** cost early-claiming imposes by elevating MAGI sooner. The wait curve stays clean as baseline; the early curve drops by the delta; break-even age and lifetime advantage shift accordingly.
+
+**`coveredElsewhere` toggle** short-circuits the whole layer for users with employer coverage, retiree health benefits, VA care, or coverage via a working spouse. Default is `false` (model healthcare). Math layer's `computeProjection` defaults to `true` for backwards compat — old call sites without the new params get zero healthcare drag.
+
 ---
 
 ## Things explicitly OUT of scope
@@ -126,11 +159,14 @@ These are intentional simplifications; don't add them without checking with the 
 - **Year-of-FRA earnings test exemption** ($65,160 limit, $1-per-$3 ratio) — collapsed into the single $24,480 / $1-per-$2 rule
 - **WEP / GPO / family maximum / RIB-LIM** — not relevant when the deceased never claimed (the original use case); RIB-LIM matters when the deceased was already collecting reduced benefits
 - **State taxes other than NY/NYC** — noted in footnote
-- **IRMAA / Medicare Part B premiums** — mentioned in caveats footnote
 - **Sequence-of-returns risk** — uses a single deterministic real return rate
 - **Senior bonus deduction** ($6K extra for 65+, MAGI phase-out) — mentioned in caveats
 - **COLA / inflation** — calculator is in real (today's) dollars
 - **Spousal benefits while spouse is alive, divorced-spouse benefits, child / child-in-care benefits**
+- **IRMAA 2-year MAGI lookback** — current-year MAGI used directly. Real IRMAA at 65 reflects MAGI from 63; over a 20-year break-even horizon the timing offset is noise.
+- **ACA PTC graduated contribution scale** (2.0–9.83% from 100–300% FPL) — collapsed to a single 9.5% cap across the subsidized band. The 200% Essential Plan floor and the 400% cliff are the load-bearing thresholds.
+- **Medicaid (asset-tested 65+), Medicare Savings Programs, long-term care eligibility** — different calculator question. Healthcare layer only models ACA pre-65 + Medicare base + IRMAA at 65+.
+- **Cost-sharing reductions (CSR) and deductible variance** — healthcare cost modeled as premium-only.
 
 ---
 
@@ -160,7 +196,9 @@ npm run preview          # serve the production build at :4173
 npm run lint             # eslint
 ```
 
-`npm test` should always pass before committing. **171 tests across 9 files** as of this writing: math tests in `src/lib/` and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
+`npm test` should always pass before committing. **332 tests across 16 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
+
+`@vitest/coverage-v8` is a dev dependency — `npx vitest run --coverage` prints a per-file table. `coverage/` is gitignored.
 
 ---
 
@@ -192,6 +230,14 @@ The user's git is locally configured to push as `DanielTargonski` (this account 
 - Gender-neutral language sweep
 - Math layer split into 4 focused modules + 108 tests
 - React UI split: `App.jsx` 1348 → ~200 lines; nine focused components under `src/components/`; 32 render tests via @testing-library/react + jsdom (including a regression for the SensitivityTornado white-page bounds-collapse bug)
+- Shareable-state schema in `lib/shareableState.js`; URL ↔ form-state round-trip with `useFormState` + `useUrlSync` + `ShareLinkButton`
+- `useFormState` schema-driven auto-generated setters — adding a field is a one-line SCHEMA change
+- `modeConfig` hoist (per-mode claim-age bounds + snap-on-mode-switch) — was duplicated in four places
+- `OptimalClaimAge` panel + 96-step claim-age sweep
+- About / "Why this exists" tab + worked-example explainer
+- Test coverage audit + four highest-ROI gap fills: `modeConfig.test.js`, `useFormState.test.js`, `MetadataStrip.test.jsx`, App-level URL hydration round-trip
+- **OBBBA healthcare-cost modeling (PR #10)**: `healthcareCost.js` math module pinning 2026 ACA cliffs (400% FPL = $62,600 single, NY Essential Plan 200% post-July 2026) + Medicare IRMAA tiers; new "Healthcare (NYC, 2026+)" section in InputsPanel with `coveredElsewhere` toggle, household-size picker, NYC silver-plan override; `MetadataStrip` cliff-proximity rows ("Next cliff $X away · +$Y/yr if crossed"); chart math subtracts the early-vs-wait healthcare delta so break-even actually shifts; new footnote replaces the old "Medicare Part B premiums" caveat
+- Browser-verified via headless Chromium / Playwright (default load, sub-cliff scenario, post-65 IRMAA scenario, covered-elsewhere toggle, URL hydration)
 
 ### Candidate features (from the survey research)
 Researched but not built. In rough priority order based on the original analysis:
@@ -200,20 +246,28 @@ Researched but not built. In rough priority order based on the original analysis
 2. **RIB-LIM display in survivor mode** *(small, novel)* — shows the 82.5%-of-PIA cap on survivor benefits and how the deceased's early-claiming clipped it. Only relevant when the deceased was already collecting; not relevant for the original use case (deceased never claimed) but matters for other users.
 3. **Mortality-weighted lifetime totals** *(medium)* — replace single "live until X" with SSA period-life-table probabilities. Break-even crossover becomes an *expected* age.
 4. **Tax-torpedo / provisional-income visualizer** — show effective marginal rate on each extra $1 of wages.
-5. **IRMAA tier overlay** at age 63+ with 2-year lookback shaded.
-6. **Monte Carlo on the invested pot** — replace single deterministic real return with a P10/P50/P90 distribution.
-7. **State tax dropdown** — ~10 states still tax SS in 2026 (CO, CT, MN, MT, NM, RI, UT, VT, WV); only NY/NYC handled now.
-8. **Discount rate ≠ investment return** — separate knobs for sophisticated users.
+5. **Monte Carlo on the invested pot** — replace single deterministic real return with a P10/P50/P90 distribution.
+6. **State tax dropdown** — ~10 states still tax SS in 2026 (CO, CT, MN, MT, NM, RI, UT, VT, WV); only NY/NYC handled now.
+7. **Discount rate ≠ investment return** — separate knobs for sophisticated users.
+
+Healthcare-related follow-ups (the OBBBA work above keeps these simple by design):
+- **Per-age healthcare cost in the chart** (currently uses one snapshot at claim age, applied as a constant pre/post-FRA). Would smooth the 65 transition where ACA → Medicare causes a step change.
+- **IRMAA 2-year MAGI lookback** (currently uses current-year MAGI — small accuracy gain, modest complexity cost).
+- **Couples with split ages** (one on Medicare, one on ACA). Today's `householdSize` doubles unsubsidized cost but treats both spouses as same-age.
 
 ### Possible code-side cleanup
 *(The original two — App.jsx split and React render tests — both done; see "Shipped recently" above.)*
-- Lazy-load recharts (still ~570KB bundle) with React.lazy + Suspense if bundle size starts to matter.
+- Lazy-load recharts (now ~623KB bundle) with React.lazy + Suspense if bundle size starts to matter.
+- `ChartCard.jsx` (16% coverage) and `ShareLinkButton.jsx` (16% coverage) are the two largest remaining test gaps. Recharts under jsdom is brittle so ChartCard is intentionally low priority; ShareLinkButton would be a 10-line clipboard mock.
 
 ---
 
 ## How to think about changes
 
 - **Math changes**: write the test first (in the appropriate `*.test.js`), watch it fail, implement, watch it pass. The math has invariants (monotonicity, factor bounds, mode-specific recoup rules) — many edge-case tests already exist; adding more is encouraged.
-- **UI changes**: actually open the page in a browser before declaring it shipped. `curl` returning HTTP 200 only means the JS *parsed*, not that React *rendered*. Production white-page bugs have happened from skipping this.
+- **UI changes**: actually open the page in a browser before declaring it shipped. `curl` returning HTTP 200 only means the JS *parsed*, not that React *rendered*. Production white-page bugs have happened from skipping this. Playwright + the preinstalled Chromium under `/opt/pw-browsers` works for headless smoke-testing if no GUI is available (see PR #10 notes for the pattern).
+- **Adding a new form field**: it's a one-line addition to `SCHEMA` in `lib/shareableState.js`. `useFormState` auto-generates the `setX` setter, `useUrlSync` round-trips it through the URL, and `getInitialStateFromUrl` hydrates it on mount. Don't add a separate `useState` in App.jsx.
+- **Adding new annual-cost dimensions**: model them as pure tier-table-driven modules in `src/lib/` (see `taxMath.js` and `healthcareCost.js` for the pattern). Surface in `MetadataStrip` for visibility; subtract from monthly nets in `benefitMath.computeProjection` if they should shift the break-even.
 - **Personal financial data**: if the user shares real numbers (tax returns, SSA reports, bank statements), keep them in the conversation only. **Do not commit them.** Convert HEIC → JPEG locally, analyze, delete the converted copies.
 - **Auto mode**: the user often runs in auto mode. Prefer action over planning, but **never** push destructive changes (force-push, branch deletion, schema migrations) without confirmation. Standard `git push` to `main` is fine for this single-developer project.
+- **PR size**: PR #10 bundled the test-coverage audit + the OBBBA healthcare feature together — the user flagged this as too big. Split unrelated work into separate PRs going forward, even when they sit on the same branch chronologically.
