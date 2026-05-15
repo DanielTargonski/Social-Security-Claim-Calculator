@@ -38,7 +38,7 @@ function bandForFplPct(fplPct) {
     return {
       label: "Subsidized ACA",
       ribbon: C.ink,
-      detail: "200–400% FPL · capped at 9.5% of MAGI",
+      detail: "200–400% FPL · capped at 9.96% of MAGI",
       premiumColor: C.early,
     };
   }

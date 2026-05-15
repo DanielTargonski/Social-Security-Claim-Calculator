@@ -3,7 +3,15 @@ import {
   computeTaxableSSPct,
   getMarginalRate2026,
   computeSSEffectiveTaxRate,
+  computeSeniorDeduction,
+  computeFederalTax2026,
   STANDARD_DEDUCTION_2026,
+  OBBBA_SENIOR_DEDUCTION_BASE,
+  OBBBA_SENIOR_DEDUCTION_PHASE_START_SINGLE,
+  OBBBA_SENIOR_DEDUCTION_PHASE_END_SINGLE,
+  OBBBA_SENIOR_DEDUCTION_PHASE_RATE,
+  OBBBA_SENIOR_DEDUCTION_FIRST_YEAR,
+  OBBBA_SENIOR_DEDUCTION_LAST_YEAR,
 } from "./taxMath.js";
 
 const closeTo = (a, b, tol = 0.001) => Math.abs(a - b) < tol;
@@ -143,5 +151,236 @@ describe("computeSSEffectiveTaxRate — orchestration", () => {
     });
     expect(r.fedMarginalRate).toBe(37);
     expect(closeTo(r.taxableSSPct, 0.85)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OBBBA senior bonus deduction (2025–2028, single filer, age 65+).
+// ---------------------------------------------------------------------------
+describe("computeSeniorDeduction — eligibility gates", () => {
+  it("returns $0 for under-65 taxpayer regardless of MAGI / year", () => {
+    expect(computeSeniorDeduction({ age: 64, magi: 50000, taxYear: 2026 })).toBe(0);
+    expect(computeSeniorDeduction({ age: 60, magi: 10000, taxYear: 2027 })).toBe(0);
+  });
+
+  it("returns $0 before the deduction's first year (2025)", () => {
+    expect(computeSeniorDeduction({ age: 70, magi: 50000, taxYear: 2024 })).toBe(0);
+  });
+
+  it("returns $0 after the deduction's last year (2028 sunset)", () => {
+    expect(computeSeniorDeduction({ age: 70, magi: 50000, taxYear: 2029 })).toBe(0);
+    expect(computeSeniorDeduction({ age: 80, magi: 50000, taxYear: 2050 })).toBe(0);
+  });
+
+  it("returns full $6,000 at age 65 with MAGI ≤ $75K in 2025–2028", () => {
+    for (const year of [2025, 2026, 2027, 2028]) {
+      expect(
+        computeSeniorDeduction({ age: 65, magi: 50000, taxYear: year })
+      ).toBe(6000);
+    }
+  });
+});
+
+describe("computeSeniorDeduction — phase-out (6% over $75K–$175K)", () => {
+  it("full $6,000 at exactly $75K MAGI (phase-out starts ABOVE this)", () => {
+    expect(computeSeniorDeduction({ age: 67, magi: 75000, taxYear: 2026 })).toBe(6000);
+  });
+
+  it("$5,940 at $76K MAGI (phase-out by $1,000 × 6% = $60)", () => {
+    expect(
+      computeSeniorDeduction({ age: 67, magi: 76000, taxYear: 2026 })
+    ).toBeCloseTo(5940, 2);
+  });
+
+  it("$4,500 at $100K MAGI (worked example: $25K excess × 6% = $1,500 reduction)", () => {
+    // From the search-result example: single filer at $100K MAGI loses
+    // $1,500 of the deduction, leaving $4,500.
+    expect(
+      computeSeniorDeduction({ age: 67, magi: 100000, taxYear: 2026 })
+    ).toBeCloseTo(4500, 2);
+  });
+
+  it("$0 at exactly $175K MAGI (full phase-out)", () => {
+    expect(computeSeniorDeduction({ age: 67, magi: 175000, taxYear: 2026 })).toBe(0);
+  });
+
+  it("$0 above $175K MAGI", () => {
+    expect(computeSeniorDeduction({ age: 67, magi: 200000, taxYear: 2026 })).toBe(0);
+    expect(computeSeniorDeduction({ age: 67, magi: 500000, taxYear: 2026 })).toBe(0);
+  });
+
+  it("linear within the phase-out range", () => {
+    // Midpoint: MAGI $125K → $3,000 deduction (half of $6K)
+    expect(
+      computeSeniorDeduction({ age: 67, magi: 125000, taxYear: 2026 })
+    ).toBeCloseTo(3000, 2);
+  });
+});
+
+describe("computeFederalTax2026 — bracket walker", () => {
+  it("returns $0 for non-positive taxable income", () => {
+    expect(computeFederalTax2026(0)).toBe(0);
+    expect(computeFederalTax2026(-1000)).toBe(0);
+  });
+
+  it("first bracket (10%): tax = 10% × income up to $12,400", () => {
+    expect(computeFederalTax2026(10000)).toBe(1000);
+    expect(computeFederalTax2026(12400)).toBe(1240);
+  });
+
+  it("second bracket (12%): correctly stacks on filled $12,400 × 10% = $1,240", () => {
+    // Taxable income $20K: first $12,400 × 10% + next $7,600 × 12%
+    //   = $1,240 + $912 = $2,152
+    expect(computeFederalTax2026(20000)).toBeCloseTo(2152, 2);
+  });
+
+  it("monotonic — every additional dollar increases tax owed", () => {
+    let prev = 0;
+    for (const ti of [5000, 12400, 20000, 50400, 80000, 105700, 150000, 300000, 700000]) {
+      const t = computeFederalTax2026(ti);
+      expect(t).toBeGreaterThan(prev);
+      prev = t;
+    }
+  });
+
+  it("differential matches the marginal rate within a single bracket", () => {
+    // Difference in tax between $80K and $90K = $10K × 22% = $2,200
+    const diff = computeFederalTax2026(90000) - computeFederalTax2026(80000);
+    expect(diff).toBeCloseTo(2200, 2);
+  });
+
+  it("differential averages out when crossing a bracket boundary", () => {
+    // $50K → $60K crosses the 12% → 22% boundary at $50,400.
+    // First $400 at 12% = $48, next $9,600 at 22% = $2,112 → total $2,160.
+    const diff = computeFederalTax2026(60000) - computeFederalTax2026(50000);
+    expect(diff).toBeCloseTo(2160, 2);
+  });
+});
+
+describe("computeSSEffectiveTaxRate — senior deduction integration", () => {
+  it("reports dollar savings equal to deduction × marginal_rate when no bracket crossing", () => {
+    // $80K wage + $20K SS, autoTax → taxable income before extras:
+    // taxableSSPct=0.85 (well past tier-2), so 80K + 0.85×20K - 16,100 = $80,900
+    // Marginal rate at $80,900 = 22%. A $6,000 deduction lands fully within
+    // the 22% bracket (boundary at $50,400 below and $105,700 above), so
+    // savings = $6,000 × 0.22 = $1,320.
+    const r = computeSSEffectiveTaxRate({
+      autoTax: true,
+      manualFedRate: 0,
+      ssBasisAnnual: 20000,
+      grossIncome: 80000,
+      extraDeduction: 6000,
+    });
+    expect(r.extraDeduction).toBe(6000);
+    expect(r.extraDeductionDollarSavings).toBeCloseTo(1320, 2);
+  });
+
+  it("reports $0 savings when extraDeduction = 0", () => {
+    const r = computeSSEffectiveTaxRate({
+      autoTax: true,
+      manualFedRate: 0,
+      ssBasisAnnual: 20000,
+      grossIncome: 80000,
+      extraDeduction: 0,
+    });
+    expect(r.extraDeductionDollarSavings).toBe(0);
+  });
+
+  it("manual mode reports $0 savings (deduction not modeled)", () => {
+    const r = computeSSEffectiveTaxRate({
+      autoTax: false,
+      manualFedRate: 22,
+      ssBasisAnnual: 20000,
+      grossIncome: 80000,
+      extraDeduction: 6000,
+    });
+    expect(r.extraDeductionDollarSavings).toBe(0);
+  });
+
+  it("savings shrink when the deduction crosses a bracket boundary downward", () => {
+    // Taxable income at $53K (12% bracket, just above $50,400 boundary).
+    // A $6,000 deduction pushes taxable down to $47K — crosses the 22%/12%
+    // boundary at $50,400. Savings = ($53K - $50,400) × 22% + ($50,400 - $47K) × 12%
+    //   = $572 + $408 = $980. Less than the in-bracket value of $6K × 22% = $1,320.
+    // Set up: grossIncome where taxable income lands around $53K (close to
+    // boundary). With $20K SS taxable at 85% → 17K. Need gross + 17K - 16.1K = 53K
+    // → gross = 52,100. Use that.
+    const r = computeSSEffectiveTaxRate({
+      autoTax: true,
+      manualFedRate: 0,
+      ssBasisAnnual: 20000,
+      grossIncome: 52100,
+      extraDeduction: 6000,
+    });
+    expect(r.extraDeductionDollarSavings).toBeLessThan(1320);
+    expect(r.extraDeductionDollarSavings).toBeGreaterThan(700);
+  });
+});
+
+describe("OBBBA senior deduction — official-source pinning", () => {
+  it("base deduction = $6,000 (OBBBA single-filer baseline)", () => {
+    expect(OBBBA_SENIOR_DEDUCTION_BASE).toBe(6000);
+  });
+
+  it("phase-out window (single) = $75K → $175K MAGI", () => {
+    expect(OBBBA_SENIOR_DEDUCTION_PHASE_START_SINGLE).toBe(75000);
+    expect(OBBBA_SENIOR_DEDUCTION_PHASE_END_SINGLE).toBe(175000);
+  });
+
+  it("phase-out rate = 6% per dollar over threshold (matches OBBBA statute)", () => {
+    expect(OBBBA_SENIOR_DEDUCTION_PHASE_RATE).toBe(0.06);
+    // Width × rate = base: ($175K - $75K) × 6% = $6,000
+    const computed =
+      (OBBBA_SENIOR_DEDUCTION_PHASE_END_SINGLE -
+        OBBBA_SENIOR_DEDUCTION_PHASE_START_SINGLE) *
+      OBBBA_SENIOR_DEDUCTION_PHASE_RATE;
+    expect(computed).toBe(OBBBA_SENIOR_DEDUCTION_BASE);
+  });
+
+  it("effective tax years: 2025–2028 (4-year sunset window)", () => {
+    expect(OBBBA_SENIOR_DEDUCTION_FIRST_YEAR).toBe(2025);
+    expect(OBBBA_SENIOR_DEDUCTION_LAST_YEAR).toBe(2028);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026 official-source pinning (IRS). Refresh against the IRS revenue
+// procedure for the relevant tax year (Rev. Proc. 2025-32 for 2026, typically
+// published October each year). Taxable-SS thresholds are statutory and have
+// not changed since 1993 — no annual refresh required.
+// ---------------------------------------------------------------------------
+describe("2026 official-source pinning (IRS Rev. Proc. 2025-32)", () => {
+  it("2026 standard deduction (single) = $16,100", () => {
+    expect(STANDARD_DEDUCTION_2026).toBe(16100);
+  });
+
+  it("2026 single-filer tax bracket thresholds match IRS Rev. Proc. 2025-32", () => {
+    // Bracket boundaries: $12,400 / $50,400 / $105,700 / $201,775 / $256,225 / $640,600.
+    // At each boundary the rate must be the lower one (≤ boundary uses the
+    // lower bracket); $1 above must be the higher one.
+    expect(getMarginalRate2026(12400)).toBe(10);
+    expect(getMarginalRate2026(12401)).toBe(12);
+    expect(getMarginalRate2026(50400)).toBe(12);
+    expect(getMarginalRate2026(50401)).toBe(22);
+    expect(getMarginalRate2026(105700)).toBe(22);
+    expect(getMarginalRate2026(105701)).toBe(24);
+    expect(getMarginalRate2026(201775)).toBe(24);
+    expect(getMarginalRate2026(201776)).toBe(32);
+    expect(getMarginalRate2026(256225)).toBe(32);
+    expect(getMarginalRate2026(256226)).toBe(35);
+    expect(getMarginalRate2026(640600)).toBe(35);
+    expect(getMarginalRate2026(640601)).toBe(37);
+  });
+
+  it("taxable-SS combined-income thresholds (single) = $25K / $34K (statutory 1983/1993)", () => {
+    // Boundary at exactly $25K → 0% taxable. $1 over → tier-1 formula kicks in.
+    expect(computeTaxableSSPct({ ssBasisAnnual: 20000, grossIncome: 15000 })).toBe(0);
+    const justOver = computeTaxableSSPct({ ssBasisAnnual: 20000, grossIncome: 15001 });
+    expect(justOver).toBeGreaterThan(0);
+    // Boundary at exactly $34K combined → still tier-2 formula ceiling
+    // (≤34K branch). At combined = 34,000 with $20K SS: taxable = min($10K, $4,500)
+    // = $4,500 → 22.5% of SS.
+    const at34k = computeTaxableSSPct({ ssBasisAnnual: 20000, grossIncome: 24000 });
+    expect(closeTo(at34k, 0.225, 0.001)).toBe(true);
   });
 });

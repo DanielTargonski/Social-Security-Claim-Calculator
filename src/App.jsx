@@ -163,6 +163,16 @@ export default function App() {
     waitInvestedAdvantage,
     waitInvestedBreakEvenAge,
     healthcareDeltaAnnualPre,
+    seniorDeductionPreFRA,
+    seniorDeductionPostFRA,
+    seniorDeductionWait,
+    seniorDeductionAnnualSavingsEarlyPre,
+    seniorDeductionAnnualSavingsEarlyPost,
+    seniorDeductionAnnualSavingsWait,
+    seniorDeductionLifetimeEarly,
+    seniorDeductionLifetimeWait,
+    seniorDeductionEligibleYearsEarly,
+    seniorDeductionEligibleYearsWait,
   } = useBenefitProjection(inputs);
 
   // Sweeps claimAge across the mode's range and reports the peak. Shared
@@ -363,6 +373,16 @@ export default function App() {
               medicareAnnualCostPost67={medicareAnnualCostPost67}
               grossIncome={grossIncome}
               postFRAGrossIncome={postFRAGrossIncome}
+              seniorDeductionPreFRA={seniorDeductionPreFRA}
+              seniorDeductionPostFRA={seniorDeductionPostFRA}
+              seniorDeductionWait={seniorDeductionWait}
+              seniorDeductionAnnualSavingsEarlyPre={seniorDeductionAnnualSavingsEarlyPre}
+              seniorDeductionAnnualSavingsEarlyPost={seniorDeductionAnnualSavingsEarlyPost}
+              seniorDeductionAnnualSavingsWait={seniorDeductionAnnualSavingsWait}
+              seniorDeductionLifetimeEarly={seniorDeductionLifetimeEarly}
+              seniorDeductionLifetimeWait={seniorDeductionLifetimeWait}
+              seniorDeductionEligibleYearsEarly={seniorDeductionEligibleYearsEarly}
+              seniorDeductionEligibleYearsWait={seniorDeductionEligibleYearsWait}
             />
           </div>
 
