@@ -1,0 +1,220 @@
+// @vitest-environment jsdom
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import MetadataStrip from "./MetadataStrip.jsx";
+
+// A minimum-viable prop bag: every numeric input zero, autoTax off, no recoup.
+// Individual tests override only the fields they care about.
+const baseProps = {
+  autoTax: false,
+  annualEarlyGross: 0,
+  earningsTestWithholding: 0,
+  earlyMonthlyGross: 0,
+  earlyPostFRAMonthlyGross: 0,
+  recoupedFactor: null,
+  combinedIncome: 0,
+  taxableSSPct: 0,
+  ssEffectiveTaxRate: 0,
+  lifeExpectancy: 85,
+};
+
+describe("MetadataStrip — render gate", () => {
+  it("returns null when there's nothing substantive to show", () => {
+    // No earnings test, no taxable SS, manual tax mode → strip is empty.
+    const { container } = render(<MetadataStrip {...baseProps} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders when autoTax is on, even with no earnings test or tax effect", () => {
+    render(<MetadataStrip {...baseProps} autoTax={true} />);
+    expect(screen.getByText("By the numbers")).toBeInTheDocument();
+    // Auto-tax mode surfaces the combined-income and taxable-SS rows.
+    expect(screen.getByText(/Combined income/i)).toBeInTheDocument();
+    expect(screen.getByText(/Taxable SS portion/i)).toBeInTheDocument();
+  });
+
+  it("renders when earnings test is withholding anything, even in manual tax mode", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        earningsTestWithholding={5000}
+        annualEarlyGross={36000}
+      />
+    );
+    expect(screen.getByText("By the numbers")).toBeInTheDocument();
+    expect(screen.getByText(/Earnings test \(annual\)/i)).toBeInTheDocument();
+  });
+
+  it("renders when the effective SS tax rate is nonzero, even with no earnings test", () => {
+    render(
+      <MetadataStrip {...baseProps} ssEffectiveTaxRate={0.15} />
+    );
+    expect(screen.getByText("By the numbers")).toBeInTheDocument();
+    expect(screen.getByText(/Effective fed tax on SS/i)).toBeInTheDocument();
+  });
+});
+
+describe("MetadataStrip — earnings test rows", () => {
+  it("hides the post-FRA / recoup rows when recoupedFactor is null", () => {
+    // Switch mode passes recoupedFactor=null because the claimant abandons
+    // own retirement at FRA — the recoup is moot.
+    render(
+      <MetadataStrip
+        {...baseProps}
+        earningsTestWithholding={4800}
+        annualEarlyGross={36000}
+        earlyMonthlyGross={3000}
+        earlyPostFRAMonthlyGross={3200}
+        recoupedFactor={null}
+      />
+    );
+    // Pre-FRA rows are visible.
+    expect(screen.getByText(/Monthly SS \(after test\)/i)).toBeInTheDocument();
+    // Post-FRA / recoup rows are not.
+    expect(screen.queryByText(/Monthly SS \(after FRA\)/i)).toBeNull();
+    expect(screen.queryByText(/FRA recoup/i)).toBeNull();
+  });
+
+  it("shows the post-FRA + recoup rows when recoupedFactor is set", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        earningsTestWithholding={4800}
+        annualEarlyGross={36000}
+        earlyMonthlyGross={2400}
+        earlyPostFRAMonthlyGross={2600}
+        recoupedFactor={0.85}
+      />
+    );
+    expect(screen.getByText(/Monthly SS \(after FRA\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Annual SS \(after FRA\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/FRA recoup/i)).toBeInTheDocument();
+  });
+});
+
+describe("MetadataStrip — standing rows", () => {
+  it("always shows the NY+NYC exempt reminder when the strip renders", () => {
+    render(<MetadataStrip {...baseProps} autoTax={true} />);
+    expect(screen.getByText(/NY \+ NYC on SS/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$0 · exempt/i)).toBeInTheDocument();
+  });
+
+  it("does not show the NY+NYC reminder when the strip is gated off", () => {
+    // The reminder lives inside the strip — if the strip returns null,
+    // it shouldn't leak into the DOM either.
+    render(<MetadataStrip {...baseProps} />);
+    expect(screen.queryByText(/NY \+ NYC on SS/i)).toBeNull();
+  });
+});
+
+describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
+  it("shows the ACA premium row pre-65 with cost and cliff details", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={62}
+        healthcareAnnualCost={5130}
+        healthcareNextCliff={{
+          label: "ACA premium tax credit cliff (400% FPL)",
+          distance: 8600,
+          annualCostDelta: 4549,
+        }}
+      />
+    );
+    // Pre-65 → "ACA premium" label as the row header (uppercase).
+    // Use a regex that won't also match the cliff-label substring.
+    const acaLabels = screen.getAllByText(/ACA premium/i);
+    expect(acaLabels.length).toBeGreaterThan(0);
+    // Annual cost displayed as a debit, with the claim age annotated.
+    expect(screen.getByText(/−\$5,130\/yr/)).toBeInTheDocument();
+    // Cliff distance + cost-if-crossed.
+    expect(screen.getByText(/Next cliff/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$8,600/)).toBeInTheDocument();
+    expect(screen.getByText(/\+\$4,549\/yr/)).toBeInTheDocument();
+    expect(screen.getByText(/400% FPL/)).toBeInTheDocument();
+  });
+
+  it("uses the Medicare label at age 65+", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={67}
+        healthcareAnnualCost={2435}
+        healthcareNextCliff={{
+          label: "IRMAA Tier 1 cliff",
+          distance: 19000,
+          annualCostDelta: 1148,
+        }}
+      />
+    );
+    expect(screen.getByText(/Medicare \(B \+ IRMAA\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/IRMAA Tier 1/)).toBeInTheDocument();
+  });
+
+  it("shows the $0 subsidized state when healthcare cost is zero (e.g. < 200% FPL)", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={62}
+        healthcareAnnualCost={0}
+        healthcareNextCliff={{
+          label: "NY Essential Plan ceiling (200% FPL)",
+          distance: 6300,
+          annualCostDelta: 2974,
+        }}
+      />
+    );
+    expect(screen.getByText(/\$0 · subsidized/i)).toBeInTheDocument();
+    expect(screen.getByText(/Essential Plan/)).toBeInTheDocument();
+  });
+
+  it("hides the cliff row when there is no cliff above (already past every tier)", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={62}
+        healthcareAnnualCost={9679}
+        healthcareNextCliff={null}
+      />
+    );
+    expect(screen.getAllByText(/ACA premium/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Next cliff/i)).toBeNull();
+  });
+
+  it("replaces the healthcare detail rows with the 'covered elsewhere' note when toggled", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={62}
+        coveredElsewhere={true}
+        healthcareAnnualCost={0}
+        healthcareNextCliff={null}
+      />
+    );
+    expect(screen.getByText(/covered elsewhere/i)).toBeInTheDocument();
+    expect(screen.getByText(/OBBBA cliffs not modeled/i)).toBeInTheDocument();
+    // The detailed rows should not appear.
+    expect(screen.queryByText(/ACA premium/i)).toBeNull();
+    expect(screen.queryByText(/Next cliff/i)).toBeNull();
+  });
+
+  it("opens the strip on its own when only the healthcare row has content", () => {
+    // Earnings test off, autoTax off, ssEffectiveTaxRate=0 — but a real
+    // healthcare cost should still cause the strip to render.
+    render(
+      <MetadataStrip
+        {...baseProps}
+        claimAge={62}
+        healthcareAnnualCost={5130}
+        healthcareNextCliff={null}
+      />
+    );
+    expect(screen.getByText("By the numbers")).toBeInTheDocument();
+    expect(screen.getAllByText(/ACA premium/i).length).toBeGreaterThan(0);
+  });
+});

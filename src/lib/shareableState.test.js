@@ -19,6 +19,9 @@ const sample = {
   autoTax: false,
   manualFedRate: 22,
   investedPct: 60,
+  householdSize: 2,
+  coveredElsewhere: true,
+  unsubsidizedSilverAnnual: 12000,
 };
 
 describe("shareableState — round-trip", () => {
@@ -68,6 +71,9 @@ describe("shareableState — round-trip", () => {
       "tax",
       "mrate",
       "inv",
+      "hh",
+      "cov",
+      "usil",
     ]) {
       expect(params.has(key)).toBe(true);
     }
@@ -162,8 +168,10 @@ describe("shareableState — DEFAULT_STATE shape", () => {
       [
         "autoTax",
         "claimAge",
+        "coveredElsewhere",
         "fraBenefit",
         "grossIncome",
+        "householdSize",
         "investStopAge",
         "investedPct",
         "investedPctWait",
@@ -174,6 +182,7 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "postFRAGrossIncome",
         "postFRAWorkYears",
         "returnRate",
+        "unsubsidizedSilverAnnual",
       ].sort()
     );
   });

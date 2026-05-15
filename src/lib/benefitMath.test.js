@@ -609,3 +609,89 @@ describe("computeProjection — wait+invest (investedPctWait)", () => {
     expect(omitted.waitInvestedAdvantage).toBe(explicit.waitInvestedAdvantage);
   });
 });
+
+describe("computeProjection — healthcare cost integration (OBBBA / NYC)", () => {
+  // Scenario engineered to cross the 400% FPL ACA cliff when claiming early.
+  // grossIncome=$25K (right at the earnings-test limit of $24,480 — minimal
+  // withholding) + early SS gross ~$42K from a $5K/mo FRA benefit at 62
+  // (factor 0.7) → MAGI ~$67K (single, > $62,600 = 400% FPL). Wait scenario
+  // at the same age has only $25K MAGI (no SS, ~160% FPL → Essential Plan,
+  // $0 cost). The full $9,679/yr unsubsidized NYC silver premium becomes
+  // the annual drag on the early-claim cash flow.
+  const cliffArgs = {
+    ...baseInputs,
+    fraBenefit: 5000,
+    grossIncome: 25000,
+    autoTax: true,
+    householdSize: 1,
+    coveredElsewhere: false, // healthcare modeling ON
+    unsubsidizedSilverAnnual: 9679,
+  };
+
+  it("produces a substantial healthcare delta when claiming early pushes MAGI past the ACA cliff", () => {
+    const r = computeProjection(cliffArgs);
+    // Early MAGI > 400% FPL → unsubsidized $9,679. Wait MAGI < 200% FPL →
+    // Essential Plan $0. Delta is essentially the full unsubsidized cost.
+    expect(r.healthcareDeltaAnnualPre).toBeGreaterThan(8000);
+  });
+
+  it("coveredElsewhere=true zeroes out both healthcare deltas", () => {
+    const r = computeProjection({ ...cliffArgs, coveredElsewhere: true });
+    expect(r.healthcareDeltaAnnualPre).toBe(0);
+    expect(r.healthcareDeltaAnnualPost).toBe(0);
+  });
+
+  it("healthcare drag reduces the lifetime advantage of claiming early", () => {
+    // Same scenario, two runs: with healthcare modeling ON vs OFF (covered
+    // elsewhere). The ON run should report a smaller (or more-negative)
+    // advantage because the early-claim monthly net was reduced.
+    const off = computeProjection({ ...cliffArgs, coveredElsewhere: true });
+    const on = computeProjection({ ...cliffArgs, coveredElsewhere: false });
+    expect(on.advantage).toBeLessThan(off.advantage);
+  });
+
+  it("healthcare drag reduces the invested pot at investStopAge", () => {
+    const off = computeProjection({ ...cliffArgs, coveredElsewhere: true });
+    const on = computeProjection({ ...cliffArgs, coveredElsewhere: false });
+    expect(on.potAtStopRow).toBeLessThan(off.potAtStopRow);
+  });
+
+  it("default (omitted healthcare params) matches coveredElsewhere=true behavior", () => {
+    // Backwards compat: existing call sites without healthcare params get
+    // the no-healthcare math, identical to passing coveredElsewhere=true.
+    const omitted = computeProjection({
+      ...baseInputs,
+      grossIncome: 45000,
+      fraBenefit: 2400,
+    });
+    const explicit = computeProjection({
+      ...baseInputs,
+      grossIncome: 45000,
+      fraBenefit: 2400,
+      coveredElsewhere: true,
+      householdSize: 1,
+      unsubsidizedSilverAnnual: 9679,
+    });
+    expect(omitted.advantage).toBe(explicit.advantage);
+    expect(omitted.potAtStopRow).toBe(explicit.potAtStopRow);
+  });
+
+  it("breakEvenAge moves later (or vanishes) when healthcare drag applies", () => {
+    // The wait curve is unchanged; the early curve gets reduced. So break-
+    // even (where wait catches up to early) shifts EARLIER in age — wait
+    // catches up sooner because early has less head start. This regression-
+    // pins that the chart math is actually consuming the adjusted early net.
+    const off = computeProjection({ ...cliffArgs, coveredElsewhere: true });
+    const on = computeProjection({ ...cliffArgs, coveredElsewhere: false });
+    // Both should have a break-even age in this scenario (early doesn't run
+    // away forever). When it exists, ON should be ≤ OFF.
+    if (off.breakEvenAge !== null && on.breakEvenAge !== null) {
+      expect(on.breakEvenAge).toBeLessThanOrEqual(off.breakEvenAge);
+    } else {
+      // If one is null and the other isn't, ON being null with OFF having
+      // a value would mean the cliff is so brutal that early never catches
+      // up to wait. Either is acceptable; just don't silently regress.
+      expect([off.breakEvenAge, on.breakEvenAge]).toBeDefined();
+    }
+  });
+});

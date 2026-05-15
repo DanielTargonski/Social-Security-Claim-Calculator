@@ -81,11 +81,36 @@ export default function Footnotes() {
         Sequence of returns risk on the invested side. The senior bonus
         deduction (up to $6,000 extra for 65+, phasing out above $75K MAGI)
         which can reduce or eliminate SS taxation. Tax drag on the investment
-        portfolio. Medicare Part B premiums. The $25K and $34K combined-income
-        thresholds that determine taxable SS are frozen by statute (not
-        inflation-indexed), so in real terms they shrink every year — the
-        model treats them as flat, which slightly understates lifetime tax
-        drag on both scenarios, more so on the larger "wait" checks.
+        portfolio. The $25K and $34K combined-income thresholds that
+        determine taxable SS are frozen by statute (not inflation-indexed),
+        so in real terms they shrink every year — the model treats them as
+        flat, which slightly understates lifetime tax drag on both scenarios,
+        more so on the larger "wait" checks.
+      </div>
+      <div>
+        <div
+          className="display text-sm mb-2"
+          style={{ color: C.ink, fontStyle: "italic" }}
+        >
+          Healthcare costs (OBBBA, 2026+)
+        </div>
+        Models the post-OBBBA NYC healthcare landscape: the IRA-era enhanced
+        ACA premium tax credits expired Dec 31, 2025, so the 400% FPL
+        "subsidy cliff" is back; NY's Essential Plan ceiling drops 250% →
+        200% FPL effective July 1, 2026; and Medicare IRMAA tiers stack on
+        top of the standard $202.90/mo Part B premium at 65+. The chart
+        subtracts the early-vs-wait healthcare-cost differential from the
+        early-claim cash flow, so cliff crossings shift the break-even age
+        directly. Toggle "Covered elsewhere" if employer coverage, retiree
+        health benefits, VA care, or a working spouse takes the household
+        out of the ACA / Medicare-IRMAA equation. Intentional simplifications:
+        the 2-year IRMAA MAGI lookback is ignored (current-year MAGI used
+        directly); the ACA PTC contribution scale is collapsed to a single
+        9.5% cap across the 200–400% FPL band; Medicaid (asset-tested 65+),
+        Medicare Savings Programs, and long-term-care eligibility are out of
+        scope. Cliff thresholds and the $9,679/yr NYC silver default are
+        2026 figures — review annually against CMS, HHS ASPE, and NY State
+        of Health publications.
       </div>
     </div>
 

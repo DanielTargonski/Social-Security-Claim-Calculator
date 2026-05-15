@@ -208,6 +208,13 @@ export default function InputsPanel({
   setInvestedPct,
   investedPctWait,
   setInvestedPctWait,
+  // healthcare-cost modeling (OBBBA / NYC) — see lib/healthcareCost.js
+  householdSize,
+  setHouseholdSize,
+  coveredElsewhere,
+  setCoveredElsewhere,
+  unsubsidizedSilverAnnual,
+  setUnsubsidizedSilverAnnual,
   // derived from projection
   earlyFactor,
   earlyMonthlyNet,
@@ -548,6 +555,106 @@ export default function InputsPanel({
             <span>37%</span>
           </div>
         </div>
+
+        <div className="section-divider" style={{ marginTop: "20px" }}>
+          Healthcare (NYC, 2026+)
+        </div>
+        <div>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <button
+              onClick={() => setCoveredElsewhere(!coveredElsewhere)}
+              className="num"
+              style={{
+                fontSize: "10px",
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+                padding: "4px 10px",
+                backgroundColor: coveredElsewhere ? C.ink : "transparent",
+                color: coveredElsewhere ? C.bg : C.ink,
+                border: `1px solid ${C.ink}`,
+                cursor: "pointer",
+                fontWeight: 500,
+              }}
+              title="Skip ACA / Medicare cost modeling — pick this if you have employer coverage, retiree health benefits, VA care, or are covered through a working spouse"
+            >
+              {coveredElsewhere ? "● Covered elsewhere" : "○ Covered elsewhere"}
+            </button>
+            <span className="text-xs" style={{ color: C.inkFaint }}>
+              {coveredElsewhere
+                ? "OBBBA cliffs ignored — assumes employer / retiree / VA / spouse coverage"
+                : "models ACA pre-65 + Medicare IRMAA at 65+"}
+            </span>
+          </div>
+        </div>
+        {!coveredElsewhere && (
+          <>
+            <div>
+              <div className="flex justify-between items-baseline mb-2">
+                <label
+                  className="text-xs tracking-widest uppercase"
+                  style={{ color: C.inkSoft, letterSpacing: "0.12em" }}
+                >
+                  Household
+                </label>
+                <span
+                  className="num text-lg"
+                  style={{ color: C.ink, fontWeight: 500 }}
+                >
+                  {householdSize === 2 ? "Couple" : "Single"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHouseholdSize(1)}
+                  className="num"
+                  style={{
+                    fontSize: "10px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.15em",
+                    padding: "4px 10px",
+                    backgroundColor: householdSize === 1 ? C.ink : "transparent",
+                    color: householdSize === 1 ? C.bg : C.ink,
+                    border: `1px solid ${C.ink}`,
+                    cursor: "pointer",
+                    fontWeight: 500,
+                  }}
+                >
+                  Single
+                </button>
+                <button
+                  onClick={() => setHouseholdSize(2)}
+                  className="num"
+                  style={{
+                    fontSize: "10px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.15em",
+                    padding: "4px 10px",
+                    backgroundColor: householdSize === 2 ? C.ink : "transparent",
+                    color: householdSize === 2 ? C.bg : C.ink,
+                    border: `1px solid ${C.ink}`,
+                    cursor: "pointer",
+                    fontWeight: 500,
+                  }}
+                >
+                  Couple
+                </button>
+                <span className="text-xs" style={{ color: C.inkFaint }}>
+                  affects FPL thresholds (single $15,650 / couple $21,150)
+                </span>
+              </div>
+            </div>
+            <SliderInput
+              label="Unsubsidized silver plan (annual)"
+              value={unsubsidizedSilverAnnual}
+              onChange={setUnsubsidizedSilverAnnual}
+              min={0}
+              max={30000}
+              step={100}
+              format={(v) => "$" + v.toLocaleString() + "/yr"}
+              hint="default: NYC LCSP $9,679 (NY State of Health 2026)"
+            />
+          </>
+        )}
       </div>
     </div>
   );

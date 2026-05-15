@@ -26,5 +26,8 @@ export function useOptimalClaimAge(inputs) {
     inputs.autoTax,
     inputs.manualFedRate,
     inputs.investedPct,
+    inputs.householdSize,
+    inputs.coveredElsewhere,
+    inputs.unsubsidizedSilverAnnual,
   ]);
 }

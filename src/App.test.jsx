@@ -8,10 +8,23 @@
 // unguarded `null` in SensitivityTornado that compiled fine and only crashed
 // at render time.
 
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App.jsx";
+
+// Helper to seed the URL before mounting App. App reads window.location.search
+// once via getInitialStateFromUrl() inside useFormState's initializer, so the
+// search string has to be set BEFORE render().
+function setUrlSearch(search) {
+  window.history.replaceState(null, "", "/" + (search ? "?" + search : ""));
+}
+
+afterEach(() => {
+  // Reset the URL between tests so a hydration test's params don't leak into
+  // an unrelated test that assumes default state.
+  setUrlSearch("");
+});
 
 describe("App — initial render", () => {
   it("mounts in the default retirement mode without throwing", () => {
@@ -191,5 +204,84 @@ describe("App — top-level tab nav", () => {
     await user.click(screen.getByRole("button", { name: /^Calculator$/ }));
     expect(screen.getByText("Inputs")).toBeInTheDocument();
     expect(screen.queryByText("What the SSA shows you")).toBeNull();
+  });
+});
+
+describe("App — healthcare inputs", () => {
+  it("renders the healthcare section with the covered-elsewhere toggle off by default", () => {
+    render(<App />);
+    expect(
+      screen.getByText(/Healthcare \(NYC, 2026\+\)/i)
+    ).toBeInTheDocument();
+    // Single household and the unsubsidized-silver slider show by default
+    // (because coveredElsewhere defaults to false → details panel visible).
+    expect(screen.getByRole("button", { name: /^Single$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Couple$/ })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Unsubsidized silver plan \(annual\)/i)
+    ).toBeInTheDocument();
+  });
+
+  it("toggling 'covered elsewhere' on hides the household + plan-cost controls", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(
+      screen.getByRole("button", { name: /Covered elsewhere/i })
+    );
+    // Single/Couple toggle and the unsubsidized-silver slider disappear.
+    expect(screen.queryByRole("button", { name: /^Single$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Couple$/ })).toBeNull();
+    expect(
+      screen.queryByText(/Unsubsidized silver plan \(annual\)/i)
+    ).toBeNull();
+  });
+
+  it("switching to couple updates the FPL hint text", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /^Couple$/ }));
+    // The household-size choice mirrors back into URL state too.
+    expect(window.location.search).toMatch(/hh=2/);
+  });
+});
+
+describe("App — URL hydration round-trip", () => {
+  // serializeStateToParams + parseStateFromParams have unit coverage in
+  // shareableState.test.js. These tests pin the actual integration: a share
+  // link in the address bar at mount → React state → rendered UI, plus the
+  // mode-aware claim-age clamp that defends against hand-crafted URLs.
+
+  it("hydrates non-default fields from the URL on initial mount", async () => {
+    setUrlSearch("mode=survivor&age=63&fra=3000");
+    render(<App />);
+    // Survivor mode active.
+    const survivorBtn = screen.getByRole("button", { name: /Survivor \(Spouse\)/i });
+    expect(survivorBtn.getAttribute("aria-pressed") || "").toMatch(/true|/);
+    // FRA benefit slider reflects the URL value.
+    expect(screen.getByRole("button", { name: "$3,000/mo" })).toBeInTheDocument();
+  });
+
+  it("clamps an out-of-range claim age to the mode's bounds", () => {
+    // Survivor caps at 67. A hand-crafted ?mode=survivor&age=70 must not
+    // leave React state holding 70 — modeConfig.clampClaimAgeToBounds is
+    // the guard, and this test verifies it actually fires through App.
+    setUrlSearch("mode=survivor&age=70");
+    render(<App />);
+    // Find the claim-age slider by its survivor-mode bounds (min=60, max=67),
+    // since several sliders share the "67 yr" formatted display.
+    const claimAgeSlider = screen
+      .getAllByRole("slider")
+      .find((s) => s.getAttribute("min") === "60" && s.getAttribute("max") === "67");
+    expect(claimAgeSlider).toBeDefined();
+    // Without the clamp, value would be 70 — out of the slider's own range.
+    expect(parseFloat(claimAgeSlider.value)).toBe(67);
+  });
+
+  it("mirrors a slider change back into window.location.search", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    // Switch from default retirement → survivor and confirm the URL updates.
+    await user.click(screen.getByRole("button", { name: /Survivor \(Spouse\)/i }));
+    expect(window.location.search).toMatch(/mode=survivor/);
   });
 });

@@ -39,6 +39,10 @@ const SCHEMA = [
   { key: "manualFedRate",      url: "mrate", type: "num",  default: 12,   min: 0,    max: 37 },
   { key: "investedPct",        url: "inv",   type: "num",  default: 100,  min: 0,    max: 100 },
   { key: "investedPctWait",    url: "invw",  type: "num",  default: 100,  min: 0,    max: 100 },
+  // Healthcare-cost modeling (OBBBA / NYC). See lib/healthcareCost.js.
+  { key: "householdSize",      url: "hh",    type: "num",  default: 1,    min: 1,    max: 2 },
+  { key: "coveredElsewhere",   url: "cov",   type: "bool", default: false },
+  { key: "unsubsidizedSilverAnnual", url: "usil", type: "num", default: 9679, min: 0, max: 50000 },
 ];
 
 export const DEFAULT_STATE = Object.fromEntries(

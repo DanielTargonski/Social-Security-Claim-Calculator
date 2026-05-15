@@ -7,6 +7,12 @@ import { useFormState } from "./hooks/useFormState.js";
 import { useUrlSync } from "./hooks/useUrlSync.js";
 import { getInitialStateFromUrl } from "./lib/shareableState.js";
 import { rangeForMode, snapClaimAgeOnModeSwitch } from "./lib/modeConfig.js";
+import {
+  computeMagiACA,
+  computeMagiIRMAA,
+  computeAnnualHealthcareCost,
+  nextCliffAbove,
+} from "./lib/healthcareCost.js";
 import GlobalStyles from "./components/GlobalStyles.jsx";
 import Header from "./components/Header.jsx";
 import ModeSwitcher from "./components/ModeSwitcher.jsx";
@@ -56,6 +62,9 @@ export default function App() {
     manualFedRate,
     investedPct,
     investedPctWait,
+    householdSize,
+    coveredElsewhere,
+    unsubsidizedSilverAnnual,
   } = state;
   const {
     setMode,
@@ -72,6 +81,9 @@ export default function App() {
     setManualFedRate,
     setInvestedPct,
     setInvestedPctWait,
+    setHouseholdSize,
+    setCoveredElsewhere,
+    setUnsubsidizedSilverAnnual,
   } = setters;
 
   // Mirror state into the URL on every change. Stored raw investStopAge
@@ -119,6 +131,9 @@ export default function App() {
     manualFedRate,
     investedPct,
     investedPctWait,
+    householdSize,
+    coveredElsewhere,
+    unsubsidizedSilverAnnual,
   };
 
   const {
@@ -145,6 +160,7 @@ export default function App() {
     crossoverValue,
     waitInvestedAdvantage,
     waitInvestedBreakEvenAge,
+    healthcareDeltaAnnualPre,
   } = useBenefitProjection(inputs);
 
   // Sweeps claimAge across the mode's range and reports the peak. Shared
@@ -156,6 +172,37 @@ export default function App() {
     mode === "retirement" ? "Your benefit at 67" : "Survivor benefit at 67";
 
   const taxesActive = grossIncome > 0 || fedMarginalRate > 0;
+
+  // Healthcare cost at the user's current claim age. Uses the early-claim
+  // gross SS as the SS basis — that's the cash flow the user sees right
+  // away when they claim, and it's what drives MAGI in the first year of
+  // claiming. ACA MAGI counts 100% of gross SS; IRMAA MAGI uses the
+  // taxable portion only (consistent with taxMath's federal-tax math).
+  const magiACA = computeMagiACA({
+    grossIncome,
+    ssAnnualGross: annualEarlyGross,
+  });
+  const magiIRMAA = computeMagiIRMAA({
+    grossIncome,
+    ssAnnualGross: annualEarlyGross,
+    taxableSSPct,
+  });
+  const healthcareAnnualCost = computeAnnualHealthcareCost({
+    age: claimAge,
+    magiACA,
+    magiIRMAA,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const healthcareNextCliff = nextCliffAbove({
+    age: claimAge,
+    magiACA,
+    magiIRMAA,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
 
   return (
     <div
@@ -216,6 +263,12 @@ export default function App() {
               setInvestedPct={setInvestedPct}
               investedPctWait={investedPctWait}
               setInvestedPctWait={setInvestedPctWait}
+              householdSize={householdSize}
+              setHouseholdSize={setHouseholdSize}
+              coveredElsewhere={coveredElsewhere}
+              setCoveredElsewhere={setCoveredElsewhere}
+              unsubsidizedSilverAnnual={unsubsidizedSilverAnnual}
+              setUnsubsidizedSilverAnnual={setUnsubsidizedSilverAnnual}
               earlyFactor={earlyFactor}
               earlyMonthlyNet={earlyMonthlyNet}
               fraMonthlyNet={fraMonthlyNet}
@@ -260,6 +313,10 @@ export default function App() {
             taxableSSPct={taxableSSPct}
             ssEffectiveTaxRate={ssEffectiveTaxRate}
             lifeExpectancy={lifeExpectancy}
+            coveredElsewhere={coveredElsewhere}
+            healthcareAnnualCost={healthcareAnnualCost}
+            healthcareNextCliff={healthcareNextCliff}
+            claimAge={claimAge}
           />
 
           <ChartCard
