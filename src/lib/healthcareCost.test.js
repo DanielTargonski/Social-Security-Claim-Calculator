@@ -91,18 +91,18 @@ describe("computeACAAnnualCost — subsidized band (200%–400% FPL)", () => {
   it("flips off Essential Plan at 200% + $1 (single) — small but nonzero cost", () => {
     const cost = computeACAAnnualCost({ magi: 31301 });
     expect(cost).toBeGreaterThan(0);
-    // ~9.5% of $31,301 = ~$2,973/yr
+    // ~9.96% of $31,301 = ~$3,118/yr (2026 top-of-band applicable percentage)
     expect(closeTo(cost, 31301 * ACA_PTC_CONTRIBUTION_CAP, 1)).toBe(true);
   });
 
-  it("contribution capped at 9.5% of MAGI in the middle of the band", () => {
-    // 300% FPL single = $46,950; 9.5% = $4,460/yr
+  it("contribution capped at 9.96% of MAGI in the middle of the band", () => {
+    // 300% FPL single = $46,950; 9.96% = $4,676/yr
     const cost = computeACAAnnualCost({ magi: 46950 });
-    expect(closeTo(cost, 46950 * 0.095, 1)).toBe(true);
+    expect(closeTo(cost, 46950 * ACA_PTC_CONTRIBUTION_CAP, 1)).toBe(true);
   });
 
   it("never exceeds the unsubsidized rate even at the high end of the band", () => {
-    // 9.5% of $62,600 (400% FPL) = $5,947 — well under default $9,679.
+    // 9.96% of $62,600 (400% FPL) = $6,235 — well under default $9,679.
     // Using a low override to force the min() to bind.
     const cost = computeACAAnnualCost({ magi: 50000, unsubsidizedAnnual: 4000 });
     expect(cost).toBe(4000);
@@ -111,9 +111,9 @@ describe("computeACAAnnualCost — subsidized band (200%–400% FPL)", () => {
 
 describe("computeACAAnnualCost — 400% FPL cliff", () => {
   it("just below 400% FPL: subsidized cap binds", () => {
-    // 399% FPL = $62,443.50; 9.5% = $5,932/yr (well under $9,679 default)
+    // 399% FPL = $62,443.50; 9.96% = $6,219/yr (well under $9,679 default)
     const cost = computeACAAnnualCost({ magi: 62443 });
-    expect(closeTo(cost, 62443 * 0.095, 1)).toBe(true);
+    expect(closeTo(cost, 62443 * ACA_PTC_CONTRIBUTION_CAP, 1)).toBe(true);
   });
 
   it("at exactly 400% FPL: still subsidized (≤ is the boundary)", () => {
@@ -127,8 +127,10 @@ describe("computeACAAnnualCost — 400% FPL cliff", () => {
     expect(cost).toBe(NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT);
   });
 
-  it("cliff size: ~$3,700/yr step at 400% FPL single (NYC default rate)", () => {
+  it("cliff size: ~$3,500/yr step at 400% FPL single (NYC default rate)", () => {
     // The dollar magnitude of the cliff is what shifts the break-even.
+    // Just below 400% FPL: subsidized cost = 9.96% × $62,599 ≈ $6,235/yr.
+    // At/past cliff: $9,679/yr unsubsidized. Step = ~$3,444.
     const justBelow = computeACAAnnualCost({ magi: 62599 });
     const atCliff = computeACAAnnualCost({ magi: 62601 });
     const cliffSize = atCliff - justBelow;
@@ -238,7 +240,7 @@ describe("nextCliffAbove — pre-65", () => {
     expect(cliff.label).toMatch(/ACA premium tax credit cliff/);
     expect(cliff.magiAtCliff).toBe(62600);
     expect(cliff.distance).toBe(12600);
-    // Crossing the cliff goes from ~$4,750/yr (subsidized) to $9,679 (unsub).
+    // Crossing the cliff goes from ~$4,980/yr (subsidized 9.96%) to $9,679 (unsub).
     expect(cliff.annualCostDelta).toBeGreaterThan(3000);
     expect(cliff.annualCostDelta).toBeLessThan(7000);
   });
@@ -328,7 +330,7 @@ describe("the load-bearing OBBBA scenario — single NYC claimant at age 62", ()
   // claiming SS at 62 to add ~$24K of annual benefit. The combined $54K MAGI
   // sits in the subsidized ACA band but is well above the Essential Plan
   // ceiling. Claiming pushes ACA cost from $0 (Essential Plan at $30K MAGI)
-  // to the subsidized cap (~$5,130/yr at $54K MAGI). The $5K/yr healthcare
+  // to the subsidized cap (~$5,378/yr at $54K MAGI). The $5K/yr healthcare
   // hit is a real drag on the early-claim invested-pot calculus.
   it("MAGI without SS sits below the 200% FPL Essential Plan ceiling", () => {
     const magiBeforeClaiming = computeMagiACA({
@@ -345,8 +347,8 @@ describe("the load-bearing OBBBA scenario — single NYC claimant at age 62", ()
       ssAnnualGross: 24000,
     });
     const cost = computeACAAnnualCost({ magi: magiAfterClaiming });
-    // 9.5% of $54,000 = $5,130
-    expect(cost).toBeCloseTo(5130, 1);
+    // 9.96% of $54,000 = $5,378.40 (2026 top-of-band applicable percentage)
+    expect(cost).toBeCloseTo(5378.4, 1);
   });
 
   it("higher-income claimant ($45K wages + $24K SS) gets pushed past the 400% FPL cliff", () => {
@@ -434,5 +436,85 @@ describe("MSP cliff in nextCliffAbove (65+)", () => {
     const cliff = nextCliffAbove({ age: 65, magiACA: 0, magiIRMAA: 25000 });
     expect(cliff.label).toMatch(/Tier 1/);
     expect(cliff.annualCostDelta).toBeCloseTo(1148.4, 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-constants pinning — every published number that ships in this module
+// has a citation. These tests fail the moment the indexed value drifts, so
+// the annual review of healthcare constants is a single test run instead of
+// a comment trawl. Refresh in late 2026 when:
+//   - HHS publishes the 2026 FPL guidelines (used for 2027 PTC)
+//   - CMS publishes the 2027 Part B premium + IRMAA brackets (Nov 2026)
+//   - NY State of Health publishes 2027 LCSP rates (Nov 2026)
+//   - IRS publishes the 2027 applicable percentages (Rev. Proc. ~mid-2026)
+// ---------------------------------------------------------------------------
+describe("2026 official-source pinning (regenerate when sources update)", () => {
+  it("2025 FPL single = $15,650 (HHS ASPE, used for 2026 PTC)", () => {
+    expect(FPL_2025_FOR_2026_PTC.single).toBe(15650);
+  });
+
+  it("2025 FPL couple = $21,150 (HHS ASPE; single + $5,500 per add'l member)", () => {
+    expect(FPL_2025_FOR_2026_PTC.couple).toBe(21150);
+    expect(FPL_2025_FOR_2026_PTC.couple - FPL_2025_FOR_2026_PTC.single).toBe(
+      FPL_2025_FOR_2026_PTC.perAdditionalMember
+    );
+  });
+
+  it("400% FPL single cliff = $62,600 (4× $15,650)", () => {
+    expect(ACA_PTC_CLIFF_FPL * FPL_2025_FOR_2026_PTC.single).toBe(62600);
+  });
+
+  it("200% FPL single Essential Plan ceiling = $31,300 (2× $15,650)", () => {
+    expect(ESSENTIAL_PLAN_FPL_CEILING * FPL_2025_FOR_2026_PTC.single).toBe(
+      31300
+    );
+  });
+
+  it("ACA PTC contribution cap = 9.96% (IRS Rev. Proc. 2025-25, top of band)", () => {
+    expect(ACA_PTC_CONTRIBUTION_CAP).toBe(0.0996);
+  });
+
+  it("MSP ceiling = 135% FPL (NY QMB/SLMB/QI upper bound, asset test removed 2023)", () => {
+    expect(MSP_PART_B_FPL_CEILING).toBe(1.35);
+  });
+
+  it("Medicaid ceiling = 138% FPL (133% + 5% disregard, NY adult MAGI rules)", () => {
+    expect(MEDICAID_FPL_CEILING).toBe(1.38);
+  });
+
+  it("2026 Part B base premium = $202.90/mo → $2,434.80/yr (CMS Nov 2025)", () => {
+    expect(PART_B_BASE_ANNUAL_2026).toBeCloseTo(2434.8, 2);
+  });
+
+  it("NYC unsubsidized silver default = $9,679/yr (NY SoH 2026 LCSP, $806.61/mo)", () => {
+    expect(NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT).toBe(9679);
+  });
+
+  it("IRMAA 2026 single Tier 1 starts $1 above $109K MAGI (CMS Nov 2025)", () => {
+    expect(IRMAA_2026_SINGLE[0].maxMagi).toBe(109000);
+    expect(IRMAA_2026_SINGLE[0].annualExtra).toBe(0);
+  });
+
+  it("IRMAA 2026 single tier upper bounds: $137K / $171K / $205K / $500K / ∞", () => {
+    const bounds = IRMAA_2026_SINGLE.map((t) => t.maxMagi);
+    expect(bounds).toEqual([109000, 137000, 171000, 205000, 500000, Infinity]);
+  });
+
+  it("IRMAA 2026 Part B monthly surcharges: $0 / $81.20 / $202.90 / $324.60 / $446.30 / $487.00", () => {
+    const partB = IRMAA_2026_SINGLE.map((t) => t.partBSurcharge);
+    expect(partB).toEqual([0, 81.2, 202.9, 324.6, 446.3, 487]);
+  });
+
+  it("IRMAA 2026 Part D monthly surcharges: $0 / $14.50 / $37.50 / $60.40 / $83.30 / $91.00", () => {
+    const partD = IRMAA_2026_SINGLE.map((t) => t.partDSurcharge);
+    expect(partD).toEqual([0, 14.5, 37.5, 60.4, 83.3, 91]);
+  });
+
+  it("IRMAA annualExtra rows internally consistent with (partB+partD)*12", () => {
+    for (const tier of IRMAA_2026_SINGLE) {
+      const recomputed = (tier.partBSurcharge + tier.partDSurcharge) * 12;
+      expect(tier.annualExtra).toBeCloseTo(recomputed, 1);
+    }
   });
 });

@@ -16,9 +16,11 @@
 //   - 2-year IRMAA MAGI lookback: applies current-year MAGI directly. Real
 //     IRMAA at age 65 reflects MAGI from age 63. Over a 20-yr horizon the
 //     timing offset is noise for break-even sensitivity analysis.
-//   - ACA PTC graduated contribution scale (2.0% → 9.83% from 100–300% FPL):
-//     collapsed into a single 9.5% cap for 200–400% FPL. The cliff at 400%
-//     dominates anyway, and the calculator's audience is mostly above 250%.
+//   - ACA PTC graduated contribution scale (~2.1% → 9.96% from 100–300% FPL
+//     per the 2026 indexed table in IRS Rev. Proc. 2025-25): collapsed into a
+//     single 9.96% cap across the 200–400% FPL subsidized band. The cliff at
+//     400% dominates anyway, and the calculator's audience tends to sit in
+//     the upper half of the band where the top-of-scale rate applies.
 //   - Medicaid (asset-tested 65+ coverage), MSP, LTC eligibility — out of
 //     scope for a SS-claim-age calculator.
 //   - Cost-sharing reductions (CSRs) and deductible variance — modeled as
@@ -53,8 +55,8 @@ export const ESSENTIAL_PLAN_FPL_CEILING = 2.0; // 200% of FPL
 export const ACA_PTC_CLIFF_FPL = 4.0;         // 400% of FPL
 
 // NY Medicare Savings Program ceiling (QMB / SLMB / QI combined upper limit).
-// NY eliminated the asset test for MSPs effective Jan 1, 2026, so eligibility
-// is now MAGI-only. QMB ≤100% FPL pays Part B premium and all cost-sharing;
+// NY eliminated the MSP asset test effective Jan 1, 2023, so eligibility is
+// MAGI-only. QMB ≤100% FPL pays Part B premium and all cost-sharing;
 // SLMB 100-120% pays Part B premium only; QI 120-135% pays Part B premium
 // only. Collapsing all three into "≤135% FPL → Part B is free" is accurate
 // for the calculator's purpose (premium cost) — the cost-sharing differences
@@ -62,12 +64,16 @@ export const ACA_PTC_CLIFF_FPL = 4.0;         // 400% of FPL
 export const MSP_PART_B_FPL_CEILING = 1.35;
 
 // ACA PTC cap on subsidized premium contribution as a fraction of MAGI.
-// Pre-IRA / post-OBBBA the cap was a graduated scale (2.04% at 100% FPL up
-// to 9.83% at 300%+ FPL); above 400% there was no cap (the cliff). For this
-// calculator's sensitivity-analysis purpose, a single 9.5% cap across the
-// 200–400% subsidized band is close enough — the 200% Essential Plan floor
-// and the 400% cliff are the load-bearing thresholds.
-export const ACA_PTC_CONTRIBUTION_CAP = 0.095;
+// Pre-IRA / post-OBBBA the cap is a graduated scale; the 2026 indexed
+// applicable-percentage table per IRS Rev. Proc. 2025-25 runs from ~2.1% at
+// 100% FPL up to 9.96% at 300–400% FPL, with the cliff above 400% FPL. For
+// this calculator's sensitivity-analysis purpose we collapse the band into
+// the single top-of-scale value (9.96%): the calculator's audience tends to
+// sit in the upper half of the subsidized band (250–400% FPL), and using the
+// top rate is the conservative choice for early-claim healthcare-cost
+// estimation. The 200% Essential Plan floor and the 400% cliff are the
+// load-bearing thresholds either way.
+export const ACA_PTC_CONTRIBUTION_CAP = 0.0996;
 
 // NYC Lowest-Cost Silver Plan, single, 2026. Source: NY State of Health
 // "2026 Lowest Cost Silver Plan by County" PDF. NY uses pure community
@@ -129,7 +135,7 @@ export function fplPctOf({ magi, householdSize = 1 }) {
 
 // Annual ACA premium cost for a pre-65 enrollee. Three regimes:
 //   ≤ 200% FPL    → $0 (NY Essential Plan)
-//   200–400% FPL  → min(unsubsidized, 9.5% of MAGI) — capped subsidized silver
+//   200–400% FPL  → min(unsubsidized, 9.96% of MAGI) — capped subsidized silver
 //   ≥ 400% FPL    → unsubsidized (cliff)
 // Couples: pass `unsubsidizedAnnual` already doubled, or rely on the default
 // (single-coverage rate × 2). The function doesn't double automatically — the
@@ -142,9 +148,9 @@ export function computeACAAnnualCost({
   const fplPct = fplPctOf({ magi, householdSize });
   if (fplPct <= ESSENTIAL_PLAN_FPL_CEILING) return 0;
   if (fplPct >= ACA_PTC_CLIFF_FPL) return unsubsidizedAnnual;
-  // Subsidized: contribution capped at 9.5% of MAGI, but never more than
+  // Subsidized: contribution capped at 9.96% of MAGI, but never more than
   // the unsubsidized rate (small edge case for very low-income enrollees
-  // just above 200% FPL where 9.5% of MAGI could exceed the actual premium).
+  // just above 200% FPL where 9.96% of MAGI could exceed the actual premium).
   return Math.min(unsubsidizedAnnual, magi * ACA_PTC_CONTRIBUTION_CAP);
 }
 
@@ -249,7 +255,7 @@ export function nextCliffAbove({
         householdSize,
         unsubsidizedAnnual,
       });
-      // Cost just above the 200% FPL line (subsidized cap of 9.5% of MAGI).
+      // Cost just above the 200% FPL line (subsidized cap of 9.96% of MAGI).
       const justAbove = Math.min(
         unsubsidizedAnnual,
         (cliff200 + 1) * ACA_PTC_CONTRIBUTION_CAP

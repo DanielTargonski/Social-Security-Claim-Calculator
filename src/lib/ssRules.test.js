@@ -269,3 +269,42 @@ describe("resolveBenefits — by mode", () => {
     expect(r.fraMonthlyGross).toBe(2000);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 2026-constants pinning. Refresh in late 2026 against:
+//   - SSA 2027 COLA announcement (Oct 2026) — earnings test limit indexes annually
+//   - Anyone born 1960+ has FRA 67 by statute; no refresh needed unless Congress acts
+// ---------------------------------------------------------------------------
+describe("2026 official-source pinning (SSA)", () => {
+  it("FRA = 67 (statutory for anyone born 1960 or later)", () => {
+    expect(FRA).toBe(67);
+  });
+
+  it("2026 earnings test limit = $24,480 (SSA COLA announcement, Oct 2025)", () => {
+    expect(EARNINGS_LIMIT_2026).toBe(24480);
+  });
+
+  it("retirementFactor matches the canonical SSA published examples (FRA 67)", () => {
+    // SSA's own published table for FRA-67 cohort:
+    //   62 → 70.00%   63 → 75.00%   64 → 80.00%
+    //   65 → 86.67%   66 → 93.33%   67 → 100.00%
+    //   68 → 108.00%  69 → 116.00%  70 → 124.00%
+    expect(closeTo(retirementFactor(62), 0.7)).toBe(true);
+    expect(closeTo(retirementFactor(63), 0.75)).toBe(true);
+    expect(closeTo(retirementFactor(64), 0.8)).toBe(true);
+    expect(closeTo(retirementFactor(65), 13 / 15, 0.001)).toBe(true); // 86.67%
+    expect(closeTo(retirementFactor(66), 14 / 15, 0.001)).toBe(true); // 93.33%
+    expect(retirementFactor(67)).toBe(1);
+    expect(closeTo(retirementFactor(68), 1.08)).toBe(true);
+    expect(closeTo(retirementFactor(69), 1.16)).toBe(true);
+    expect(retirementFactor(70)).toBe(1.24);
+  });
+
+  it("survivorFactor matches the canonical SSA published value (71.5% at 60)", () => {
+    // SSA: 28.5% max reduction at 60 → factor = 0.715.
+    expect(closeTo(survivorFactor(60), 0.715, 0.001)).toBe(true);
+    // 100% at survivor FRA, no DRC past FRA.
+    expect(survivorFactor(67)).toBe(1);
+    expect(survivorFactor(70)).toBe(1);
+  });
+});

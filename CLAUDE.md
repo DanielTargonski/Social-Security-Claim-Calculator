@@ -142,13 +142,33 @@ NY/NYC do not tax SS — noted in a footnote, not modeled.
 Lives in `src/lib/healthcareCost.js`. Post-OBBBA, healthcare cost is a real annual drag on the claim-age decision that the calculator now bakes into the break-even:
 
 - **ACA Premium Tax Credit cliff at 400% FPL** ($62,600 single / $84,600 couple in 2026, using 2025 FPL per ACA prior-year convention). The IRA-era enhanced PTCs expired Dec 31, 2025 and OBBBA didn't renew them — so $1 over the cliff → lose all subsidies. Default NYC unsubsidized silver = **$9,679/yr** (NY State of Health LCSP, age-neutral via NY's pure community rating, user-overridable).
-- **NY Essential Plan ceiling drops 250% → 200% FPL effective July 1, 2026** because OBBBA defunded the lawfully-present-immigrant PTC that was financing the 200–250% band. Below 200% FPL: $0 premium. Above 200%, into the subsidized band: capped at **9.5% of MAGI** (simplification of the graduated 2.0–9.83% scale).
+- **NY Essential Plan ceiling drops 250% → 200% FPL effective July 1, 2026** because OBBBA defunded the lawfully-present-immigrant PTC that was financing the 200–250% band. Below 200% FPL: $0 premium. Above 200%, into the subsidized band: capped at **9.96% of MAGI** (simplification of the graduated ~2.1–9.96% scale; 9.96% is the 2026 top-of-band applicable percentage per IRS Rev. Proc. 2025-25, the post-IRA reverted ACA contribution table).
 - **Medicare IRMAA tiers at 65+**: standard Part B = $202.90/mo flat. Surcharges stack on top per six MAGI brackets ($109K / $137K / $171K / $205K / $500K thresholds; +$1,148 / +$2,885 / +$4,620 / +$6,355 / +$6,936 annually for tiers 1–5).
 - **Two MAGI definitions** because ACA and IRMAA define MAGI differently. ACA counts **100% of gross SS**; IRMAA counts only the taxable portion (reuses `taxMath.computeTaxableSSPct`). Important for not double-counting at age 65+.
 
 How it shifts the chart: `benefitMath.computeProjection` computes the **healthcare-cost differential between early and wait scenarios** in two windows (pre-FRA and post-FRA), then subtracts `delta / 12` from the early-claim monthly nets. Both scenarios pay healthcare; what shifts the break-even is the **extra** cost early-claiming imposes by elevating MAGI sooner. The wait curve stays clean as baseline; the early curve drops by the delta; break-even age and lifetime advantage shift accordingly.
 
 **`coveredElsewhere` toggle** short-circuits the whole layer for users with employer coverage, retiree health benefits, VA care, or coverage via a working spouse. Default is `false` (model healthcare). Math layer's `computeProjection` defaults to `true` for backwards compat — old call sites without the new params get zero healthcare drag.
+
+### Senior bonus deduction layer (OBBBA, 2025–2028)
+
+Lives in `src/lib/taxMath.js`. The OBBBA created a temporary $6,000 single-filer / $12,000 joint deduction for taxpayers age 65+ on top of the standard deduction (regardless of whether they itemize). Sunsets Dec 31, 2028 unless Congress extends.
+
+- **Base**: $6,000 (single filer; joint not modeled in this single-filer calculator).
+- **Phase-out**: starts at $75K MAGI, fully eliminated at $175K. Reduction = `6% × (MAGI − $75K)`.
+- **Years**: tax years 2025 / 2026 / 2027 / 2028. Outside this window → $0 deduction.
+- **Eligibility**: must be age 65+ on last day of the tax year.
+
+`computeSeniorDeduction({ age, magi, taxYear })` returns the deduction amount; `computeSSEffectiveTaxRate` accepts an `extraDeduction` parameter that stacks on the standard deduction and reports the resulting `extraDeductionDollarSavings` via a diff of `computeFederalTax2026(taxable-without)` minus `computeFederalTax2026(taxable-with)`. The bracket-walker is exact, so savings stay correct when the deduction straddles a bracket boundary.
+
+In `benefitMath.computeProjection` the deduction is applied per tax window (pre-FRA, post-FRA, retired post-FRA) using the window's representative age and the calendar year `currentYear + (windowStartAge − claimAge)`. Default `currentYear = 2026`. Each window returns its own deduction amount AND its own dollar savings. The lifetime totals (early / wait scenarios) walk every age in the projection and sum the savings for years where the claimant is 65+ AND the calendar year is 2025–2028.
+
+UI surfacing: the "Net check at 67" card in `SummaryCards.jsx` shows the active per-year federal-tax savings plus the lifetime total over the eligible years, sourcing from whichever scenario (early-post-FRA vs wait) corresponds to the displayed check. Card 1 ("Net check at claim age") shows the pre-FRA savings when the claimer is 65 or 66.
+
+Intentional simplifications:
+- Only **single-filer** tracking; joint thresholds ($150K/$250K phase-out, $12K base) not exposed.
+- Window-anchored calendar year (the same `currentYear + (windowStartAge − claimAge)` value is used for the whole window). Edge years that straddle 2028 → 2029 inside a single window are treated as all-in or all-out based on the start year. Negligible for most use cases.
+- No interaction with the **TCJA 65+ additional standard deduction** ($2,050 in 2026); the OBBBA deduction is treated as an `extraDeduction` on top of the base standard deduction, which is the same place the TCJA add-on would go if modeled. Users on the 65+ standard-deduction add-on would slightly under-state their tax bill — fine for sensitivity analysis.
 
 ---
 
@@ -160,11 +180,10 @@ These are intentional simplifications; don't add them without checking with the 
 - **WEP / GPO / family maximum / RIB-LIM** — not relevant when the deceased never claimed (the original use case); RIB-LIM matters when the deceased was already collecting reduced benefits
 - **State taxes other than NY/NYC** — noted in footnote
 - **Sequence-of-returns risk** — uses a single deterministic real return rate
-- **Senior bonus deduction** ($6K extra for 65+, MAGI phase-out) — mentioned in caveats
 - **COLA / inflation** — calculator is in real (today's) dollars
 - **Spousal benefits while spouse is alive, divorced-spouse benefits, child / child-in-care benefits**
 - **IRMAA 2-year MAGI lookback** — current-year MAGI used directly. Real IRMAA at 65 reflects MAGI from 63; over a 20-year break-even horizon the timing offset is noise.
-- **ACA PTC graduated contribution scale** (2.0–9.83% from 100–300% FPL) — collapsed to a single 9.5% cap across the subsidized band. The 200% Essential Plan floor and the 400% cliff are the load-bearing thresholds.
+- **ACA PTC graduated contribution scale** (~2.1–9.96% from 100–300% FPL per IRS Rev. Proc. 2025-25, the 2026 indexed table) — collapsed to a single 9.96% cap across the subsidized band, the conservative top-of-scale value. The 200% Essential Plan floor and the 400% cliff are the load-bearing thresholds.
 - **Medicaid (asset-tested 65+), Medicare Savings Programs, long-term care eligibility** — different calculator question. Healthcare layer only models ACA pre-65 + Medicare base + IRMAA at 65+.
 - **Cost-sharing reductions (CSR) and deductible variance** — healthcare cost modeled as premium-only.
 

@@ -51,6 +51,20 @@ export default function SummaryCards({
   medicareAnnualCostPost67 = 0,
   grossIncome = 0,
   postFRAGrossIncome = 0,
+  // OBBBA senior bonus deduction (2025–2028, age 65+). Per-window amounts,
+  // per-year dollar savings, lifetime totals, and eligible-year counts.
+  seniorDeductionPreFRA = 0,
+  seniorDeductionPreFRA65Plus = 0,
+  seniorDeductionPostFRA = 0,
+  seniorDeductionWait = 0,
+  seniorDeductionAnnualSavingsEarlyPre = 0,
+  seniorDeductionAnnualSavingsEarlyPre65Plus = 0,
+  seniorDeductionAnnualSavingsEarlyPost = 0,
+  seniorDeductionAnnualSavingsWait = 0,
+  seniorDeductionLifetimeEarly = 0,
+  seniorDeductionLifetimeWait = 0,
+  seniorDeductionEligibleYearsEarly = 0,
+  seniorDeductionEligibleYearsWait = 0,
 }) {
   // Healthcare-card derived values. Compute the pre-65 ACA band label and
   // 65+ MSP-vs-IRMAA status from the MAGI inputs. Kept local rather than
@@ -129,6 +143,40 @@ export default function SummaryCards({
   const card2Gross = earlyClaimReduces
     ? earlyPostFRAMonthlyGross
     : fraMonthlyGross;
+  // OBBBA senior bonus deduction display: pick the per-year savings and the
+  // lifetime total that correspond to the scenario Card 2 is actually
+  // showing. earlyClaimReduces → user kept the early claim through FRA;
+  // their post-FRA check uses the earlyPostFRA tax math (and savings).
+  // Otherwise → wait scenario or claim-at-FRA; the FRA check uses the wait
+  // tax math.
+  const card2OBBBAAnnualSavings = earlyClaimReduces
+    ? seniorDeductionAnnualSavingsEarlyPost
+    : seniorDeductionAnnualSavingsWait;
+  const card2OBBBALifetime = earlyClaimReduces
+    ? seniorDeductionLifetimeEarly
+    : seniorDeductionLifetimeWait;
+  const card2OBBBAYears = earlyClaimReduces
+    ? seniorDeductionEligibleYearsEarly
+    : seniorDeductionEligibleYearsWait;
+  const card2OBBBADeductionAmt = earlyClaimReduces
+    ? seniorDeductionPostFRA
+    : seniorDeductionWait;
+  // Card 1 (early claim age) — surfaces the OBBBA deduction during the
+  // pre-FRA window. Two sub-cases:
+  //   (a) claimAge ≥ 65: the at-claim-age tier itself qualifies, so the
+  //       per-year savings is nonzero immediately. Show with "+$X/yr from
+  //       …" framing.
+  //   (b) claimAge < 65 but the pre-FRA window crosses 65 inside the
+  //       2025-2028 OBBBA window: the at-claim-age tier doesn't qualify
+  //       (age gate), but ages 65/66 within pre-FRA do. Surface with
+  //       "starting at 65" framing so the savings don't visually
+  //       disappear just because the user dialed claim age below 65.
+  const card1OBBBAAnnualSavings = seniorDeductionAnnualSavingsEarlyPre;
+  const card1OBBBADeductionAmt = seniorDeductionPreFRA;
+  const card1OBBBAAnnualSavings65Plus = seniorDeductionAnnualSavingsEarlyPre65Plus;
+  const card1OBBBADeductionAmt65Plus = seniorDeductionPreFRA65Plus;
+  const card1OBBBAShowsDeferred =
+    card1OBBBAAnnualSavings === 0 && card1OBBBAAnnualSavings65Plus > 0;
   // "Down from" only shows when the early-claim reduction actually leaves the
   // user materially below the full FRA benefit. ($1 floor avoids float noise
   // when the recoup brings them within rounding of the full amount.)
@@ -234,6 +282,26 @@ export default function SummaryCards({
               (FRA recoup of withheld months)
             </>
           )}
+          {card1OBBBAAnnualSavings > 0 && (
+            <>
+              <br />
+              <span style={{ color: C.wait }}>
+                +{fmtMoney(card1OBBBAAnnualSavings)}/yr
+              </span>{" "}
+              from ${Math.round(card1OBBBADeductionAmt).toLocaleString()} OBBBA
+              senior bonus deduction
+            </>
+          )}
+          {card1OBBBAShowsDeferred && (
+            <>
+              <br />
+              <span style={{ color: C.wait }}>
+                +{fmtMoney(card1OBBBAAnnualSavings65Plus)}/yr starting at 65
+              </span>{" "}
+              from ${Math.round(card1OBBBADeductionAmt65Plus).toLocaleString()}{" "}
+              OBBBA senior bonus deduction
+            </>
+          )}
         </div>
       </div>
 
@@ -270,6 +338,30 @@ export default function SummaryCards({
             <>
               <br />
               down from {fmtMoney(fraMonthlyNet)}/mo full FRA benefit
+            </>
+          )}
+          {card2OBBBAAnnualSavings > 0 && (
+            <>
+              <br />
+              <span style={{ color: C.wait, fontWeight: 500 }}>
+                +{fmtMoney(card2OBBBAAnnualSavings)}/yr
+              </span>{" "}
+              federal tax saved
+              <br />
+              via $
+              {Math.round(card2OBBBADeductionAmt).toLocaleString()} OBBBA
+              senior bonus deduction
+              {card2OBBBAYears > 0 && card2OBBBALifetime > 0 && (
+                <>
+                  {" "}
+                  ·{" "}
+                  <span style={{ color: C.wait }}>
+                    {fmtMoney(card2OBBBALifetime)} total
+                  </span>{" "}
+                  over {card2OBBBAYears}{" "}
+                  {card2OBBBAYears === 1 ? "yr" : "yrs"} (2025–2028 sunset)
+                </>
+              )}
             </>
           )}
         </div>

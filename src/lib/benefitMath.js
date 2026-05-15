@@ -16,6 +16,9 @@ import {
   computeTaxableSSPct,
   getMarginalRate2026,
   computeSSEffectiveTaxRate,
+  computeSeniorDeduction,
+  OBBBA_SENIOR_DEDUCTION_FIRST_YEAR,
+  OBBBA_SENIOR_DEDUCTION_LAST_YEAR,
 } from "./taxMath.js";
 import {
   buildChartData,
@@ -42,6 +45,9 @@ export {
   computeTaxableSSPct,
   getMarginalRate2026,
   computeSSEffectiveTaxRate,
+  computeSeniorDeduction,
+  OBBBA_SENIOR_DEDUCTION_FIRST_YEAR,
+  OBBBA_SENIOR_DEDUCTION_LAST_YEAR,
   buildChartData,
   findBreakEvenAge,
   findCrossoverAge,
@@ -89,6 +95,11 @@ export function computeProjection({
   householdSize = 1,
   coveredElsewhere = true,
   unsubsidizedSilverAnnual = NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
+  // Calendar year of the claim decision (today). Used to age-anchor the
+  // OBBBA senior bonus deduction (available tax years 2025–2028, age 65+).
+  // Default 2026 = the calculator's "live" year. The calendar year of each
+  // projection age is `currentYear + (age - claimAge)`.
+  currentYear = 2026,
 }) {
   const {
     earlyFactor,
@@ -141,23 +152,125 @@ export function computeProjection({
   const ssBasisAnnualEarlyPostFRA = earlyPostFRAMonthlyGross * 12;
   const ssBasisAnnualWait = fraMonthlyGross * 12;
 
+  // OBBBA senior bonus deduction — applies per window when age >= 65 AND
+  // the calendar year of the window falls in 2025–2028. Compute the
+  // deduction once per (age, MAGI, year) tuple, then pass to each
+  // computeSSEffectiveTaxRate call. The two pre-FRA scenarios (early
+  // claiming pre-FRA, wait pre-FRA) use claimAge as the window's
+  // representative age and currentYear as its year — matching the rest
+  // of the calculator's "snapshot the window at its start" simplification.
+  //
+  // MAGI here is approximated as (grossIncome + taxableSSPct × SS basis),
+  // which equals AGI (and AGI ≈ MAGI for filers without foreign earned
+  // income or tax-exempt interest — neither modeled). This nests the
+  // taxableSSPct call rather than waiting for it from the effective-rate
+  // function, but stays consistent with how that function computes it.
+  const taxableSSPctEarlyPre = computeTaxableSSPct({
+    ssBasisAnnual: ssBasisAnnualEarlyPreFRA,
+    grossIncome,
+  });
+  const magiEarlyPreFRA = grossIncome + taxableSSPctEarlyPre * ssBasisAnnualEarlyPreFRA;
+  const seniorDeductionEarlyPreFRA = computeSeniorDeduction({
+    age: claimAge,
+    magi: magiEarlyPreFRA,
+    taxYear: currentYear,
+  });
+  // Pre-FRA window, age-65+ portion. The snapshot above uses age=claimAge,
+  // so claim ages under 65 silently zero out their pre-FRA deduction even
+  // when the claimant ages into 65+ before FRA inside the 2025-2028 window
+  // (e.g. claim at 64, still working through 67 → eligible at ages 65, 66).
+  // This second snapshot pins age=65 with the same pre-FRA MAGI and anchors
+  // taxYear to the claimant's 65th birthday year so the lifetime rollup can
+  // credit those pre-FRA-but-65+ years. When claimAge ≥ 65 this collapses
+  // back to the same value as the window-start snapshot.
+  const turn65Year = currentYear + Math.max(0, 65 - claimAge);
+  const seniorDeductionEarlyPreFRA65Plus = computeSeniorDeduction({
+    age: 65,
+    magi: magiEarlyPreFRA,
+    taxYear: turn65Year,
+  });
+
+  // Post-FRA: age 67, calendar year currentYear + (67 - claimAge).
+  const postFRACalendarYear = currentYear + (FRA - claimAge);
+  const taxableSSPctEarlyPost = computeTaxableSSPct({
+    ssBasisAnnual: ssBasisAnnualEarlyPostFRA,
+    grossIncome: postFRAGrossIncome,
+  });
+  const magiEarlyPostFRA =
+    postFRAGrossIncome + taxableSSPctEarlyPost * ssBasisAnnualEarlyPostFRA;
+  const seniorDeductionEarlyPostFRA = computeSeniorDeduction({
+    age: FRA, // 67
+    magi: magiEarlyPostFRA,
+    taxYear: postFRACalendarYear,
+  });
+
+  const taxableSSPctWait = computeTaxableSSPct({
+    ssBasisAnnual: ssBasisAnnualWait,
+    grossIncome: postFRAGrossIncome,
+  });
+  const magiWait = postFRAGrossIncome + taxableSSPctWait * ssBasisAnnualWait;
+  const seniorDeductionWait = computeSeniorDeduction({
+    age: FRA,
+    magi: magiWait,
+    taxYear: postFRACalendarYear,
+  });
+  // Retired variants — wages drop to $0, MAGI collapses to just taxable SS.
+  // Same age and same calendar year as the working variants (we model the
+  // retirement transition as happening at FRA + postFRAWorkYears, but the
+  // senior-deduction window is the same).
+  const taxableSSPctEarlyPostRetired = computeTaxableSSPct({
+    ssBasisAnnual: ssBasisAnnualEarlyPostFRA,
+    grossIncome: 0,
+  });
+  const magiEarlyPostFRARetired =
+    taxableSSPctEarlyPostRetired * ssBasisAnnualEarlyPostFRA;
+  const seniorDeductionEarlyPostFRARetired = computeSeniorDeduction({
+    age: FRA,
+    magi: magiEarlyPostFRARetired,
+    taxYear: postFRACalendarYear,
+  });
+  const taxableSSPctWaitRetired = computeTaxableSSPct({
+    ssBasisAnnual: ssBasisAnnualWait,
+    grossIncome: 0,
+  });
+  const magiWaitRetired = taxableSSPctWaitRetired * ssBasisAnnualWait;
+  const seniorDeductionWaitRetired = computeSeniorDeduction({
+    age: FRA,
+    magi: magiWaitRetired,
+    taxYear: postFRACalendarYear,
+  });
+
   const earlyTaxPreFRA = computeSSEffectiveTaxRate({
     autoTax,
     manualFedRate,
     ssBasisAnnual: ssBasisAnnualEarlyPreFRA,
     grossIncome,
+    extraDeduction: seniorDeductionEarlyPreFRA,
+  });
+  // Same MAGI / SS basis as earlyTaxPreFRA, but plugs in the age-65+ deduction
+  // snapshot so the lifetime rollup can credit pre-FRA years where the
+  // claimant is 65 or 66 (claim age < 65 case). Collapses to earlyTaxPreFRA's
+  // savings when claim age ≥ 65 since the underlying deduction matches.
+  const earlyTaxPreFRA65Plus = computeSSEffectiveTaxRate({
+    autoTax,
+    manualFedRate,
+    ssBasisAnnual: ssBasisAnnualEarlyPreFRA,
+    grossIncome,
+    extraDeduction: seniorDeductionEarlyPreFRA65Plus,
   });
   const earlyTaxPostFRA = computeSSEffectiveTaxRate({
     autoTax,
     manualFedRate,
     ssBasisAnnual: ssBasisAnnualEarlyPostFRA,
     grossIncome: postFRAGrossIncome,
+    extraDeduction: seniorDeductionEarlyPostFRA,
   });
   const waitTax = computeSSEffectiveTaxRate({
     autoTax,
     manualFedRate,
     ssBasisAnnual: ssBasisAnnualWait,
     grossIncome: postFRAGrossIncome,
+    extraDeduction: seniorDeductionWait,
   });
   // "Retired" tax rates for the post-FRA window after the claimant stops
   // working. Combined-income tier collapses because there's no wage income
@@ -168,12 +281,14 @@ export function computeProjection({
     manualFedRate,
     ssBasisAnnual: ssBasisAnnualEarlyPostFRA,
     grossIncome: 0,
+    extraDeduction: seniorDeductionEarlyPostFRARetired,
   });
   const waitTaxRetired = computeSSEffectiveTaxRate({
     autoTax,
     manualFedRate,
     ssBasisAnnual: ssBasisAnnualWait,
     grossIncome: 0,
+    extraDeduction: seniorDeductionWaitRetired,
   });
 
   // Headline tax fields exposed to the UI track whichever tier is actually
@@ -396,6 +511,106 @@ export function computeProjection({
     ? chartData.find((d) => d.age >= waitInvestedBreakEvenAge)?.early ?? null
     : null;
 
+  // OBBBA senior bonus deduction rollup for the UI. The two scenarios diverge:
+  // pre-FRA the early-claim scenario has more taxable income (and a different
+  // deduction phase-out point) than the wait scenario; post-FRA both scenarios
+  // are collecting, but at different amounts. Surface both per-window and a
+  // lifetime total so the summary card can show "saves $X/yr × N years".
+  //
+  // Active-year counts: the deduction applies in calendar years 2025–2028
+  // ONLY if the claimant is age 65+ in that year. Walk each scenario's
+  // timeline year-by-year and count the qualifying years.
+  const seniorEligibleYearsScenario = (scenarioClaimAge, startCollecting) => {
+    let count = 0;
+    const collectingFrom = Math.max(scenarioClaimAge, 65); // ineligible <65
+    const projectionEnd = lifeExpectancy;
+    const ageAtStart = Math.max(collectingFrom, startCollecting);
+    for (let age = Math.ceil(ageAtStart); age <= projectionEnd; age++) {
+      const calendarYear = currentYear + (age - claimAge);
+      if (
+        calendarYear >= OBBBA_SENIOR_DEDUCTION_FIRST_YEAR &&
+        calendarYear <= OBBBA_SENIOR_DEDUCTION_LAST_YEAR
+      ) {
+        count++;
+      }
+    }
+    return count;
+  };
+  // Early-claim scenario: collects from claimAge onward.
+  const earlyEligibleYears = seniorEligibleYearsScenario(claimAge, claimAge);
+  // Wait scenario: collects from FRA onward.
+  const waitEligibleYears = seniorEligibleYearsScenario(claimAge, FRA);
+
+  // Per-year savings in each window (already computed via
+  // computeSSEffectiveTaxRate's extraDeductionDollarSavings):
+  //   earlyTaxPreFRA.extraDeductionDollarSavings    — early, claim age → 67
+  //   earlyTaxPostFRA.extraDeductionDollarSavings   — early, 67+ working
+  //   waitTax.extraDeductionDollarSavings           — wait, 67+ working
+  //   earlyTaxPostFRARetired.extraDeductionDollarSavings — early, 67+ retired
+  //   waitTaxRetired.extraDeductionDollarSavings    — wait, 67+ retired
+  //
+  // For the headline display, use the post-FRA value because (a) the wait
+  // scenario only collects post-FRA, and (b) at 67 the deduction is in its
+  // window for the most age-relevant scenario. The pre-FRA case (claimAge
+  // 65 or 66) is reported separately so the user sees both regimes when
+  // they apply.
+  const seniorDeductionPreFRA = earlyTaxPreFRA.extraDeduction || 0;
+  const seniorDeductionPostFRA = earlyTaxPostFRA.extraDeduction || 0;
+  const seniorDeductionWaitAmt = waitTax.extraDeduction || 0;
+  const seniorDeductionAnnualSavingsEarlyPre =
+    earlyTaxPreFRA.extraDeductionDollarSavings || 0;
+  const seniorDeductionAnnualSavingsEarlyPre65Plus =
+    earlyTaxPreFRA65Plus.extraDeductionDollarSavings || 0;
+  const seniorDeductionPreFRA65PlusAmt =
+    earlyTaxPreFRA65Plus.extraDeduction || 0;
+  const seniorDeductionAnnualSavingsEarlyPost =
+    earlyTaxPostFRA.extraDeductionDollarSavings || 0;
+  const seniorDeductionAnnualSavingsWait =
+    waitTax.extraDeductionDollarSavings || 0;
+  // Lifetime savings for each scenario, summed across all qualifying years.
+  // Pre-FRA years use the pre-FRA savings; post-FRA years use the post-FRA
+  // (working) variant. We approximate by treating the early scenario as
+  // entirely "working" through FRA + postFRAWorkYears, then retired after.
+  const earlyPostFRARetiredAge = Math.min(FRA + postFRAWorkYears, lifeExpectancy);
+  let seniorDeductionLifetimeEarly = 0;
+  for (let age = Math.ceil(claimAge); age <= lifeExpectancy; age++) {
+    if (age < 65) continue;
+    const calendarYear = currentYear + (age - claimAge);
+    if (
+      calendarYear < OBBBA_SENIOR_DEDUCTION_FIRST_YEAR ||
+      calendarYear > OBBBA_SENIOR_DEDUCTION_LAST_YEAR
+    )
+      continue;
+    if (age < FRA) {
+      // Use the age-65+ snapshot's savings here. The window-start snapshot
+      // (earlyPre) is zero when claimAge < 65 because its age gate fails;
+      // using it would silently drop legitimate 65/66 eligible years from
+      // the lifetime total.
+      seniorDeductionLifetimeEarly += seniorDeductionAnnualSavingsEarlyPre65Plus;
+    } else if (age <= earlyPostFRARetiredAge) {
+      seniorDeductionLifetimeEarly += seniorDeductionAnnualSavingsEarlyPost;
+    } else {
+      seniorDeductionLifetimeEarly +=
+        earlyTaxPostFRARetired.extraDeductionDollarSavings || 0;
+    }
+  }
+  let seniorDeductionLifetimeWait = 0;
+  for (let age = FRA; age <= lifeExpectancy; age++) {
+    if (age < 65) continue;
+    const calendarYear = currentYear + (age - claimAge);
+    if (
+      calendarYear < OBBBA_SENIOR_DEDUCTION_FIRST_YEAR ||
+      calendarYear > OBBBA_SENIOR_DEDUCTION_LAST_YEAR
+    )
+      continue;
+    if (age <= earlyPostFRARetiredAge) {
+      seniorDeductionLifetimeWait += seniorDeductionAnnualSavingsWait;
+    } else {
+      seniorDeductionLifetimeWait +=
+        waitTaxRetired.extraDeductionDollarSavings || 0;
+    }
+  }
+
   return {
     earlyFactor,
     earlyMonthlyGross,
@@ -430,6 +645,28 @@ export function computeProjection({
     // early costs $X/yr extra in healthcare" copy.
     healthcareDeltaAnnualPre,
     healthcareDeltaAnnualPost,
+    // OBBBA senior bonus deduction (2025–2028, age 65+). Per-window
+    // deduction amounts AND the dollar-savings each yields in federal tax.
+    // Lifetime totals roll those up over the qualifying years of the
+    // projection (early scenario collects from claimAge; wait scenario
+    // collects from FRA). UI uses these to display "saves $X/yr × N years"
+    // alongside the relevant net check.
+    seniorDeductionPreFRA,
+    // Pre-FRA window's deduction priced at age 65 (vs at claimAge for the
+    // field above). Equal to seniorDeductionPreFRA when claimAge ≥ 65;
+    // nonzero-when-the-other-is-zero when claimAge is 62-64 but the pre-FRA
+    // window includes 65/66 years inside the 2025-2028 OBBBA window.
+    seniorDeductionPreFRA65Plus: seniorDeductionPreFRA65PlusAmt,
+    seniorDeductionPostFRA,
+    seniorDeductionWait: seniorDeductionWaitAmt,
+    seniorDeductionAnnualSavingsEarlyPre,
+    seniorDeductionAnnualSavingsEarlyPre65Plus,
+    seniorDeductionAnnualSavingsEarlyPost,
+    seniorDeductionAnnualSavingsWait,
+    seniorDeductionLifetimeEarly,
+    seniorDeductionLifetimeWait,
+    seniorDeductionEligibleYearsEarly: earlyEligibleYears,
+    seniorDeductionEligibleYearsWait: waitEligibleYears,
   };
 }
 

@@ -116,7 +116,9 @@ export default function Footnotes() {
         marketplace coverage have no work requirement. Intentional
         simplifications: the 2-year IRMAA MAGI lookback is ignored
         (current-year MAGI used directly); the ACA PTC contribution scale
-        is collapsed to a single 9.5% cap across the 200–400% FPL band;
+        is collapsed to a single 9.96% cap across the 200–400% FPL band
+        (the 2026 indexed top-of-scale applicable percentage per IRS Rev.
+        Proc. 2025-25);
         non-MAGI (asset-tested) 65+ Medicaid and long-term-care
         eligibility are out of scope. Cliff thresholds and the $9,679/yr
         NYC silver default are 2026 figures — review annually against CMS,
