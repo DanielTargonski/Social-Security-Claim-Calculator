@@ -176,13 +176,21 @@ export function computeProjection({
     grossIncome: 0,
   });
 
-  // Headline tax fields exposed to the UI describe the post-FRA early
-  // scenario — that's the long-term steady state for the user's chosen
-  // strategy and dominates the lifetime numbers (most years are post-FRA).
-  const taxableSSPct = earlyTaxPostFRA.taxableSSPct;
-  const fedMarginalRate = earlyTaxPostFRA.fedMarginalRate;
-  const ssEffectiveTaxRate = earlyTaxPostFRA.ssEffectiveTaxRate;
-  const combinedIncome = postFRAGrossIncome + 0.5 * ssBasisAnnualEarlyPostFRA;
+  // Headline tax fields exposed to the UI track whichever tier is actually
+  // active at the user's chosen claim age — pre-FRA tier for early
+  // claimants, post-FRA tier once they're at or past FRA. Mirrors the
+  // earlyMonthlyNet choice below. Without this, dragging the pre-67 wage
+  // slider while claiming early left the displayed federal-marginal-rate
+  // and auto-tax slider untouched, because everything was hard-pinned to
+  // the post-FRA tier.
+  const headlineTax = claimAge >= FRA ? earlyTaxPostFRA : earlyTaxPreFRA;
+  const taxableSSPct = headlineTax.taxableSSPct;
+  const fedMarginalRate = headlineTax.fedMarginalRate;
+  const ssEffectiveTaxRate = headlineTax.ssEffectiveTaxRate;
+  const combinedIncome =
+    claimAge >= FRA
+      ? postFRAGrossIncome + 0.5 * ssBasisAnnualEarlyPostFRA
+      : grossIncome + 0.5 * ssBasisAnnualEarlyPreFRA;
 
   const earlyMonthlyNetPreFRA =
     earlyMonthlyAfterET * (1 - earlyTaxPreFRA.ssEffectiveTaxRate);

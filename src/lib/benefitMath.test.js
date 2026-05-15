@@ -270,16 +270,55 @@ describe("computeProjection — separate early/wait tax rates", () => {
     expect(closeTo(earlyTaxFraction, waitTaxFraction, 0.0001)).toBe(true);
   });
 
-  it("displayed combinedIncome reflects the post-FRA early-scenario basis", () => {
-    const r = computeProjection({
+  it("displayed combinedIncome tracks the tier active at the chosen claim age", () => {
+    // Pre-FRA claimer: headline reflects pre-FRA tier (grossIncome + 0.5 × after-ET SS).
+    const early = computeProjection({
       ...baseInputs,
+      claimAge: 62,
       grossIncome: 50000,
       postFRAGrossIncome: 20000,
       autoTax: true,
     });
-    // Headline = post-FRA early scenario: postFRAGrossIncome + 0.5 × earlyPostFRAMonthlyGross × 12
-    const expected = 20000 + 0.5 * r.earlyPostFRAMonthlyGross * 12;
-    expect(closeTo(r.combinedIncome, expected, 0.5)).toBe(true);
+    const expectedEarly =
+      50000 + 0.5 * (early.annualEarlyGross - early.earningsTestWithholding);
+    expect(closeTo(early.combinedIncome, expectedEarly, 0.5)).toBe(true);
+
+    // FRA claimer: headline reflects post-FRA tier (postFRAGrossIncome + 0.5 × post-FRA SS).
+    const fra = computeProjection({
+      ...baseInputs,
+      claimAge: 67,
+      grossIncome: 50000,
+      postFRAGrossIncome: 20000,
+      autoTax: true,
+    });
+    const expectedFra = 20000 + 0.5 * fra.earlyPostFRAMonthlyGross * 12;
+    expect(closeTo(fra.combinedIncome, expectedFra, 0.5)).toBe(true);
+  });
+
+  it("dragging the pre-67 wage slider moves the displayed fedMarginalRate (claim age < FRA)", () => {
+    // Regression: previously the headline rate was pinned to the post-FRA
+    // tier, so the pre-67 wage slider had no visible effect on the
+    // auto-tax UI even though it was already affecting the pre-FRA chart math.
+    const lowPre = computeProjection({
+      ...baseInputs,
+      claimAge: 62,
+      grossIncome: 0,
+      postFRAGrossIncome: 0,
+      autoTax: true,
+    });
+    const highPre = computeProjection({
+      ...baseInputs,
+      claimAge: 62,
+      // $30K crosses the taxable-SS and 12% brackets without wiping out
+      // the entire SS basis via the earnings test (which at $80K+ would
+      // withhold the whole check and collapse taxableSSPct back to 0).
+      grossIncome: 30000,
+      postFRAGrossIncome: 0,
+      autoTax: true,
+    });
+    expect(highPre.combinedIncome).toBeGreaterThan(lowPre.combinedIncome);
+    expect(highPre.fedMarginalRate).toBeGreaterThan(lowPre.fedMarginalRate);
+    expect(highPre.ssEffectiveTaxRate).toBeGreaterThan(lowPre.ssEffectiveTaxRate);
   });
 });
 
@@ -290,21 +329,27 @@ describe("computeProjection — postFRAGrossIncome", () => {
   // only the post-FRA combined-income calc. Default 0 = retire at FRA.
 
   it("defaults postFRAGrossIncome to 0 when omitted (typical retiree case)", () => {
-    const r = computeProjection(baseInputs); // no postFRAGrossIncome
-    // With default 0, post-FRA combined income = 0 + 0.5 × early-post-FRA SS.
+    // claimAge=67 forces the post-FRA tier for the headline (which is what
+    // this test cares about). At claimAge<FRA the headline now tracks the
+    // pre-FRA tier, so postFRAGrossIncome wouldn't flow into combinedIncome.
+    const r = computeProjection({ ...baseInputs, claimAge: 67 });
     const expected = 0 + 0.5 * r.earlyPostFRAMonthlyGross * 12;
     expect(closeTo(r.combinedIncome, expected, 0.5)).toBe(true);
   });
 
   it("higher postFRAGrossIncome raises combined income and the headline tax rate (auto)", () => {
+    // Use claimAge=67 so the headline reads the post-FRA tier that
+    // postFRAGrossIncome actually drives.
     const lowPost = computeProjection({
       ...baseInputs,
+      claimAge: 67,
       grossIncome: 0,
       postFRAGrossIncome: 0,
       autoTax: true,
     });
     const highPost = computeProjection({
       ...baseInputs,
+      claimAge: 67,
       grossIncome: 0,
       postFRAGrossIncome: 80000, // big enough to cross thresholds for fraBenefit=2500
       autoTax: true,
