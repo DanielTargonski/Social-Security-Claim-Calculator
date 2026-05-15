@@ -106,3 +106,115 @@ describe("MetadataStrip — standing rows", () => {
     expect(screen.queryByText(/NY \+ NYC on SS/i)).toBeNull();
   });
 });
+
+describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
+  it("shows the ACA premium row pre-65 with cost and cliff details", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={62}
+        healthcareAnnualCost={5130}
+        healthcareNextCliff={{
+          label: "ACA premium tax credit cliff (400% FPL)",
+          distance: 8600,
+          annualCostDelta: 4549,
+        }}
+      />
+    );
+    // Pre-65 → "ACA premium" label as the row header (uppercase).
+    // Use a regex that won't also match the cliff-label substring.
+    const acaLabels = screen.getAllByText(/ACA premium/i);
+    expect(acaLabels.length).toBeGreaterThan(0);
+    // Annual cost displayed as a debit, with the claim age annotated.
+    expect(screen.getByText(/−\$5,130\/yr/)).toBeInTheDocument();
+    // Cliff distance + cost-if-crossed.
+    expect(screen.getByText(/Next cliff/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$8,600/)).toBeInTheDocument();
+    expect(screen.getByText(/\+\$4,549\/yr/)).toBeInTheDocument();
+    expect(screen.getByText(/400% FPL/)).toBeInTheDocument();
+  });
+
+  it("uses the Medicare label at age 65+", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={67}
+        healthcareAnnualCost={2435}
+        healthcareNextCliff={{
+          label: "IRMAA Tier 1 cliff",
+          distance: 19000,
+          annualCostDelta: 1148,
+        }}
+      />
+    );
+    expect(screen.getByText(/Medicare \(B \+ IRMAA\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/IRMAA Tier 1/)).toBeInTheDocument();
+  });
+
+  it("shows the $0 subsidized state when healthcare cost is zero (e.g. < 200% FPL)", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={62}
+        healthcareAnnualCost={0}
+        healthcareNextCliff={{
+          label: "NY Essential Plan ceiling (200% FPL)",
+          distance: 6300,
+          annualCostDelta: 2974,
+        }}
+      />
+    );
+    expect(screen.getByText(/\$0 · subsidized/i)).toBeInTheDocument();
+    expect(screen.getByText(/Essential Plan/)).toBeInTheDocument();
+  });
+
+  it("hides the cliff row when there is no cliff above (already past every tier)", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={62}
+        healthcareAnnualCost={9679}
+        healthcareNextCliff={null}
+      />
+    );
+    expect(screen.getAllByText(/ACA premium/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Next cliff/i)).toBeNull();
+  });
+
+  it("replaces the healthcare detail rows with the 'covered elsewhere' note when toggled", () => {
+    render(
+      <MetadataStrip
+        {...baseProps}
+        autoTax={true}
+        claimAge={62}
+        coveredElsewhere={true}
+        healthcareAnnualCost={0}
+        healthcareNextCliff={null}
+      />
+    );
+    expect(screen.getByText(/covered elsewhere/i)).toBeInTheDocument();
+    expect(screen.getByText(/OBBBA cliffs not modeled/i)).toBeInTheDocument();
+    // The detailed rows should not appear.
+    expect(screen.queryByText(/ACA premium/i)).toBeNull();
+    expect(screen.queryByText(/Next cliff/i)).toBeNull();
+  });
+
+  it("opens the strip on its own when only the healthcare row has content", () => {
+    // Earnings test off, autoTax off, ssEffectiveTaxRate=0 — but a real
+    // healthcare cost should still cause the strip to render.
+    render(
+      <MetadataStrip
+        {...baseProps}
+        claimAge={62}
+        healthcareAnnualCost={5130}
+        healthcareNextCliff={null}
+      />
+    );
+    expect(screen.getByText("By the numbers")).toBeInTheDocument();
+    expect(screen.getAllByText(/ACA premium/i).length).toBeGreaterThan(0);
+  });
+});

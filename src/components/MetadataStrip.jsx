@@ -17,9 +17,21 @@ export default function MetadataStrip({
   taxableSSPct,
   ssEffectiveTaxRate,
   lifeExpectancy,
+  // Healthcare-cost row inputs (OBBBA / NYC). Both optional so old callers
+  // without healthcare wired keep working — tests cover this defaulting.
+  coveredElsewhere = false,
+  healthcareAnnualCost = 0,
+  healthcareNextCliff = null,
+  claimAge,
 }) {
+  const showHealthcareRow =
+    !coveredElsewhere &&
+    (healthcareAnnualCost > 0 || healthcareNextCliff !== null);
   const shouldRender =
-    earningsTestWithholding > 0 || ssEffectiveTaxRate > 0 || autoTax;
+    earningsTestWithholding > 0 ||
+    ssEffectiveTaxRate > 0 ||
+    autoTax ||
+    showHealthcareRow;
   if (!shouldRender) return null;
 
   const monthlyAfterTest = (annualEarlyGross - earningsTestWithholding) / 12;
@@ -209,6 +221,94 @@ export default function MetadataStrip({
           </span>{" "}
           <span className="num" style={{ color: C.ink, fontWeight: 500 }}>
             {(ssEffectiveTaxRate * 100).toFixed(1)}%
+          </span>
+        </div>
+      )}
+      {showHealthcareRow && (
+        <>
+          <div>
+            <span
+              className="num uppercase"
+              style={{
+                color: C.inkFaint,
+                letterSpacing: "0.15em",
+                fontSize: "10px",
+              }}
+            >
+              {claimAge < 65 ? "ACA premium" : "Medicare (B + IRMAA)"}
+            </span>{" "}
+            <span
+              className="num"
+              style={{
+                color: healthcareAnnualCost > 0 ? C.early : C.wait,
+                fontWeight: 500,
+              }}
+            >
+              {healthcareAnnualCost > 0
+                ? `−${fmtMoney(healthcareAnnualCost)}/yr`
+                : "$0 · subsidized"}
+            </span>{" "}
+            <span
+              className="num"
+              style={{ color: C.inkFaint, fontSize: "10px" }}
+            >
+              at age {fmtAge(claimAge)}
+            </span>
+          </div>
+          {healthcareNextCliff !== null && (
+            <div>
+              <span
+                className="num uppercase"
+                style={{
+                  color: C.inkFaint,
+                  letterSpacing: "0.15em",
+                  fontSize: "10px",
+                }}
+              >
+                Next cliff
+              </span>{" "}
+              <span className="num" style={{ color: C.ink, fontWeight: 500 }}>
+                {fmtMoney(healthcareNextCliff.distance)}
+              </span>{" "}
+              <span
+                className="num"
+                style={{ color: C.inkFaint, fontSize: "10px" }}
+              >
+                away ·
+              </span>{" "}
+              <span className="num" style={{ color: C.early, fontWeight: 500 }}>
+                +{fmtMoney(healthcareNextCliff.annualCostDelta)}/yr
+              </span>{" "}
+              <span
+                className="num"
+                style={{ color: C.inkFaint, fontSize: "10px" }}
+              >
+                if crossed ({healthcareNextCliff.label})
+              </span>
+            </div>
+          )}
+        </>
+      )}
+      {coveredElsewhere && (
+        <div>
+          <span
+            className="num uppercase"
+            style={{
+              color: C.inkFaint,
+              letterSpacing: "0.15em",
+              fontSize: "10px",
+            }}
+          >
+            Healthcare
+          </span>{" "}
+          <span className="num" style={{ color: C.wait, fontWeight: 500 }}>
+            covered elsewhere
+          </span>{" "}
+          <span
+            className="num"
+            style={{ color: C.inkFaint, fontSize: "10px" }}
+          >
+            · OBBBA cliffs not modeled
           </span>
         </div>
       )}

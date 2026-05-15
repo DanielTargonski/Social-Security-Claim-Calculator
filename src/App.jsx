@@ -7,6 +7,12 @@ import { useFormState } from "./hooks/useFormState.js";
 import { useUrlSync } from "./hooks/useUrlSync.js";
 import { getInitialStateFromUrl } from "./lib/shareableState.js";
 import { rangeForMode, snapClaimAgeOnModeSwitch } from "./lib/modeConfig.js";
+import {
+  computeMagiACA,
+  computeMagiIRMAA,
+  computeAnnualHealthcareCost,
+  nextCliffAbove,
+} from "./lib/healthcareCost.js";
 import GlobalStyles from "./components/GlobalStyles.jsx";
 import Header from "./components/Header.jsx";
 import ModeSwitcher from "./components/ModeSwitcher.jsx";
@@ -163,6 +169,37 @@ export default function App() {
 
   const taxesActive = grossIncome > 0 || fedMarginalRate > 0;
 
+  // Healthcare cost at the user's current claim age. Uses the early-claim
+  // gross SS as the SS basis — that's the cash flow the user sees right
+  // away when they claim, and it's what drives MAGI in the first year of
+  // claiming. ACA MAGI counts 100% of gross SS; IRMAA MAGI uses the
+  // taxable portion only (consistent with taxMath's federal-tax math).
+  const magiACA = computeMagiACA({
+    grossIncome,
+    ssAnnualGross: annualEarlyGross,
+  });
+  const magiIRMAA = computeMagiIRMAA({
+    grossIncome,
+    ssAnnualGross: annualEarlyGross,
+    taxableSSPct,
+  });
+  const healthcareAnnualCost = computeAnnualHealthcareCost({
+    age: claimAge,
+    magiACA,
+    magiIRMAA,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const healthcareNextCliff = nextCliffAbove({
+    age: claimAge,
+    magiACA,
+    magiIRMAA,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+
   return (
     <div
       style={{
@@ -272,6 +309,10 @@ export default function App() {
             taxableSSPct={taxableSSPct}
             ssEffectiveTaxRate={ssEffectiveTaxRate}
             lifeExpectancy={lifeExpectancy}
+            coveredElsewhere={coveredElsewhere}
+            healthcareAnnualCost={healthcareAnnualCost}
+            healthcareNextCliff={healthcareNextCliff}
+            claimAge={claimAge}
           />
 
           <ChartCard
