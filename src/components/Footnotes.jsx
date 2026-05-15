@@ -97,20 +97,30 @@ export default function Footnotes() {
         Models the post-OBBBA NYC healthcare landscape: the IRA-era enhanced
         ACA premium tax credits expired Dec 31, 2025, so the 400% FPL
         "subsidy cliff" is back; NY's Essential Plan ceiling drops 250% →
-        200% FPL effective July 1, 2026; and Medicare IRMAA tiers stack on
-        top of the standard $202.90/mo Part B premium at 65+. The chart
-        subtracts the early-vs-wait healthcare-cost differential from the
-        early-claim cash flow, so cliff crossings shift the break-even age
-        directly. Toggle "Covered elsewhere" if employer coverage, retiree
-        health benefits, VA care, or a working spouse takes the household
-        out of the ACA / Medicare-IRMAA equation. Intentional simplifications:
-        the 2-year IRMAA MAGI lookback is ignored (current-year MAGI used
-        directly); the ACA PTC contribution scale is collapsed to a single
-        9.5% cap across the 200–400% FPL band; Medicaid (asset-tested 65+),
-        Medicare Savings Programs, and long-term-care eligibility are out of
-        scope. Cliff thresholds and the $9,679/yr NYC silver default are
-        2026 figures — review annually against CMS, HHS ASPE, and NY State
-        of Health publications.
+        200% FPL effective July 1, 2026; NY adult Medicaid stays at 138% FPL
+        ($0 premium) for non-disabled adults 19-64; and Medicare IRMAA tiers
+        stack on top of the standard $202.90/mo Part B premium at 65+. At
+        65+, NY's Medicare Savings Programs (QMB / SLMB / QI) zero out the
+        Part B premium for anyone ≤135% FPL — NY eliminated the MSP asset
+        test in Jan 2026, so eligibility is MAGI-only. The chart subtracts
+        the early-vs-wait healthcare-cost differential from the early-claim
+        cash flow, so cliff crossings shift the break-even age directly.
+        Toggle "Covered elsewhere" if employer coverage, retiree health
+        benefits, VA care, or a working spouse takes the household out of
+        the ACA / Medicare-IRMAA equation. <strong style={{ color: C.ink }}>
+        OBBBA caveat:</strong> NY Medicaid requires 80 hrs/mo of work,
+        study, or volunteering starting Jan 1, 2027, with 6-month
+        redeterminations beginning Dec 2026. The calculator models cost,
+        not compliance — assumes the claimant qualifies for and maintains
+        whichever band their MAGI puts them in. Essential Plan and ACA
+        marketplace coverage have no work requirement. Intentional
+        simplifications: the 2-year IRMAA MAGI lookback is ignored
+        (current-year MAGI used directly); the ACA PTC contribution scale
+        is collapsed to a single 9.5% cap across the 200–400% FPL band;
+        non-MAGI (asset-tested) 65+ Medicaid and long-term-care
+        eligibility are out of scope. Cliff thresholds and the $9,679/yr
+        NYC silver default are 2026 figures — review annually against CMS,
+        HHS ASPE, and NY State of Health publications.
       </div>
     </div>
 

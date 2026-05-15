@@ -17,21 +17,27 @@ export default function MetadataStrip({
   taxableSSPct,
   ssEffectiveTaxRate,
   lifeExpectancy,
-  // Healthcare-cost row inputs (OBBBA / NYC). Both optional so old callers
-  // without healthcare wired keep working — tests cover this defaulting.
+  // Healthcare rows (OBBBA / NYC). Two annual costs — ACA for pre-65 years,
+  // Medicare for 65+ years — surface side-by-side whenever healthcare is
+  // modeled, so the user sees both regimes regardless of claim age. The
+  // next-cliff object is the actionable one for the current claim-age
+  // regime (ACA cliff if claimAge < 65, IRMAA cliff if 65+).
   coveredElsewhere = false,
-  healthcareAnnualCost = 0,
+  acaAnnualCost = 0,
+  medicareAnnualCost = 0,
   healthcareNextCliff = null,
   claimAge,
 }) {
-  const showHealthcareRow =
+  const showHealthcareRows =
     !coveredElsewhere &&
-    (healthcareAnnualCost > 0 || healthcareNextCliff !== null);
+    (acaAnnualCost > 0 ||
+      medicareAnnualCost > 0 ||
+      healthcareNextCliff !== null);
   const shouldRender =
     earningsTestWithholding > 0 ||
     ssEffectiveTaxRate > 0 ||
     autoTax ||
-    showHealthcareRow;
+    showHealthcareRows;
   if (!shouldRender) return null;
 
   const monthlyAfterTest = (annualEarlyGross - earningsTestWithholding) / 12;
@@ -224,7 +230,7 @@ export default function MetadataStrip({
           </span>
         </div>
       )}
-      {showHealthcareRow && (
+      {showHealthcareRows && (
         <>
           <div>
             <span
@@ -235,24 +241,52 @@ export default function MetadataStrip({
                 fontSize: "10px",
               }}
             >
-              {claimAge < 65 ? "ACA premium" : "Medicare (B + IRMAA)"}
+              ACA premium (pre-65)
             </span>{" "}
             <span
               className="num"
               style={{
-                color: healthcareAnnualCost > 0 ? C.early : C.wait,
+                color: acaAnnualCost > 0 ? C.early : C.wait,
                 fontWeight: 500,
               }}
             >
-              {healthcareAnnualCost > 0
-                ? `−${fmtMoney(healthcareAnnualCost)}/yr`
+              {acaAnnualCost > 0
+                ? `−${fmtMoney(acaAnnualCost)}/yr`
                 : "$0 · subsidized"}
+            </span>
+            {claimAge < 65 && (
+              <>
+                {" "}
+                <span
+                  className="num"
+                  style={{ color: C.inkFaint, fontSize: "10px" }}
+                >
+                  until age 65
+                </span>
+              </>
+            )}
+          </div>
+          <div>
+            <span
+              className="num uppercase"
+              style={{
+                color: C.inkFaint,
+                letterSpacing: "0.15em",
+                fontSize: "10px",
+              }}
+            >
+              Medicare (B + IRMAA), 65+
             </span>{" "}
             <span
               className="num"
-              style={{ color: C.inkFaint, fontSize: "10px" }}
+              style={{
+                color: medicareAnnualCost > 0 ? C.early : C.wait,
+                fontWeight: 500,
+              }}
             >
-              at age {fmtAge(claimAge)}
+              {medicareAnnualCost > 0
+                ? `−${fmtMoney(medicareAnnualCost)}/yr`
+                : "$0 · MSP covers"}
             </span>
           </div>
           {healthcareNextCliff !== null && (
@@ -276,15 +310,29 @@ export default function MetadataStrip({
               >
                 away ·
               </span>{" "}
-              <span className="num" style={{ color: C.early, fontWeight: 500 }}>
-                +{fmtMoney(healthcareNextCliff.annualCostDelta)}/yr
-              </span>{" "}
-              <span
-                className="num"
-                style={{ color: C.inkFaint, fontSize: "10px" }}
-              >
-                if crossed ({healthcareNextCliff.label})
-              </span>
+              {healthcareNextCliff.annualCostDelta > 0 ? (
+                <>
+                  <span
+                    className="num"
+                    style={{ color: C.early, fontWeight: 500 }}
+                  >
+                    +{fmtMoney(healthcareNextCliff.annualCostDelta)}/yr
+                  </span>{" "}
+                  <span
+                    className="num"
+                    style={{ color: C.inkFaint, fontSize: "10px" }}
+                  >
+                    if crossed ({healthcareNextCliff.label})
+                  </span>
+                </>
+              ) : (
+                <span
+                  className="num"
+                  style={{ color: C.inkFaint, fontSize: "10px" }}
+                >
+                  coverage change · ({healthcareNextCliff.label})
+                </span>
+              )}
             </div>
           )}
         </>

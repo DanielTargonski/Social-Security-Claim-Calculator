@@ -108,13 +108,15 @@ describe("MetadataStrip — standing rows", () => {
 });
 
 describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
-  it("shows the ACA premium row pre-65 with cost and cliff details", () => {
+  it("always shows both ACA (pre-65) and Medicare (65+) rows, regardless of claim age", () => {
+    // Pre-65 claimer — should still see the Medicare row for the 65+ years.
     render(
       <MetadataStrip
         {...baseProps}
         autoTax={true}
         claimAge={62}
-        healthcareAnnualCost={5130}
+        acaAnnualCost={5130}
+        medicareAnnualCost={2435}
         healthcareNextCliff={{
           label: "ACA premium tax credit cliff (400% FPL)",
           distance: 8600,
@@ -122,12 +124,14 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
         }}
       />
     );
-    // Pre-65 → "ACA premium" label as the row header (uppercase).
-    // Use a regex that won't also match the cliff-label substring.
-    const acaLabels = screen.getAllByText(/ACA premium/i);
-    expect(acaLabels.length).toBeGreaterThan(0);
-    // Annual cost displayed as a debit, with the claim age annotated.
+    // Both row labels present, regardless of claim age.
+    expect(screen.getByText(/ACA premium \(pre-65\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Medicare \(B \+ IRMAA\), 65\+/i)).toBeInTheDocument();
+    // Both annual costs displayed as debits.
     expect(screen.getByText(/−\$5,130\/yr/)).toBeInTheDocument();
+    expect(screen.getByText(/−\$2,435\/yr/)).toBeInTheDocument();
+    // Pre-65 claimer sees the "until age 65" annotation on the ACA row.
+    expect(screen.getByText(/until age 65/i)).toBeInTheDocument();
     // Cliff distance + cost-if-crossed.
     expect(screen.getByText(/Next cliff/i)).toBeInTheDocument();
     expect(screen.getByText(/\$8,600/)).toBeInTheDocument();
@@ -135,13 +139,17 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
     expect(screen.getByText(/400% FPL/)).toBeInTheDocument();
   });
 
-  it("uses the Medicare label at age 65+", () => {
+  it("shows the ACA (pre-65) row even when claim age is 65+", () => {
+    // A 67-year-old claimer still needs to see what they'd pay pre-65
+    // (the model's perspective starts at claim age, but the user is asking
+    // the calculator from before that point — they want lifecycle context).
     render(
       <MetadataStrip
         {...baseProps}
         autoTax={true}
         claimAge={67}
-        healthcareAnnualCost={2435}
+        acaAnnualCost={4750}
+        medicareAnnualCost={2435}
         healthcareNextCliff={{
           label: "IRMAA Tier 1 cliff",
           distance: 19000,
@@ -149,17 +157,24 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
         }}
       />
     );
-    expect(screen.getByText(/Medicare \(B \+ IRMAA\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/ACA premium \(pre-65\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Medicare \(B \+ IRMAA\), 65\+/i)).toBeInTheDocument();
+    expect(screen.getByText(/−\$4,750\/yr/)).toBeInTheDocument();
+    expect(screen.getByText(/−\$2,435\/yr/)).toBeInTheDocument();
+    // No "until age 65" annotation when claim is past 65 (they're already past).
+    expect(screen.queryByText(/until age 65/i)).toBeNull();
+    // Cliff for the user's regime — IRMAA — is what surfaces.
     expect(screen.getByText(/IRMAA Tier 1/)).toBeInTheDocument();
   });
 
-  it("shows the $0 subsidized state when healthcare cost is zero (e.g. < 200% FPL)", () => {
+  it("shows the $0 subsidized state on the ACA row when MAGI is below 200% FPL", () => {
     render(
       <MetadataStrip
         {...baseProps}
         autoTax={true}
         claimAge={62}
-        healthcareAnnualCost={0}
+        acaAnnualCost={0}
+        medicareAnnualCost={2435}
         healthcareNextCliff={{
           label: "NY Essential Plan ceiling (200% FPL)",
           distance: 6300,
@@ -177,11 +192,13 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
         {...baseProps}
         autoTax={true}
         claimAge={62}
-        healthcareAnnualCost={9679}
+        acaAnnualCost={9679}
+        medicareAnnualCost={2435}
         healthcareNextCliff={null}
       />
     );
-    expect(screen.getAllByText(/ACA premium/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/ACA premium \(pre-65\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Medicare \(B \+ IRMAA\), 65\+/i)).toBeInTheDocument();
     expect(screen.queryByText(/Next cliff/i)).toBeNull();
   });
 
@@ -192,7 +209,8 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
         autoTax={true}
         claimAge={62}
         coveredElsewhere={true}
-        healthcareAnnualCost={0}
+        acaAnnualCost={0}
+        medicareAnnualCost={0}
         healthcareNextCliff={null}
       />
     );
@@ -200,21 +218,24 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
     expect(screen.getByText(/OBBBA cliffs not modeled/i)).toBeInTheDocument();
     // The detailed rows should not appear.
     expect(screen.queryByText(/ACA premium/i)).toBeNull();
+    expect(screen.queryByText(/Medicare/i)).toBeNull();
     expect(screen.queryByText(/Next cliff/i)).toBeNull();
   });
 
   it("opens the strip on its own when only the healthcare row has content", () => {
-    // Earnings test off, autoTax off, ssEffectiveTaxRate=0 — but a real
-    // healthcare cost should still cause the strip to render.
+    // Earnings test off, autoTax off, ssEffectiveTaxRate=0 — but real
+    // healthcare costs should still cause the strip to render.
     render(
       <MetadataStrip
         {...baseProps}
         claimAge={62}
-        healthcareAnnualCost={5130}
+        acaAnnualCost={5130}
+        medicareAnnualCost={2435}
         healthcareNextCliff={null}
       />
     );
     expect(screen.getByText("By the numbers")).toBeInTheDocument();
-    expect(screen.getAllByText(/ACA premium/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/ACA premium \(pre-65\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Medicare \(B \+ IRMAA\), 65\+/i)).toBeInTheDocument();
   });
 });

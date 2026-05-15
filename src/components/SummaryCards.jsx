@@ -1,4 +1,11 @@
 import { fmtMoney, fmtBig, fmtAge, fmtDuration } from "../lib/benefitMath.js";
+import {
+  MEDICAID_FPL_CEILING,
+  ESSENTIAL_PLAN_FPL_CEILING,
+  ACA_PTC_CLIFF_FPL,
+  MSP_PART_B_FPL_CEILING,
+  FPL_2025_FOR_2026_PTC,
+} from "../lib/healthcareCost.js";
 import { C } from "../constants/colors.js";
 import Var from "./Var.jsx";
 
@@ -31,7 +38,48 @@ export default function SummaryCards({
   investedPctWait = 0,
   waitInvestedAdvantage = 0,
   waitInvestedBreakEvenAge = null,
+  // Healthcare-cost summary (OBBBA / NYC). Lives in its own card at the
+  // bottom of the sticky sidebar so the user can see pre-65 and 65+ cost
+  // bands while they scroll through the inputs.
+  coveredElsewhere = false,
+  householdSize = 1,
+  acaAnnualCost = 0,
+  medicareAnnualCost = 0,
+  magiACAPre65 = 0,
+  magiIRMAA65Plus = 0,
 }) {
+  // Healthcare-card derived values. Compute the pre-65 ACA band label and
+  // 65+ MSP-vs-IRMAA status from the MAGI inputs. Kept local rather than
+  // duplicating HealthcarePanel's `bandForFplPct` because the sidebar
+  // shows a compact label, not the full panel's detail line.
+  const fpl =
+    householdSize === 2
+      ? FPL_2025_FOR_2026_PTC.couple
+      : FPL_2025_FOR_2026_PTC.single;
+  const acaFplPct = magiACAPre65 / fpl;
+  const irmaaFplPct = magiIRMAA65Plus / fpl;
+  let acaBandLabel;
+  let acaBandColor;
+  if (acaFplPct <= MEDICAID_FPL_CEILING) {
+    acaBandLabel = "Medicaid eligible";
+    acaBandColor = C.wait;
+  } else if (acaFplPct <= ESSENTIAL_PLAN_FPL_CEILING) {
+    acaBandLabel = "Essential Plan";
+    acaBandColor = C.wait;
+  } else if (acaFplPct <= ACA_PTC_CLIFF_FPL) {
+    acaBandLabel = "Subsidized ACA";
+    acaBandColor = C.ink;
+  } else {
+    acaBandLabel = "Unsubsidized ACA";
+    acaBandColor = C.early;
+  }
+  const mspEligible = irmaaFplPct <= MSP_PART_B_FPL_CEILING;
+  const medicareLabel = mspEligible
+    ? "MSP covers Part B"
+    : medicareAnnualCost > 2500
+    ? "Standard + IRMAA"
+    : "Standard Part B";
+
   // FRA is hardcoded as 67 throughout the app — see ssRules.js.
   // Used for the "annual edge" stat = advantage averaged across post-FRA years.
   const FRA_YEARS = 67;
@@ -338,6 +386,84 @@ export default function SummaryCards({
           </>
         )}
       </div>
+
+      {/* Healthcare card — pre-65 ACA / Medicaid / EP regime + 65+ Medicare
+          / MSP regime, with current band labels. Mirrors the bands shown
+          in the HealthcarePanel below the chart so the user sees the same
+          framing in two places. Hidden when "covered elsewhere" is on. */}
+      {!coveredElsewhere && (
+        <div
+          className="p-4 col-span-2 lg:col-span-1"
+          style={{
+            backgroundColor: C.paper,
+            border: `1px solid ${C.border}`,
+            borderLeft: `3px solid ${acaBandColor}`,
+          }}
+        >
+          <div
+            className="text-xs uppercase mb-2"
+            style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+          >
+            Healthcare cost
+          </div>
+          <div className="flex flex-col gap-2">
+            <div>
+              <div
+                className="num"
+                style={{
+                  color: acaAnnualCost > 0 ? C.early : C.wait,
+                  fontSize: "1.125rem",
+                  fontWeight: 600,
+                  lineHeight: 1,
+                }}
+              >
+                {acaAnnualCost > 0
+                  ? `−${fmtMoney(acaAnnualCost)}/yr`
+                  : "$0/yr"}
+              </div>
+              <div
+                className="text-xs num"
+                style={{ color: acaBandColor, fontWeight: 500 }}
+              >
+                {acaBandLabel}
+              </div>
+              <div className="text-xs num" style={{ color: C.inkFaint }}>
+                pre-65 · {(acaFplPct * 100).toFixed(0)}% FPL
+              </div>
+            </div>
+            <div
+              className="pt-2"
+              style={{ borderTop: `1px solid ${C.border}` }}
+            >
+              <div
+                className="num"
+                style={{
+                  color: medicareAnnualCost > 0 ? C.early : C.wait,
+                  fontSize: "1.125rem",
+                  fontWeight: 600,
+                  lineHeight: 1,
+                }}
+              >
+                {medicareAnnualCost > 0
+                  ? `−${fmtMoney(medicareAnnualCost)}/yr`
+                  : "$0/yr"}
+              </div>
+              <div
+                className="text-xs num"
+                style={{
+                  color: mspEligible ? C.wait : C.ink,
+                  fontWeight: 500,
+                }}
+              >
+                {medicareLabel}
+              </div>
+              <div className="text-xs num" style={{ color: C.inkFaint }}>
+                65+ · {(irmaaFplPct * 100).toFixed(0)}% FPL
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

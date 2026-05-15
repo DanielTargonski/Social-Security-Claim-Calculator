@@ -23,6 +23,7 @@ import ChartCard from "./components/ChartCard.jsx";
 import PotTable from "./components/PotTable.jsx";
 import Footnotes from "./components/Footnotes.jsx";
 import SensitivityTornado from "./components/SensitivityTornado.jsx";
+import HealthcarePanel from "./components/HealthcarePanel.jsx";
 import OptimalClaimAge from "./components/OptimalClaimAge.jsx";
 import AboutPage from "./components/AboutPage.jsx";
 import TabNav from "./components/TabNav.jsx";
@@ -173,32 +174,51 @@ export default function App() {
 
   const taxesActive = grossIncome > 0 || fedMarginalRate > 0;
 
-  // Healthcare cost at the user's current claim age. Uses the early-claim
-  // gross SS as the SS basis — that's the cash flow the user sees right
-  // away when they claim, and it's what drives MAGI in the first year of
-  // claiming. ACA MAGI counts 100% of gross SS; IRMAA MAGI uses the
-  // taxable portion only (consistent with taxMath's federal-tax math).
-  const magiACA = computeMagiACA({
+  // Healthcare cost surfaces two rows in the metadata strip: the ACA
+  // premium that applies during pre-65 years, and the Medicare cost that
+  // applies from 65 on. Both rows always render (when not covered
+  // elsewhere) so the user sees the full lifecycle regardless of where
+  // their claim age lands — a 67-year-old claimer still pays ACA from
+  // 62-64, a 62-year-old still ages into Medicare at 65.
+  //
+  // SS is in MAGI only when the claimant is actually collecting it during
+  // the relevant window. Pre-65 ACA: SS is in MAGI iff claimAge < 65.
+  // 65+ Medicare: SS is in MAGI iff claimAge ≤ 65 (it always is by the
+  // time Medicare kicks in for any modeled scenario).
+  //
+  // ACA MAGI counts 100% of gross SS; IRMAA MAGI uses the taxable portion
+  // only (consistent with taxMath's federal-tax math).
+  const magiACAPre65 = computeMagiACA({
     grossIncome,
-    ssAnnualGross: annualEarlyGross,
+    ssAnnualGross: claimAge < 65 ? annualEarlyGross : 0,
   });
-  const magiIRMAA = computeMagiIRMAA({
+  const magiIRMAA65Plus = computeMagiIRMAA({
     grossIncome,
     ssAnnualGross: annualEarlyGross,
     taxableSSPct,
   });
-  const healthcareAnnualCost = computeAnnualHealthcareCost({
-    age: claimAge,
-    magiACA,
-    magiIRMAA,
+  const acaAnnualCost = computeAnnualHealthcareCost({
+    age: 62,
+    magiACA: magiACAPre65,
+    magiIRMAA: 0,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
+  const medicareAnnualCost = computeAnnualHealthcareCost({
+    age: 65,
+    magiACA: 0,
+    magiIRMAA: magiIRMAA65Plus,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  // Next-cliff is the actionable one for the user's current claim-age
+  // regime — pre-65 surfaces the ACA cliff, 65+ surfaces the IRMAA cliff.
   const healthcareNextCliff = nextCliffAbove({
     age: claimAge,
-    magiACA,
-    magiIRMAA,
+    magiACA: magiACAPre65,
+    magiIRMAA: magiIRMAA65Plus,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
@@ -298,6 +318,12 @@ export default function App() {
               investedPctWait={investedPctWait}
               waitInvestedAdvantage={waitInvestedAdvantage}
               waitInvestedBreakEvenAge={waitInvestedBreakEvenAge}
+              coveredElsewhere={coveredElsewhere}
+              householdSize={householdSize}
+              acaAnnualCost={acaAnnualCost}
+              medicareAnnualCost={medicareAnnualCost}
+              magiACAPre65={magiACAPre65}
+              magiIRMAA65Plus={magiIRMAA65Plus}
             />
           </div>
 
@@ -314,7 +340,8 @@ export default function App() {
             ssEffectiveTaxRate={ssEffectiveTaxRate}
             lifeExpectancy={lifeExpectancy}
             coveredElsewhere={coveredElsewhere}
-            healthcareAnnualCost={healthcareAnnualCost}
+            acaAnnualCost={acaAnnualCost}
+            medicareAnnualCost={medicareAnnualCost}
             healthcareNextCliff={healthcareNextCliff}
             claimAge={claimAge}
           />
@@ -340,6 +367,18 @@ export default function App() {
             returnRate={returnRate}
             investStopAge={effectiveInvestStopAge}
             chartData={chartData}
+          />
+
+          <HealthcarePanel
+            claimAge={claimAge}
+            coveredElsewhere={coveredElsewhere}
+            householdSize={householdSize}
+            magiACAPre65={magiACAPre65}
+            magiIRMAA65Plus={magiIRMAA65Plus}
+            acaAnnualCost={acaAnnualCost}
+            medicareAnnualCost={medicareAnnualCost}
+            healthcareNextCliff={healthcareNextCliff}
+            unsubsidizedSilverAnnual={unsubsidizedSilverAnnual}
           />
 
           <OptimalClaimAge
