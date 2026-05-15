@@ -25,6 +25,7 @@ export default function MetadataStrip({
   coveredElsewhere = false,
   acaAnnualCost = 0,
   medicareAnnualCost = 0,
+  medicareAnnualCostPost67 = null,
   healthcareNextCliff = null,
   claimAge,
 }) {
@@ -275,7 +276,11 @@ export default function MetadataStrip({
                 fontSize: "10px",
               }}
             >
-              Medicare (B + IRMAA), 65+
+              Medicare (B + IRMAA)
+              {medicareAnnualCostPost67 !== null &&
+              medicareAnnualCostPost67 !== medicareAnnualCost
+                ? ", 65–67"
+                : ", 65+"}
             </span>{" "}
             <span
               className="num"
@@ -288,6 +293,29 @@ export default function MetadataStrip({
                 ? `−${fmtMoney(medicareAnnualCost)}/yr`
                 : "$0 · MSP covers"}
             </span>
+            {medicareAnnualCostPost67 !== null &&
+              medicareAnnualCostPost67 !== medicareAnnualCost && (
+                <>
+                  {" "}
+                  <span
+                    className="num"
+                    style={{ color: C.inkFaint, fontSize: "10px" }}
+                  >
+                    · 67+
+                  </span>{" "}
+                  <span
+                    className="num"
+                    style={{
+                      color: medicareAnnualCostPost67 > 0 ? C.early : C.wait,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {medicareAnnualCostPost67 > 0
+                      ? `−${fmtMoney(medicareAnnualCostPost67)}/yr`
+                      : "$0 · MSP covers"}
+                  </span>
+                </>
+              )}
           </div>
           {healthcareNextCliff !== null && (
             <div>
