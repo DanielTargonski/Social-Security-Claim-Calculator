@@ -164,9 +164,11 @@ export default function App() {
     waitInvestedBreakEvenAge,
     healthcareDeltaAnnualPre,
     seniorDeductionPreFRA,
+    seniorDeductionPreFRA65Plus,
     seniorDeductionPostFRA,
     seniorDeductionWait,
     seniorDeductionAnnualSavingsEarlyPre,
+    seniorDeductionAnnualSavingsEarlyPre65Plus,
     seniorDeductionAnnualSavingsEarlyPost,
     seniorDeductionAnnualSavingsWait,
     seniorDeductionLifetimeEarly,
@@ -374,9 +376,11 @@ export default function App() {
               grossIncome={grossIncome}
               postFRAGrossIncome={postFRAGrossIncome}
               seniorDeductionPreFRA={seniorDeductionPreFRA}
+              seniorDeductionPreFRA65Plus={seniorDeductionPreFRA65Plus}
               seniorDeductionPostFRA={seniorDeductionPostFRA}
               seniorDeductionWait={seniorDeductionWait}
               seniorDeductionAnnualSavingsEarlyPre={seniorDeductionAnnualSavingsEarlyPre}
+              seniorDeductionAnnualSavingsEarlyPre65Plus={seniorDeductionAnnualSavingsEarlyPre65Plus}
               seniorDeductionAnnualSavingsEarlyPost={seniorDeductionAnnualSavingsEarlyPost}
               seniorDeductionAnnualSavingsWait={seniorDeductionAnnualSavingsWait}
               seniorDeductionLifetimeEarly={seniorDeductionLifetimeEarly}

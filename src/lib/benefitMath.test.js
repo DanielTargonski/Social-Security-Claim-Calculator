@@ -851,4 +851,69 @@ describe("computeProjection — OBBBA senior bonus deduction", () => {
       2
     );
   });
+
+  // Regression: pre-FRA-but-65+ window. Pre-fix the lifetime rollup used the
+  // window-start senior-deduction snapshot (priced at age=claimAge), which
+  // was $0 whenever claimAge<65 — silently dropping eligible 65/66 years
+  // even when calendar year was in 2025–2028 and the claimant was still
+  // earning a W2 in the pre-FRA window.
+  describe("pre-FRA-but-65+ window credit (claimAge < 65)", () => {
+    // claimAge=64 in 2026 → age 65 in 2027 (in window), age 66 in 2028 (in
+    // window), age 67 in 2029 (post-sunset). Two pre-FRA eligible years.
+    const claim64Scenario = {
+      ...seniorScenario,
+      claimAge: 64,
+    };
+
+    it("surfaces a positive 65+ pre-FRA snapshot when claimAge < 65", () => {
+      const r = computeProjection(claim64Scenario);
+      expect(r.seniorDeductionPreFRA65Plus).toBeGreaterThan(0);
+      expect(r.seniorDeductionAnnualSavingsEarlyPre65Plus).toBeGreaterThan(0);
+    });
+
+    it("at-claim-age tier remains $0 (correct — claimant is 64, not yet eligible)", () => {
+      const r = computeProjection(claim64Scenario);
+      expect(r.seniorDeductionPreFRA).toBe(0);
+      expect(r.seniorDeductionAnnualSavingsEarlyPre).toBe(0);
+    });
+
+    it("lifetime savings includes the pre-FRA 65+ years (claimAge=64 → 2 years credited)", () => {
+      const r = computeProjection(claim64Scenario);
+      // Pre-FRA 65+ window contributes ages 65 and 66 (calendar 2027, 2028).
+      // After FRA (age 67 = year 2029) the window has sunset, so post-FRA
+      // contributes nothing. Lifetime ≈ 2 × pre-FRA-65+ annual savings.
+      const expected = r.seniorDeductionAnnualSavingsEarlyPre65Plus * 2;
+      expect(r.seniorDeductionLifetimeEarly).toBeCloseTo(expected, 0);
+      expect(r.seniorDeductionLifetimeEarly).toBeGreaterThan(0);
+    });
+
+    it("eligible-year count is 2 for the claim-at-64-in-2026 scenario", () => {
+      const r = computeProjection(claim64Scenario);
+      // Ages 65 (2027) and 66 (2028) qualify; age 67 (2029) is post-sunset.
+      expect(r.seniorDeductionEligibleYearsEarly).toBe(2);
+    });
+
+    it("collapses to the window-start snapshot when claimAge ≥ 65", () => {
+      // At claimAge=66 the existing and 65+ snapshots should agree because
+      // both age inputs satisfy the 65+ gate and MAGI/tax-year inputs match.
+      const r = computeProjection({ ...seniorScenario, claimAge: 66 });
+      expect(r.seniorDeductionPreFRA65Plus).toBeCloseTo(
+        r.seniorDeductionPreFRA,
+        2
+      );
+      expect(r.seniorDeductionAnnualSavingsEarlyPre65Plus).toBeCloseTo(
+        r.seniorDeductionAnnualSavingsEarlyPre,
+        2
+      );
+    });
+
+    it("still zero when no pre-FRA 65+ year lands in the OBBBA window", () => {
+      // claimAge=62 in 2026 → age 65 in 2029 (post-sunset). The 65+ snapshot
+      // uses turn65Year=2029 which is past the sunset, so the snapshot is $0
+      // and the lifetime rollup stays at $0.
+      const r = computeProjection({ ...seniorScenario, claimAge: 62 });
+      expect(r.seniorDeductionPreFRA65Plus).toBe(0);
+      expect(r.seniorDeductionLifetimeEarly).toBe(0);
+    });
+  });
 });

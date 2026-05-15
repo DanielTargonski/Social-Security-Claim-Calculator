@@ -54,9 +54,11 @@ export default function SummaryCards({
   // OBBBA senior bonus deduction (2025–2028, age 65+). Per-window amounts,
   // per-year dollar savings, lifetime totals, and eligible-year counts.
   seniorDeductionPreFRA = 0,
+  seniorDeductionPreFRA65Plus = 0,
   seniorDeductionPostFRA = 0,
   seniorDeductionWait = 0,
   seniorDeductionAnnualSavingsEarlyPre = 0,
+  seniorDeductionAnnualSavingsEarlyPre65Plus = 0,
   seniorDeductionAnnualSavingsEarlyPost = 0,
   seniorDeductionAnnualSavingsWait = 0,
   seniorDeductionLifetimeEarly = 0,
@@ -159,10 +161,22 @@ export default function SummaryCards({
   const card2OBBBADeductionAmt = earlyClaimReduces
     ? seniorDeductionPostFRA
     : seniorDeductionWait;
-  // Card 1 (early claim age) — only show when the pre-FRA window has any
-  // savings, which requires claimAge >= 65 (else age<65 → 0 deduction).
+  // Card 1 (early claim age) — surfaces the OBBBA deduction during the
+  // pre-FRA window. Two sub-cases:
+  //   (a) claimAge ≥ 65: the at-claim-age tier itself qualifies, so the
+  //       per-year savings is nonzero immediately. Show with "+$X/yr from
+  //       …" framing.
+  //   (b) claimAge < 65 but the pre-FRA window crosses 65 inside the
+  //       2025-2028 OBBBA window: the at-claim-age tier doesn't qualify
+  //       (age gate), but ages 65/66 within pre-FRA do. Surface with
+  //       "starting at 65" framing so the savings don't visually
+  //       disappear just because the user dialed claim age below 65.
   const card1OBBBAAnnualSavings = seniorDeductionAnnualSavingsEarlyPre;
   const card1OBBBADeductionAmt = seniorDeductionPreFRA;
+  const card1OBBBAAnnualSavings65Plus = seniorDeductionAnnualSavingsEarlyPre65Plus;
+  const card1OBBBADeductionAmt65Plus = seniorDeductionPreFRA65Plus;
+  const card1OBBBAShowsDeferred =
+    card1OBBBAAnnualSavings === 0 && card1OBBBAAnnualSavings65Plus > 0;
   // "Down from" only shows when the early-claim reduction actually leaves the
   // user materially below the full FRA benefit. ($1 floor avoids float noise
   // when the recoup brings them within rounding of the full amount.)
@@ -276,6 +290,16 @@ export default function SummaryCards({
               </span>{" "}
               from ${Math.round(card1OBBBADeductionAmt).toLocaleString()} OBBBA
               senior bonus deduction
+            </>
+          )}
+          {card1OBBBAShowsDeferred && (
+            <>
+              <br />
+              <span style={{ color: C.wait }}>
+                +{fmtMoney(card1OBBBAAnnualSavings65Plus)}/yr starting at 65
+              </span>{" "}
+              from ${Math.round(card1OBBBADeductionAmt65Plus).toLocaleString()}{" "}
+              OBBBA senior bonus deduction
             </>
           )}
         </div>
