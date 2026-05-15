@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   FPL_2025_FOR_2026_PTC,
+  MEDICAID_FPL_CEILING,
   ESSENTIAL_PLAN_FPL_CEILING,
   ACA_PTC_CLIFF_FPL,
   ACA_PTC_CONTRIBUTION_CAP,
+  MSP_PART_B_FPL_CEILING,
   NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
   PART_B_BASE_ANNUAL_2026,
   IRMAA_2026_SINGLE,
@@ -352,5 +354,85 @@ describe("the load-bearing OBBBA scenario — single NYC claimant at age 62", ()
     expect(magi).toBe(69000); // > $62,600 = 400% FPL
     const cost = computeACAAnnualCost({ magi });
     expect(cost).toBe(NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT);
+  });
+});
+
+describe("MSP zero-out at 65+ (NY Medicare Savings Programs)", () => {
+  it("QMB/SLMB/QI cover Part B premium when MAGI ≤135% FPL (single)", () => {
+    // 135% × $15,650 = $21,128 ceiling. $20K MAGI is below.
+    expect(computeMedicareAnnualCost({ magi: 20000 })).toBe(0);
+  });
+
+  it("falls back to standard Part B premium just above the MSP ceiling", () => {
+    // $25K MAGI > 135% FPL ($21,128) → no MSP, standard Part B.
+    expect(computeMedicareAnnualCost({ magi: 25000 })).toBeCloseTo(
+      PART_B_BASE_ANNUAL_2026,
+      2
+    );
+  });
+
+  it("uses the couple FPL ceiling ($21,150 × 1.35 = $28,553) for households of 2", () => {
+    // $25K MAGI: above single ceiling ($21,128), below couple ceiling.
+    expect(computeMedicareAnnualCost({ magi: 25000, householdSize: 1 })).toBe(
+      PART_B_BASE_ANNUAL_2026
+    );
+    expect(computeMedicareAnnualCost({ magi: 25000, householdSize: 2 })).toBe(0);
+  });
+
+  it("MSP doesn't apply once MAGI is high enough to trigger IRMAA", () => {
+    // Sanity check: IRMAA tier 1 starts at $109K (~700% FPL single) — well
+    // past the MSP ceiling. $200K MAGI sits in Tier 3 ($171K-$205K).
+    expect(computeMedicareAnnualCost({ magi: 200000 })).toBeCloseTo(
+      PART_B_BASE_ANNUAL_2026 + 4620.0,
+      1
+    );
+  });
+
+  it("dispatches MSP zero-out via computeAnnualHealthcareCost at 65+", () => {
+    const cost = computeAnnualHealthcareCost({
+      age: 65,
+      magiACA: 0,
+      magiIRMAA: 18000,
+    });
+    expect(cost).toBe(0);
+  });
+});
+
+describe("Medicaid cliff (138% FPL) in nextCliffAbove", () => {
+  it("returns the Medicaid → EP cliff with $0 premium delta when MAGI is below 138% FPL", () => {
+    // 138% × $15,650 = $21,597. $18K MAGI is below.
+    const cliff = nextCliffAbove({ age: 62, magiACA: 18000, magiIRMAA: 0 });
+    expect(cliff).not.toBeNull();
+    expect(cliff.label).toMatch(/Medicaid/);
+    expect(cliff.magiAtCliff).toBeCloseTo(21597, 0);
+    expect(cliff.distance).toBeCloseTo(3597, 0);
+    // Both Medicaid and Essential Plan are $0 premium — the cliff is a
+    // coverage-change cliff, not a premium-cost cliff.
+    expect(cliff.annualCostDelta).toBe(0);
+  });
+
+  it("skips to the Essential Plan cliff once MAGI is in the 138-200% band", () => {
+    // $25K is above 138% ($21,597) but below 200% ($31,300).
+    const cliff = nextCliffAbove({ age: 62, magiACA: 25000, magiIRMAA: 0 });
+    expect(cliff.label).toMatch(/Essential Plan/);
+    expect(cliff.annualCostDelta).toBeGreaterThan(0);
+  });
+});
+
+describe("MSP cliff in nextCliffAbove (65+)", () => {
+  it("returns the MSP cliff with $2,434.80/yr delta when MAGI is below 135% FPL", () => {
+    // $18K MAGI is below the 135% FPL ceiling ($21,128 single).
+    const cliff = nextCliffAbove({ age: 65, magiACA: 0, magiIRMAA: 18000 });
+    expect(cliff).not.toBeNull();
+    expect(cliff.label).toMatch(/Medicare Savings Program/);
+    expect(cliff.magiAtCliff).toBeCloseTo(MSP_PART_B_FPL_CEILING * 15650, 0);
+    expect(cliff.annualCostDelta).toBeCloseTo(PART_B_BASE_ANNUAL_2026, 2);
+  });
+
+  it("skips to IRMAA Tier 1 cliff once MAGI is above the MSP ceiling", () => {
+    // $25K MAGI is above MSP ceiling but well below IRMAA Tier 1 ($109K).
+    const cliff = nextCliffAbove({ age: 65, magiACA: 0, magiIRMAA: 25000 });
+    expect(cliff.label).toMatch(/Tier 1/);
+    expect(cliff.annualCostDelta).toBeCloseTo(1148.4, 1);
   });
 });

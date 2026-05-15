@@ -35,6 +35,15 @@ export const FPL_2025_FOR_2026_PTC = {
   perAdditionalMember: 5500,
 };
 
+// NY adult Medicaid ceiling (non-disabled adults 19-64, MAGI rules). 133%
+// FPL plus the statutory 5% disregard = 138% FPL effective. Confirmed
+// unchanged for 2026-2027 by KFF and NYS DOH. Below this threshold and
+// the claimant is on Medicaid, not Essential Plan — both are $0 premium,
+// so the cliff has no premium impact, but it matters for the user's
+// mental model (Medicaid vs EP coverage breadth + the OBBBA work
+// requirement that applies to Medicaid only, effective Jan 1, 2027).
+export const MEDICAID_FPL_CEILING = 1.38;
+
 // Essential Plan ceiling drops 250% → 200% FPL effective July 1, 2026 because
 // OBBBA killed the lawfully-present-immigrant PTC eligibility that financed
 // half of NY's 1332-waiver Essential Plan. Modeled as a constant (post-July
@@ -42,6 +51,15 @@ export const FPL_2025_FOR_2026_PTC = {
 // six-month transition window.
 export const ESSENTIAL_PLAN_FPL_CEILING = 2.0; // 200% of FPL
 export const ACA_PTC_CLIFF_FPL = 4.0;         // 400% of FPL
+
+// NY Medicare Savings Program ceiling (QMB / SLMB / QI combined upper limit).
+// NY eliminated the asset test for MSPs effective Jan 1, 2026, so eligibility
+// is now MAGI-only. QMB ≤100% FPL pays Part B premium and all cost-sharing;
+// SLMB 100-120% pays Part B premium only; QI 120-135% pays Part B premium
+// only. Collapsing all three into "≤135% FPL → Part B is free" is accurate
+// for the calculator's purpose (premium cost) — the cost-sharing differences
+// don't show up in the break-even math.
+export const MSP_PART_B_FPL_CEILING = 1.35;
 
 // ACA PTC cap on subsidized premium contribution as a fraction of MAGI.
 // Pre-IRA / post-OBBBA the cap was a graduated scale (2.04% at 100% FPL up
@@ -145,7 +163,19 @@ export function getIRMAATier(magi) {
 // Annual Medicare cost: standard Part B base ($2,434.80 for 2026) + the
 // IRMAA tier surcharge. Ignores Part D base premium (varies by plan) — we
 // only price the IRMAA Part D *surcharge*, which is the cliff-driving piece.
-export function computeMedicareAnnualCost({ magi }) {
+//
+// MSP zero-out: NY pays the Part B premium for anyone ≤135% FPL via the
+// QMB / SLMB / QI programs (no asset test since Jan 2026). At this MAGI
+// level IRMAA can't trigger either — IRMAA Tier 1 starts at $109K MAGI,
+// roughly 700% FPL — so the entire Medicare premium drops to $0 for low
+// income claimants. Pass `householdSize` to use the couple FPL ($21,150)
+// instead of single ($15,650) when applicable.
+export function computeMedicareAnnualCost({ magi, householdSize = 1 }) {
+  const fpl =
+    householdSize === 2
+      ? FPL_2025_FOR_2026_PTC.couple
+      : FPL_2025_FOR_2026_PTC.single;
+  if (magi / fpl <= MSP_PART_B_FPL_CEILING) return 0;
   const tier = getIRMAATier(magi);
   return PART_B_BASE_ANNUAL_2026 + tier.annualExtra;
 }
@@ -175,7 +205,7 @@ export function computeAnnualHealthcareCost({
       unsubsidizedAnnual,
     });
   }
-  return computeMedicareAnnualCost({ magi: magiIRMAA });
+  return computeMedicareAnnualCost({ magi: magiIRMAA, householdSize });
 }
 
 // Distance to the next cliff above the current MAGI, plus the cost of
@@ -194,13 +224,25 @@ export function nextCliffAbove({
   coveredElsewhere = false,
 }) {
   if (coveredElsewhere) return null;
+  const fpl =
+    householdSize === 2
+      ? FPL_2025_FOR_2026_PTC.couple
+      : FPL_2025_FOR_2026_PTC.single;
   if (age < 65) {
-    const fpl =
-      householdSize === 2
-        ? FPL_2025_FOR_2026_PTC.couple
-        : FPL_2025_FOR_2026_PTC.single;
+    const cliff138 = MEDICAID_FPL_CEILING * fpl;
     const cliff200 = ESSENTIAL_PLAN_FPL_CEILING * fpl;
     const cliff400 = ACA_PTC_CLIFF_FPL * fpl;
+    if (magiACA <= cliff138) {
+      // Medicaid → Essential Plan transition. Both regimes are $0 premium,
+      // so annualCostDelta is 0 — display layer surfaces this as a
+      // "coverage change" cliff rather than a "+$X/yr" cliff.
+      return {
+        label: "NY Medicaid ceiling (138% FPL)",
+        magiAtCliff: cliff138,
+        distance: cliff138 - magiACA,
+        annualCostDelta: 0,
+      };
+    }
     if (magiACA <= cliff200) {
       const currentCost = computeACAAnnualCost({
         magi: magiACA,
@@ -234,7 +276,20 @@ export function nextCliffAbove({
     }
     return null;
   }
-  // 65+ — find the next IRMAA tier whose maxMagi is above current MAGI.
+  // 65+ — first check the Medicare Savings Program cliff (135% FPL).
+  // Below it, Part B is free; crossing it puts the user on the standard
+  // $2,434.80/yr Part B premium (IRMAA can't trigger this low). Above the
+  // MSP ceiling, fall through to the IRMAA tier walk.
+  const mspCeiling = MSP_PART_B_FPL_CEILING * fpl;
+  if (magiIRMAA <= mspCeiling) {
+    return {
+      label: "NY Medicare Savings Program ceiling (135% FPL)",
+      magiAtCliff: mspCeiling,
+      distance: mspCeiling - magiIRMAA,
+      annualCostDelta: PART_B_BASE_ANNUAL_2026,
+    };
+  }
+  // Find the next IRMAA tier whose maxMagi is above current MAGI.
   const currentTier = getIRMAATier(magiIRMAA);
   const currentIdx = IRMAA_2026_SINGLE.indexOf(currentTier);
   // Already in the top tier — no cliff above.
