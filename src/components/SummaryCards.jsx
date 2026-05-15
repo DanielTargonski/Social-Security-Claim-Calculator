@@ -47,7 +47,10 @@ export default function SummaryCards({
   medicareAnnualCost = 0,
   magiACAPre65 = 0,
   magiIRMAA65Plus = 0,
+  magiIRMAAPost67 = 0,
+  medicareAnnualCostPost67 = 0,
   grossIncome = 0,
+  postFRAGrossIncome = 0,
 }) {
   // Healthcare-card derived values. Compute the pre-65 ACA band label and
   // 65+ MSP-vs-IRMAA status from the MAGI inputs. Kept local rather than
@@ -75,17 +78,34 @@ export default function SummaryCards({
     acaBandColor = C.early;
   }
   const mspEligible = irmaaFplPct <= MSP_PART_B_FPL_CEILING;
-  const medicareLabel = mspEligible
-    ? "MSP covers Part B"
-    : medicareAnnualCost > 2500
-    ? "Standard + IRMAA"
-    : "Standard Part B";
+  const labelForMedicare = (cost, eligible) =>
+    eligible
+      ? "MSP covers Part B"
+      : cost > 2500
+      ? "Standard + IRMAA"
+      : "Standard Part B";
+  const medicareLabel = labelForMedicare(medicareAnnualCost, mspEligible);
+  // Post-67 (retirement-phase) Medicare snapshot. Only meaningfully
+  // different from the 65–67 snapshot when post-67 wages differ from
+  // pre-67 wages — e.g., the user retired at FRA so wages drop to $0,
+  // potentially dropping MAGI under the MSP ceiling and zeroing Part B.
+  const irmaaPost67FplPct = magiIRMAAPost67 / fpl;
+  const mspEligiblePost67 = irmaaPost67FplPct <= MSP_PART_B_FPL_CEILING;
+  const medicareLabelPost67 = labelForMedicare(
+    medicareAnnualCostPost67,
+    mspEligiblePost67
+  );
+  const postFRAIncomeDiffers = postFRAGrossIncome !== grossIncome;
   // SS portions of each MAGI (derived from the totals already computed
   // upstream in App.jsx). ACA counts 100% of gross SS pre-65; IRMAA counts
   // only the taxable portion. Clamped to 0 to avoid negative display from
   // float noise when both grossIncome and the SS contribution are 0.
   const acaSsPortion = Math.max(0, magiACAPre65 - grossIncome);
   const irmaaSsPortion = Math.max(0, magiIRMAA65Plus - grossIncome);
+  const irmaaPost67SsPortion = Math.max(
+    0,
+    magiIRMAAPost67 - postFRAGrossIncome
+  );
 
   // FRA is hardcoded as 67 throughout the app — see ssRules.js.
   // Used for the "annual edge" stat = advantage averaged across post-FRA years.
@@ -479,7 +499,8 @@ export default function SummaryCards({
                 {medicareLabel}
               </div>
               <div className="text-xs num" style={{ color: C.inkFaint }}>
-                65+ · {(irmaaFplPct * 100).toFixed(0)}% FPL
+                {postFRAIncomeDiffers ? "65–67" : "65+"} ·{" "}
+                {(irmaaFplPct * 100).toFixed(0)}% FPL
               </div>
               <div
                 className="text-xs num mt-1"
@@ -496,6 +517,51 @@ export default function SummaryCards({
                 = {fmtMoney(magiIRMAA65Plus)} ÷ {fmtMoney(fpl)} FPL
               </div>
             </div>
+            {postFRAIncomeDiffers && (
+              <div
+                className="pt-2"
+                style={{ borderTop: `1px solid ${C.border}` }}
+              >
+                <div
+                  className="num"
+                  style={{
+                    color: medicareAnnualCostPost67 > 0 ? C.early : C.wait,
+                    fontSize: "1.125rem",
+                    fontWeight: 600,
+                    lineHeight: 1,
+                  }}
+                >
+                  {medicareAnnualCostPost67 > 0
+                    ? `−${fmtMoney(medicareAnnualCostPost67)}/yr`
+                    : "$0/yr"}
+                </div>
+                <div
+                  className="text-xs num"
+                  style={{
+                    color: mspEligiblePost67 ? C.wait : C.ink,
+                    fontWeight: 500,
+                  }}
+                >
+                  {medicareLabelPost67}
+                </div>
+                <div className="text-xs num" style={{ color: C.inkFaint }}>
+                  67+ · {(irmaaPost67FplPct * 100).toFixed(0)}% FPL
+                </div>
+                <div
+                  className="text-xs num mt-1"
+                  style={{ color: C.inkFaint, lineHeight: 1.5 }}
+                >
+                  {fmtMoney(postFRAGrossIncome)} wage
+                  {irmaaPost67SsPortion > 0 && (
+                    <>
+                      {" + "}
+                      {fmtMoney(irmaaPost67SsPortion)} taxable SS
+                    </>
+                  )}
+                  <br />= {fmtMoney(magiIRMAAPost67)} ÷ {fmtMoney(fpl)} FPL
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

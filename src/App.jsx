@@ -13,6 +13,7 @@ import {
   computeAnnualHealthcareCost,
   nextCliffAbove,
 } from "./lib/healthcareCost.js";
+import { computeTaxableSSPct } from "./lib/taxMath.js";
 import GlobalStyles from "./components/GlobalStyles.jsx";
 import Header from "./components/Header.jsx";
 import ModeSwitcher from "./components/ModeSwitcher.jsx";
@@ -192,10 +193,19 @@ export default function App() {
     grossIncome,
     ssAnnualGross: claimAge < 65 ? annualEarlyGross : 0,
   });
+  // For the 65–67 window: pre-67 wages still apply, and the SS basis is the
+  // pre-FRA reduced amount. The taxableSSPct returned by the math layer is
+  // the post-FRA value (computed against post-67 wages + recouped SS), so
+  // we recompute fresh against pre-67 inputs to get the right IRMAA MAGI
+  // for this window.
+  const taxableSSPctPre67 = computeTaxableSSPct({
+    ssBasisAnnual: annualEarlyGross,
+    grossIncome,
+  });
   const magiIRMAA65Plus = computeMagiIRMAA({
     grossIncome,
     ssAnnualGross: annualEarlyGross,
-    taxableSSPct,
+    taxableSSPct: taxableSSPctPre67,
   });
   const acaAnnualCost = computeAnnualHealthcareCost({
     age: 62,
@@ -209,6 +219,31 @@ export default function App() {
     age: 65,
     magiACA: 0,
     magiIRMAA: magiIRMAA65Plus,
+    householdSize,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  // Post-67 Medicare snapshot. The 65+ window has two phases when post-67
+  // income differs from pre-67 income: 65–67 (still working at pre-67 wages
+  // and pre-FRA SS basis) and 67+ (post-67 wages and the recouped post-FRA
+  // SS basis). The chart's break-even math already splits this way; this
+  // snapshot lets the sidebar reflect it. Taxable SS pct is recomputed
+  // from scratch because both the SS amount and the wage income differ
+  // from the pre-FRA snapshot.
+  const annualEarlyPostFRAGross = earlyPostFRAMonthlyGross * 12;
+  const taxableSSPctPost67 = computeTaxableSSPct({
+    ssBasisAnnual: annualEarlyPostFRAGross,
+    grossIncome: postFRAGrossIncome,
+  });
+  const magiIRMAAPost67 = computeMagiIRMAA({
+    grossIncome: postFRAGrossIncome,
+    ssAnnualGross: annualEarlyPostFRAGross,
+    taxableSSPct: taxableSSPctPost67,
+  });
+  const medicareAnnualCostPost67 = computeAnnualHealthcareCost({
+    age: 67,
+    magiACA: 0,
+    magiIRMAA: magiIRMAAPost67,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
@@ -324,7 +359,10 @@ export default function App() {
               medicareAnnualCost={medicareAnnualCost}
               magiACAPre65={magiACAPre65}
               magiIRMAA65Plus={magiIRMAA65Plus}
+              magiIRMAAPost67={magiIRMAAPost67}
+              medicareAnnualCostPost67={medicareAnnualCostPost67}
               grossIncome={grossIncome}
+              postFRAGrossIncome={postFRAGrossIncome}
             />
           </div>
 
@@ -343,6 +381,7 @@ export default function App() {
             coveredElsewhere={coveredElsewhere}
             acaAnnualCost={acaAnnualCost}
             medicareAnnualCost={medicareAnnualCost}
+            medicareAnnualCostPost67={medicareAnnualCostPost67}
             healthcareNextCliff={healthcareNextCliff}
             claimAge={claimAge}
           />
