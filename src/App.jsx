@@ -5,6 +5,7 @@ import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
 import { useOptimalClaimAge } from "./hooks/useOptimalClaimAge.js";
 import { useFormState } from "./hooks/useFormState.js";
 import { useUrlSync } from "./hooks/useUrlSync.js";
+import { useTheme } from "./hooks/useTheme.js";
 import { getInitialStateFromUrl } from "./lib/shareableState.js";
 import { rangeForMode, snapClaimAgeOnModeSwitch } from "./lib/modeConfig.js";
 import {
@@ -28,6 +29,7 @@ import HealthcarePanel from "./components/HealthcarePanel.jsx";
 import OptimalClaimAge from "./components/OptimalClaimAge.jsx";
 import AboutPage from "./components/AboutPage.jsx";
 import TabNav from "./components/TabNav.jsx";
+import ThemeToggle from "./components/ThemeToggle.jsx";
 
 // Top-level orchestrator. Owns all UI state and the projection hook; passes
 // derived values down to presentation components. Each visual section lives
@@ -39,6 +41,9 @@ export default function App() {
   // share links should drop people directly into the calculator they
   // configured, not the explainer.
   const [view, setView] = useState("calculator");
+
+  // Light/dark theme. Display preference, not URL-persisted (see useTheme).
+  const { theme, toggleTheme } = useTheme();
 
   // Hydrate initial state from URL query params (set by ShareLinkButton when
   // someone shared this link). Falls back to defaults for any missing field.
@@ -286,7 +291,10 @@ export default function App() {
         <div className="grain" />
 
         <div className="max-w-5xl mx-auto px-5 py-8 md:py-12 relative">
-          <TabNav view={view} onChange={setView} />
+          <div className="flex justify-between items-start gap-3 flex-wrap">
+            <TabNav view={view} onChange={setView} />
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </div>
 
           {view === "about" ? (
             <>
