@@ -59,7 +59,10 @@ export default function GlobalStyles() {
         font-family: 'JetBrains Mono', monospace;
         transition: all 0.2s ease;
         background: transparent;
-        border: none;
+        /* Each inactive button keeps a visible outline so all the choices read
+           as distinct, clickable buttons — not just plain text next to the one
+           filled-in active button. */
+        border: 1px solid ${C.borderDark};
         cursor: pointer;
         color: ${C.ink};
       }
@@ -70,6 +73,7 @@ export default function GlobalStyles() {
       }
       .mode-btn-active {
         background: ${C.ink};
+        border-color: ${C.ink};
         color: ${C.bg};
       }
 

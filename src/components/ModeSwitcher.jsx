@@ -7,7 +7,7 @@ export default function ModeSwitcher({ mode, onChange }) {
   return (
     <>
       <div
-        className="inline-flex p-1 mb-6 flex-wrap"
+        className="inline-flex gap-1.5 p-1 mb-6 flex-wrap"
         style={{
           backgroundColor: C.paper,
           border: `1px solid ${C.border}`,

@@ -19,7 +19,7 @@ export default function Header({ investStopAge }) {
           className="num text-xs uppercase"
           style={{ color: C.inkSoft, letterSpacing: "0.22em" }}
         >
-          Vol. III &nbsp;·&nbsp; The Claim Calculator
+          The Claim Calculator
         </span>
       </div>
       <h1
