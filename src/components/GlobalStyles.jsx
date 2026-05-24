@@ -101,6 +101,24 @@ export default function GlobalStyles() {
         color: ${C.bg};
       }
 
+      .theme-toggle-btn {
+        padding: 6px 12px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-weight: 500;
+        font-family: 'JetBrains Mono', monospace;
+        background: transparent;
+        border: 1px solid ${C.borderDark};
+        color: ${C.inkSoft};
+        cursor: pointer;
+        transition: all 0.18s ease;
+      }
+      .theme-toggle-btn:hover {
+        background: ${C.border};
+        color: ${C.ink};
+      }
+
       .attribution-link {
         text-decoration: none;
         border-bottom: 1px solid transparent;

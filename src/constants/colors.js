@@ -9,25 +9,31 @@
 //                                   read as a family
 //   - cross        (gold)        = crossover marker
 //
-// Text-on-background contrast (AA = 4.5:1 for normal text):
-//   - ink        on paper/bg → ~14:1   (primary copy)
-//   - inkSoft    on paper/bg → ~7:1    (secondary copy)
-//   - inkFaint   on paper/bg → ~5.7:1  (small caps labels, hints)
-//   - inkOnDark  on ink      → ~7.7:1  (labels on the dark Crossover-age card)
-// inkFaint was previously #9A8B72 (~2.9:1) — failed AA, hard to read in dim light.
-// inkOnDark was added so the dark card can stay subtle without going below AA.
+// Each key resolves to a CSS custom property rather than a raw hex. The actual
+// light/dark values live in src/index.css under :root and [data-theme="dark"].
+// This keeps every existing `style={{ color: C.ink }}` call site (and the
+// recharts stroke/fill props) untouched: they emit `var(--c-ink)`, which the
+// browser resolves per-theme. Dark mode is therefore a pure CSS swap with no
+// component changes. See colors.test.js for the var()-shape contract.
+//
+// Contrast (WCAG AA = 4.5:1 normal text, 3:1 graphics) is held in BOTH themes;
+// the per-theme ratios are documented next to the hexes in index.css.
 export const C = {
-  bg: "#EFE7D6",
-  paper: "#F7F0DE",
-  border: "#D9CBAE",
-  borderDark: "#A89677",
-  ink: "#181410",
-  inkSoft: "#5C4F3D",
-  inkFaint: "#6B5C44",
-  inkOnDark: "#B5A688",
-  early: "#A02B2B",
-  earlySoft: "#C97070",
-  wait: "#1F4D3F",
-  waitInvested: "#3F7D5F",
-  cross: "#B8860B",
+  bg: "var(--c-bg)",
+  paper: "var(--c-paper)",
+  border: "var(--c-border)",
+  borderDark: "var(--c-border-dark)",
+  ink: "var(--c-ink)",
+  inkSoft: "var(--c-ink-soft)",
+  inkFaint: "var(--c-ink-faint)",
+  // Text drawn on top of a `C.ink` surface (the Crossover-age card, the
+  // OptimalClaimAge button). In light mode that surface is near-black, so this
+  // is a light tan; in dark mode the surface inverts to near-white, so the
+  // dark-theme value flips to a dark warm tone (see index.css).
+  inkOnDark: "var(--c-ink-on-dark)",
+  early: "var(--c-early)",
+  earlySoft: "var(--c-early-soft)",
+  wait: "var(--c-wait)",
+  waitInvested: "var(--c-wait-invested)",
+  cross: "var(--c-cross)",
 };

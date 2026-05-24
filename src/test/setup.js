@@ -22,6 +22,21 @@ class ResizeObserverStub {
 }
 globalThis.ResizeObserver = globalThis.ResizeObserver || ResizeObserverStub;
 
+// jsdom in this setup doesn't expose localStorage (opaque origin). The theme
+// hook reads/writes it, so provide a minimal in-memory implementation. Scoped
+// to DOM environments (window present) so the node-env math tests don't poke
+// Node's experimental global localStorage. Tests that care about storage clear
+// it in their own beforeEach.
+if (typeof window !== "undefined" && !window.localStorage) {
+  const store = new Map();
+  window.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+    clear: () => store.clear(),
+  };
+}
+
 // jsdom does not implement matchMedia. Some libraries probe it on mount.
 globalThis.matchMedia =
   globalThis.matchMedia ||
