@@ -130,6 +130,13 @@ export default function SummaryCards({
       ? Math.abs(advantage) / (lifeExpectancy - FRA_YEARS)
       : 0;
 
+  // Left-border + headline-number accent for the verdict card. Mirrors the
+  // colored left borders on cards 1 (early) and 2 (wait): switch-mode pot is
+  // upside (green), a crossover age uses the chart's gold marker color, and
+  // an outright verdict uses the winning side's color (early=red, wait=green).
+  const verdictAccent =
+    mode === "switch" ? C.wait : breakEvenAge ? C.cross : earlyWins ? C.early : C.wait;
+
   // Card 2 shows the user's actual check at 67 given their strategy:
   //   - Switch mode: they switch to the survivor benefit at FRA → fraMonthlyNet
   //   - Retirement / survivor at FRA or later: they get fraMonthlyNet too
@@ -191,30 +198,30 @@ export default function SummaryCards({
     investedPctWait > 0 && mode !== "switch" ? (
       <div
         className="mt-3 pt-3"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+        style={{ borderTop: `1px solid ${C.border}` }}
       >
         <div
           className="text-xs uppercase mb-1"
-          style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+          style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
         >
           If wait also invested {investedPctWait}%
         </div>
         {waitInvestedBreakEvenAge ? (
-          <div className="text-xs" style={{ color: C.inkOnDark }}>
+          <div className="text-xs" style={{ color: C.inkFaint }}>
             {waitInvestedAdvantage >= 0
               ? "early still leads"
               : "wait+invest pulls ahead"}{" "}
             — crossover at{" "}
-            <span className="num" style={{ color: C.paper, fontWeight: 500 }}>
+            <span className="num" style={{ color: C.ink, fontWeight: 500 }}>
               {fmtAge(waitInvestedBreakEvenAge)}
             </span>
           </div>
         ) : (
-          <div className="text-xs" style={{ color: C.inkOnDark }}>
+          <div className="text-xs" style={{ color: C.inkFaint }}>
             {waitInvestedAdvantage >= 0
               ? "early still leads by "
               : "wait+invest leads by "}
-            <span className="num" style={{ color: C.paper, fontWeight: 500 }}>
+            <span className="num" style={{ color: C.ink, fontWeight: 500 }}>
               {fmtBig(Math.abs(waitInvestedAdvantage))}
             </span>{" "}
             at {fmtAge(lifeExpectancy)}
@@ -370,25 +377,32 @@ export default function SummaryCards({
       <div
         className="p-4 col-span-2 lg:col-span-1 flex flex-col"
         style={{
-          backgroundColor: C.ink,
-          color: C.paper,
+          backgroundColor: C.paper,
+          color: C.ink,
+          border: `1px solid ${C.border}`,
+          borderLeft: `3px solid ${verdictAccent}`,
         }}
       >
         {mode === "switch" ? (
           <>
             <div
               className="text-xs uppercase mb-2"
-              style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+              style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
             >
               Pot at {investStopAge} (pure upside)
             </div>
             <div
               className="num"
-              style={{ fontSize: "1.875rem", fontWeight: 600, lineHeight: 1 }}
+              style={{
+                color: verdictAccent,
+                fontSize: "1.875rem",
+                fontWeight: 600,
+                lineHeight: 1,
+              }}
             >
               {fmtBig(potAtStopRow)}
             </div>
-            <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
+            <div className="text-xs mt-2" style={{ color: C.inkFaint }}>
               {returnRate > 0 ? (
                 <>from investing through <Var>{investStopAge}</Var></>
               ) : (
@@ -400,52 +414,57 @@ export default function SummaryCards({
           <>
             <div
               className="text-xs uppercase mb-2"
-              style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+              style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
             >
               Crossover age
             </div>
             <div
               className="num"
-              style={{ fontSize: "1.875rem", fontWeight: 600, lineHeight: 1 }}
+              style={{
+                color: verdictAccent,
+                fontSize: "1.875rem",
+                fontWeight: 600,
+                lineHeight: 1,
+              }}
             >
               {fmtAge(breakEvenAge)}
             </div>
-            <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
+            <div className="text-xs mt-2" style={{ color: C.inkFaint }}>
               where the lines meet
             </div>
             {crossoverValue !== null && (
               <div
                 className="mt-3 pt-3"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+                style={{ borderTop: `1px solid ${C.border}` }}
               >
                 <div
                   className="text-xs uppercase mb-1"
-                  style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+                  style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
                 >
                   Each strategy holds
                 </div>
                 <div
                   className="num"
-                  style={{ fontSize: "1.125rem", fontWeight: 500 }}
+                  style={{ color: C.ink, fontSize: "1.125rem", fontWeight: 500 }}
                 >
                   {fmtBig(crossoverValue)}
                 </div>
                 <div
                   className="text-xs mt-1"
-                  style={{ color: C.inkOnDark }}
+                  style={{ color: C.inkFaint }}
                 >
                   at the crossover · then{" "}
                   {advantage >= 0 ? "early" : "wait"} pulls ahead
                 </div>
                 <div
                   className="text-xs mt-3"
-                  style={{ color: C.inkOnDark }}
+                  style={{ color: C.inkFaint }}
                 >
                   by <Var>{fmtAge(lifeExpectancy)}</Var>:{" "}
                   {advantage >= 0 ? "early" : "wait"} leads by{" "}
                   <span
                     className="num"
-                    style={{ color: C.paper, fontWeight: 500 }}
+                    style={{ color: C.ink, fontWeight: 500 }}
                   >
                     {fmtBig(Math.abs(advantage))}
                   </span>
@@ -461,7 +480,7 @@ export default function SummaryCards({
           <>
             <div
               className="text-xs uppercase mb-2"
-              style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+              style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
             >
               {earlyWins ? "Claiming early wins" : "Waiting wins"} through{" "}
               {fmtAge(lifeExpectancy)}
@@ -469,6 +488,7 @@ export default function SummaryCards({
             <div
               className="num"
               style={{
+                color: verdictAccent,
                 fontSize: "1.875rem",
                 fontWeight: 600,
                 lineHeight: 1,
@@ -477,16 +497,16 @@ export default function SummaryCards({
               {earlyWins ? "+" : "−"}
               {fmtBig(Math.abs(advantage))}
             </div>
-            <div className="text-xs mt-2" style={{ color: C.inkOnDark }}>
+            <div className="text-xs mt-2" style={{ color: C.inkFaint }}>
               ahead at end of life · no crossover in range
             </div>
             <div
               className="mt-4 pt-4"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+              style={{ borderTop: `1px solid ${C.border}` }}
             >
               <div
                 className="text-xs uppercase mb-1"
-                style={{ color: C.inkOnDark, letterSpacing: "0.15em" }}
+                style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
               >
                 Annual edge
               </div>
@@ -496,7 +516,7 @@ export default function SummaryCards({
               >
                 ≈ {fmtMoney(annualEdge)}/yr
               </div>
-              <div className="text-xs mt-1" style={{ color: C.inkOnDark }}>
+              <div className="text-xs mt-1" style={{ color: C.inkFaint }}>
                 averaged across the {fmtDuration(lifeExpectancy - FRA_YEARS)}{" "}
                 past FRA
               </div>
