@@ -62,6 +62,11 @@ export default function SummaryCards({
   magiACAPre65 = 0,
   magiIRMAA65Plus = 0,
   magiIRMAAPost67 = 0,
+  // Gross-SS countable income for the MSP eligibility test (65+). Distinct
+  // from IRMAA MAGI, which only counts taxable SS — see healthcareCost.js.
+  // Default to the IRMAA MAGI props so older call sites stay backward-compat.
+  mspIncome65Plus = magiIRMAA65Plus,
+  mspIncomePost67 = magiIRMAAPost67,
   medicareAnnualCostPost67 = 0,
   grossIncome = 0,
   postFRAGrossIncome = 0,
@@ -105,7 +110,11 @@ export default function SummaryCards({
     acaBandLabel = "Unsubsidized ACA";
     acaBandColor = C.early;
   }
-  const mspEligible = irmaaFplPct <= MSP_PART_B_FPL_CEILING;
+  // MSP eligibility is tested against gross-SS countable income (mspIncome),
+  // not IRMAA MAGI — an SS-only retiree has ~$0 IRMAA MAGI but gross income
+  // well above the 135% ceiling, so they get no MSP and pay standard Part B.
+  const mspEligible =
+    mspIncome65Plus / fpl <= MSP_PART_B_FPL_CEILING;
   const labelForMedicare = (cost, eligible) =>
     eligible
       ? "MSP covers Part B"
@@ -118,7 +127,8 @@ export default function SummaryCards({
   // pre-67 wages — e.g., the user retired at FRA so wages drop to $0,
   // potentially dropping MAGI under the MSP ceiling and zeroing Part B.
   const irmaaPost67FplPct = magiIRMAAPost67 / fpl;
-  const mspEligiblePost67 = irmaaPost67FplPct <= MSP_PART_B_FPL_CEILING;
+  const mspEligiblePost67 =
+    mspIncomePost67 / fpl <= MSP_PART_B_FPL_CEILING;
   const medicareLabelPost67 = labelForMedicare(
     medicareAnnualCostPost67,
     mspEligiblePost67

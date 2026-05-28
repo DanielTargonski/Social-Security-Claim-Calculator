@@ -403,8 +403,63 @@ describe("MSP zero-out at 65+ (NY Medicare Savings Programs)", () => {
       age: 65,
       magiACA: 0,
       magiIRMAA: 18000,
+      mspIncome: 18000,
     });
     expect(cost).toBe(0);
+  });
+});
+
+describe("MSP eligibility uses gross-SS income, not IRMAA MAGI", () => {
+  // Regression for the "0% FPL · MSP covers Part B" bug. A retiree living on
+  // ~$32K/yr of Social Security with no other income has $0 IRMAA MAGI
+  // (none of the SS is taxable when combined income < $25K), but their MSP
+  // countable income is the GROSS benefit (~207% FPL) — well above the 135%
+  // MSP ceiling. They owe no IRMAA surcharge AND get no MSP, so they pay the
+  // standard Part B base premium. The old code reused IRMAA MAGI for the MSP
+  // test and falsely zeroed the premium.
+  it("does NOT grant MSP when gross-SS income is above 135% FPL even if taxable-SS MAGI is $0", () => {
+    expect(
+      computeMedicareAnnualCost({ magi: 0, mspIncome: 32400 })
+    ).toBeCloseTo(PART_B_BASE_ANNUAL_2026, 2);
+  });
+
+  it("still grants MSP when gross-SS income itself is below 135% FPL", () => {
+    // $18K gross SS < $21,128 ceiling → genuinely low income → free Part B.
+    expect(computeMedicareAnnualCost({ magi: 0, mspIncome: 18000 })).toBe(0);
+  });
+
+  it("defaults mspIncome to magi for backward compatibility", () => {
+    // No mspIncome passed → falls back to magi (old single-MAGI behavior).
+    expect(computeMedicareAnnualCost({ magi: 18000 })).toBe(0);
+    expect(computeMedicareAnnualCost({ magi: 25000 })).toBeCloseTo(
+      PART_B_BASE_ANNUAL_2026,
+      2
+    );
+  });
+
+  it("computeAnnualHealthcareCost at 65+ charges standard Part B for an SS-only retiree", () => {
+    // age 65+, taxable-SS MAGI $0, gross-SS income ~$32K. Was returning $0.
+    const cost = computeAnnualHealthcareCost({
+      age: 67,
+      magiACA: 0,
+      magiIRMAA: 0,
+      mspIncome: 32400,
+    });
+    expect(cost).toBeCloseTo(PART_B_BASE_ANNUAL_2026, 2);
+  });
+
+  it("nextCliffAbove shows no MSP cliff when gross-SS income clears the ceiling", () => {
+    // taxable-SS MAGI $0 but gross-SS income $32K (207% FPL). The next cliff
+    // is the IRMAA Tier 1 boundary, not the MSP ceiling.
+    const cliff = nextCliffAbove({
+      age: 67,
+      magiACA: 0,
+      magiIRMAA: 0,
+      mspIncome: 32400,
+    });
+    expect(cliff).not.toBeNull();
+    expect(cliff.label).not.toMatch(/Medicare Savings Program/);
+    expect(cliff.label).toMatch(/Tier 1/);
   });
 });
 

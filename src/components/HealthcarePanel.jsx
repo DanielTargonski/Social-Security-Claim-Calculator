@@ -66,6 +66,9 @@ export default function HealthcarePanel({
   householdSize,
   magiACAPre65,
   magiIRMAA65Plus,
+  // Gross-SS countable income for the MSP test (65+). Distinct from IRMAA
+  // MAGI (taxable-SS only). Defaults to the IRMAA MAGI for backward compat.
+  mspIncome65Plus = magiIRMAA65Plus,
   acaAnnualCost,
   medicareAnnualCost,
   healthcareNextCliff,
@@ -104,11 +107,12 @@ export default function HealthcarePanel({
 
   const irmaaTier = getIRMAATier(magiIRMAA65Plus);
   const irmaaTierIdx = IRMAA_2026_SINGLE.indexOf(irmaaTier);
-  // MSP eligibility uses the same household-size-aware FPL as Medicaid.
-  // At ≤135% FPL, NY's QMB/SLMB/QI programs cover the Part B premium
-  // entirely — Medicare drops to $0 for the low-income claimant.
+  // MSP eligibility uses the same household-size-aware FPL as Medicaid, but
+  // tested against GROSS-SS countable income — not IRMAA MAGI, which omits
+  // the non-taxable SS that MSP/Medicaid counts. At ≤135% FPL, NY's
+  // QMB/SLMB/QI programs cover the Part B premium entirely.
   const irmaaFplPct = magiIRMAA65Plus / fpl;
-  const mspEligible = irmaaFplPct <= MSP_PART_B_FPL_CEILING;
+  const mspEligible = mspIncome65Plus / fpl <= MSP_PART_B_FPL_CEILING;
   const irmaaTierLabel = mspEligible
     ? "MSP covers Part B (≤135% FPL)"
     : irmaaTierIdx === 0

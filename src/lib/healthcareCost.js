@@ -175,18 +175,38 @@ export function getIRMAATier(magi) {
 // IRMAA tier surcharge. Ignores Part D base premium (varies by plan) — we
 // only price the IRMAA Part D *surcharge*, which is the cliff-driving piece.
 //
+// Two distinct income measures drive two distinct decisions:
+//
+//   `magi`      — IRMAA MAGI (AGI + tax-exempt interest). Counts only the
+//                 TAXABLE portion of Social Security. Drives the IRMAA
+//                 surcharge tier.
+//   `mspIncome` — MSP / Medicaid countable income, which counts the GROSS
+//                 Social Security benefit (Medicaid uses SSI-related
+//                 counting, not MAGI). Drives MSP eligibility.
+//
+// They diverge sharply for a retiree living on Social Security with little
+// other income: when combined income is under the $25K SS-taxation floor,
+// NONE of the benefit is taxable, so IRMAA MAGI ≈ $0 — but the gross benefit
+// can be $30K+ (≈200% FPL), far above the 135% MSP ceiling. Reusing IRMAA
+// MAGI for the MSP test (the old behavior) falsely handed such retirees a
+// $0 Part B premium. The correct outcome is no IRMAA surcharge AND no MSP →
+// the standard Part B base premium.
+//
 // MSP zero-out: NY pays the Part B premium for anyone ≤135% FPL via the
-// QMB / SLMB / QI programs (no asset test since Jan 2026). At this MAGI
-// level IRMAA can't trigger either — IRMAA Tier 1 starts at $109K MAGI,
-// roughly 700% FPL — so the entire Medicare premium drops to $0 for low
-// income claimants. Pass `householdSize` to use the couple FPL ($21,150)
-// instead of single ($15,650) when applicable.
-export function computeMedicareAnnualCost({ magi, householdSize = 1 }) {
+// QMB / SLMB / QI programs (no asset test since 2023). Pass `householdSize`
+// to use the couple FPL ($21,150) instead of single ($15,650) when
+// applicable. `mspIncome` defaults to `magi` for backward compatibility with
+// callers/tests that pass a single MAGI figure.
+export function computeMedicareAnnualCost({
+  magi,
+  mspIncome = magi,
+  householdSize = 1,
+}) {
   const fpl =
     householdSize === 2
       ? FPL_2025_FOR_2026_PTC.couple
       : FPL_2025_FOR_2026_PTC.single;
-  if (magi / fpl <= MSP_PART_B_FPL_CEILING) return 0;
+  if (mspIncome / fpl <= MSP_PART_B_FPL_CEILING) return 0;
   const tier = getIRMAATier(magi);
   return PART_B_BASE_ANNUAL_2026 + tier.annualExtra;
 }
@@ -200,10 +220,15 @@ export function computeMedicareAnnualCost({ magi, householdSize = 1 }) {
 // working spouse), retiree health benefits from a former employer, VA care,
 // or any other arrangement that takes them out of the ACA / Medicare-IRMAA
 // cost equation. The OBBBA cliffs simply don't apply in those cases.
+// `mspIncome` is the gross-SS countable income used for the 65+ MSP test
+// (see computeMedicareAnnualCost). Defaults to `magiIRMAA` for backward
+// compatibility; real callers should pass wage + GROSS SS so an SS-only
+// retiree isn't falsely handed free Part B off a $0 taxable-SS MAGI.
 export function computeAnnualHealthcareCost({
   age,
   magiACA,
   magiIRMAA,
+  mspIncome = magiIRMAA,
   householdSize = 1,
   unsubsidizedAnnual = NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
   coveredElsewhere = false,
@@ -216,7 +241,7 @@ export function computeAnnualHealthcareCost({
       unsubsidizedAnnual,
     });
   }
-  return computeMedicareAnnualCost({ magi: magiIRMAA, householdSize });
+  return computeMedicareAnnualCost({ magi: magiIRMAA, mspIncome, householdSize });
 }
 
 // Distance to the next cliff above the current MAGI, plus the cost of
@@ -230,6 +255,7 @@ export function nextCliffAbove({
   age,
   magiACA,
   magiIRMAA,
+  mspIncome = magiIRMAA,
   householdSize = 1,
   unsubsidizedAnnual = NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
   coveredElsewhere = false,
@@ -287,16 +313,19 @@ export function nextCliffAbove({
     }
     return null;
   }
-  // 65+ — first check the Medicare Savings Program cliff (135% FPL).
-  // Below it, Part B is free; crossing it puts the user on the standard
-  // $2,434.80/yr Part B premium (IRMAA can't trigger this low). Above the
-  // MSP ceiling, fall through to the IRMAA tier walk.
+  // 65+ — first check the Medicare Savings Program cliff (135% FPL). MSP
+  // eligibility is tested against GROSS-SS countable income (`mspIncome`),
+  // not IRMAA MAGI — an SS-only retiree has ~$0 IRMAA MAGI but gross income
+  // well above the ceiling, so they're not actually MSP-eligible. Below the
+  // ceiling, Part B is free; crossing it puts the user on the standard
+  // $2,434.80/yr premium (IRMAA can't trigger this low). Above the MSP
+  // ceiling, fall through to the IRMAA tier walk (on IRMAA MAGI).
   const mspCeiling = MSP_PART_B_FPL_CEILING * fpl;
-  if (magiIRMAA <= mspCeiling) {
+  if (mspIncome <= mspCeiling) {
     return {
       label: "NY Medicare Savings Program ceiling (135% FPL)",
       magiAtCliff: mspCeiling,
-      distance: mspCeiling - magiIRMAA,
+      distance: mspCeiling - mspIncome,
       annualCostDelta: PART_B_BASE_ANNUAL_2026,
     };
   }
