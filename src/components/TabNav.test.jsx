@@ -11,11 +11,14 @@ import userEvent from "@testing-library/user-event";
 import TabNav from "./TabNav.jsx";
 
 describe("TabNav — render", () => {
-  it("renders both tab buttons", () => {
+  it("renders all three tab buttons", () => {
     render(<TabNav view="calculator" onChange={() => {}} />);
     expect(screen.getByRole("button", { name: /Calculator/ })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Why this exists/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /The math/i })
     ).toBeInTheDocument();
   });
 
@@ -29,11 +32,28 @@ describe("TabNav — render", () => {
     expect(
       screen.getByRole("button", { name: /Why this exists/i })
     ).not.toHaveClass("mode-btn-active");
+    expect(screen.getByRole("button", { name: /The math/i })).not.toHaveClass(
+      "mode-btn-active"
+    );
 
     rerender(<TabNav view="about" onChange={() => {}} />);
     expect(
       screen.getByRole("button", { name: /Why this exists/i })
     ).toHaveClass("mode-btn-active");
+    expect(screen.getByRole("button", { name: /Calculator/ })).not.toHaveClass(
+      "mode-btn-active"
+    );
+    expect(screen.getByRole("button", { name: /The math/i })).not.toHaveClass(
+      "mode-btn-active"
+    );
+
+    rerender(<TabNav view="math" onChange={() => {}} />);
+    expect(screen.getByRole("button", { name: /The math/i })).toHaveClass(
+      "mode-btn-active"
+    );
+    expect(
+      screen.getByRole("button", { name: /Why this exists/i })
+    ).not.toHaveClass("mode-btn-active");
     expect(screen.getByRole("button", { name: /Calculator/ })).not.toHaveClass(
       "mode-btn-active"
     );
@@ -48,6 +68,9 @@ describe("TabNav — interaction", () => {
 
     await user.click(screen.getByRole("button", { name: /Why this exists/i }));
     expect(onChange).toHaveBeenLastCalledWith("about");
+
+    await user.click(screen.getByRole("button", { name: /The math/i }));
+    expect(onChange).toHaveBeenLastCalledWith("math");
 
     await user.click(screen.getByRole("button", { name: /Calculator/ }));
     expect(onChange).toHaveBeenLastCalledWith("calculator");
