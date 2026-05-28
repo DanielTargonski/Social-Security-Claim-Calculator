@@ -10,6 +10,8 @@ import {
 } from "../lib/healthcareCost.js";
 import { fmtMoney } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
+import Term from "./Term.jsx";
+import { GLOSSARY } from "../constants/glossary.js";
 
 // Visualization scale: 0% to 500% FPL on the horizontal band. Beyond 400%
 // the user is in the unsubsidized regime regardless of how far they go;
@@ -214,7 +216,7 @@ export default function HealthcarePanel({
             className="text-xs uppercase mb-2"
             style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
           >
-            65+ · Medicare (Part B + IRMAA)
+            65+ · Medicare (Part B + <Term {...GLOSSARY.IRMAA}>IRMAA</Term>)
           </div>
           <div
             className="num"
@@ -240,8 +242,8 @@ export default function HealthcarePanel({
               : "Part B base $2,435/yr · no surcharge"}
           </div>
           <div className="text-xs num mt-3" style={{ color: C.inkSoft }}>
-            IRMAA MAGI {fmtMoney(magiIRMAA65Plus)} ·{" "}
-            {(irmaaFplPct * 100).toFixed(0)}% FPL
+            <Term {...GLOSSARY.IRMAA}>IRMAA</Term> MAGI{" "}
+            {fmtMoney(magiIRMAA65Plus)} · {(irmaaFplPct * 100).toFixed(0)}% FPL
           </div>
         </div>
       </div>

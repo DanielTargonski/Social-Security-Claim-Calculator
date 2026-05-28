@@ -8,6 +8,8 @@ import {
 } from "../lib/healthcareCost.js";
 import { C } from "../constants/colors.js";
 import Var from "./Var.jsx";
+import Term from "./Term.jsx";
+import { GLOSSARY } from "../constants/glossary.js";
 
 // Three at-a-glance cards next to the inputs:
 //   1. Net check at the chosen claim age (early)
@@ -116,11 +118,15 @@ export default function SummaryCards({
   const mspEligible =
     mspIncome65Plus / fpl <= MSP_PART_B_FPL_CEILING;
   const labelForMedicare = (cost, eligible) =>
-    eligible
-      ? "MSP covers Part B"
-      : cost > 2500
-      ? "Standard + IRMAA"
-      : "Standard Part B";
+    eligible ? (
+      "MSP covers Part B"
+    ) : cost > 2500 ? (
+      <>
+        Standard + <Term {...GLOSSARY.IRMAA}>IRMAA</Term>
+      </>
+    ) : (
+      "Standard Part B"
+    );
   const medicareLabel = labelForMedicare(medicareAnnualCost, mspEligible);
   // Post-67 (retirement-phase) Medicare snapshot. Only meaningfully
   // different from the 65–67 snapshot when post-67 wages differ from
