@@ -1,5 +1,7 @@
 import { FRA, fmtMoney, fmtAge } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
+import Term from "./Term.jsx";
+import { GLOSSARY } from "../constants/glossary.js";
 
 // Compact strip below the summary cards. Surfaces what's actually driving
 // the numbers: earnings test withholding, FRA recoup value through life
@@ -98,9 +100,12 @@ export default function MetadataStrip({
   const hasMedicareSplit =
     medicareAnnualCostPost67 !== null &&
     medicareAnnualCostPost67 !== medicareAnnualCost;
-  const medicareLabel = `Medicare (B + IRMAA), ${
-    hasMedicareSplit ? "65–67" : "65+"
-  }`;
+  const medicareLabel = (
+    <>
+      Medicare (B + <Term {...GLOSSARY.IRMAA}>IRMAA</Term>),{" "}
+      {hasMedicareSplit ? "65–67" : "65+"}
+    </>
+  );
 
   const gridStyle = { gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" };
 
@@ -222,7 +227,11 @@ export default function MetadataStrip({
               />
               {hasMedicareSplit && (
                 <Cell
-                  label="Medicare (B + IRMAA), 67+"
+                  label={
+                    <>
+                      Medicare (B + <Term {...GLOSSARY.IRMAA}>IRMAA</Term>), 67+
+                    </>
+                  }
                   value={
                     medicareAnnualCostPost67 > 0
                       ? `−${fmtMoney(medicareAnnualCostPost67)}/yr`

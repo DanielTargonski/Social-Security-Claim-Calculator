@@ -10,6 +10,8 @@ import {
 } from "../lib/healthcareCost.js";
 import { fmtMoney } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
+import Term from "./Term.jsx";
+import { GLOSSARY } from "../constants/glossary.js";
 
 // Visualization scale: 0% to 500% FPL on the horizontal band. Beyond 400%
 // the user is in the unsubsidized regime regardless of how far they go;
@@ -66,6 +68,9 @@ export default function HealthcarePanel({
   householdSize,
   magiACAPre65,
   magiIRMAA65Plus,
+  // Gross-SS countable income for the MSP test (65+). Distinct from IRMAA
+  // MAGI (taxable-SS only). Defaults to the IRMAA MAGI for backward compat.
+  mspIncome65Plus = magiIRMAA65Plus,
   acaAnnualCost,
   medicareAnnualCost,
   healthcareNextCliff,
@@ -103,11 +108,12 @@ export default function HealthcarePanel({
 
   const irmaaTier = getIRMAATier(magiIRMAA65Plus);
   const irmaaTierIdx = IRMAA_2026_SINGLE.indexOf(irmaaTier);
-  // MSP eligibility uses the same household-size-aware FPL as Medicaid.
-  // At ≤135% FPL, NY's QMB/SLMB/QI programs cover the Part B premium
-  // entirely — Medicare drops to $0 for the low-income claimant.
+  // MSP eligibility uses the same household-size-aware FPL as Medicaid, but
+  // tested against GROSS-SS countable income — not IRMAA MAGI, which omits
+  // the non-taxable SS that MSP/Medicaid counts. At ≤135% FPL, NY's
+  // QMB/SLMB/QI programs cover the Part B premium entirely.
   const irmaaFplPct = magiIRMAA65Plus / fpl;
-  const mspEligible = irmaaFplPct <= MSP_PART_B_FPL_CEILING;
+  const mspEligible = mspIncome65Plus / fpl <= MSP_PART_B_FPL_CEILING;
   const irmaaTierLabel = mspEligible
     ? "MSP covers Part B (≤135% FPL)"
     : irmaaTierIdx === 0
@@ -209,7 +215,7 @@ export default function HealthcarePanel({
             className="text-xs uppercase mb-2"
             style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
           >
-            65+ · Medicare (Part B + IRMAA)
+            65+ · Medicare (Part B + <Term {...GLOSSARY.IRMAA}>IRMAA</Term>)
           </div>
           <div
             className="num"
@@ -235,8 +241,8 @@ export default function HealthcarePanel({
               : "Part B base $2,435/yr · no surcharge"}
           </div>
           <div className="text-xs num mt-3" style={{ color: C.inkSoft }}>
-            IRMAA MAGI {fmtMoney(magiIRMAA65Plus)} ·{" "}
-            {(irmaaFplPct * 100).toFixed(0)}% FPL
+            <Term {...GLOSSARY.IRMAA}>IRMAA</Term> MAGI{" "}
+            {fmtMoney(magiIRMAA65Plus)} · {(irmaaFplPct * 100).toFixed(0)}% FPL
           </div>
         </div>
       </div>

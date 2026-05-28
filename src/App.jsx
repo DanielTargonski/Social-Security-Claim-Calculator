@@ -239,6 +239,13 @@ export default function App() {
     ssAnnualGross: ssBasisPostET,
     taxableSSPct: taxableSSPctPre67,
   });
+  // MSP (Medicare Savings Program) eligibility is tested against GROSS-SS
+  // countable income, NOT IRMAA MAGI — MSP/Medicaid count the full Social
+  // Security benefit, while IRMAA MAGI only counts its taxable portion. For
+  // an SS-only retiree those diverge wildly (IRMAA MAGI ≈ $0, gross income
+  // ≈ 200% FPL), and using IRMAA MAGI here falsely granted free Part B. The
+  // 65–67 window's gross income = pre-67 wage + gross early SS (net of ET).
+  const mspIncome65Plus = grossIncome + ssBasisPostET;
   const acaAnnualCost = computeAnnualHealthcareCost({
     age: 62,
     magiACA: magiACAPre65,
@@ -251,6 +258,7 @@ export default function App() {
     age: 65,
     magiACA: 0,
     magiIRMAA: magiIRMAA65Plus,
+    mspIncome: mspIncome65Plus,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
@@ -272,10 +280,15 @@ export default function App() {
     ssAnnualGross: annualEarlyPostFRAGross,
     taxableSSPct: taxableSSPctPost67,
   });
+  // Post-67 gross-SS countable income for the MSP test: post-67 wage + gross
+  // recouped SS. This is the window where the bug bit hardest — a retiree
+  // (postFRAGrossIncome = 0) has $0 IRMAA MAGI but ~$30K+ of gross SS.
+  const mspIncomePost67 = postFRAGrossIncome + annualEarlyPostFRAGross;
   const medicareAnnualCostPost67 = computeAnnualHealthcareCost({
     age: 67,
     magiACA: 0,
     magiIRMAA: magiIRMAAPost67,
+    mspIncome: mspIncomePost67,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
@@ -286,6 +299,7 @@ export default function App() {
     age: claimAge,
     magiACA: magiACAPre65,
     magiIRMAA: magiIRMAA65Plus,
+    mspIncome: mspIncome65Plus,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
@@ -406,6 +420,8 @@ export default function App() {
               magiACAPre65={magiACAPre65}
               magiIRMAA65Plus={magiIRMAA65Plus}
               magiIRMAAPost67={magiIRMAAPost67}
+              mspIncome65Plus={mspIncome65Plus}
+              mspIncomePost67={mspIncomePost67}
               medicareAnnualCostPost67={medicareAnnualCostPost67}
               grossIncome={grossIncome}
               postFRAGrossIncome={postFRAGrossIncome}
@@ -475,6 +491,7 @@ export default function App() {
             householdSize={householdSize}
             magiACAPre65={magiACAPre65}
             magiIRMAA65Plus={magiIRMAA65Plus}
+            mspIncome65Plus={mspIncome65Plus}
             acaAnnualCost={acaAnnualCost}
             medicareAnnualCost={medicareAnnualCost}
             healthcareNextCliff={healthcareNextCliff}

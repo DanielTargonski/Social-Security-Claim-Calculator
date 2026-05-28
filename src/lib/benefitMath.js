@@ -410,6 +410,8 @@ export function computeProjection({
     age: claimAge,
     magiACA: magiACAEarlyPre,
     magiIRMAA: magiIRMAAEarlyPre,
+    // MSP (65+ only) tests against gross-SS income, not taxable-SS MAGI.
+    mspIncome: grossIncome + ssBasisAnnualEarlyPreFRA,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
@@ -418,6 +420,7 @@ export function computeProjection({
     age: claimAge,
     magiACA: magiACAWaitPre,
     magiIRMAA: magiIRMAAWaitPre,
+    mspIncome: grossIncome, // wait scenario has no SS yet pre-FRA
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
@@ -442,6 +445,8 @@ export function computeProjection({
     age: FRA, // = 67, locked in 2026 model
     magiACA: 0, // unused at 65+
     magiIRMAA: magiIRMAAEarlyPost,
+    // MSP test: post-67 wage + GROSS recouped SS (not the taxable portion).
+    mspIncome: postFRAGrossIncome + ssBasisAnnualEarlyPostFRA,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
@@ -450,6 +455,7 @@ export function computeProjection({
     age: FRA,
     magiACA: 0,
     magiIRMAA: magiIRMAAWaitPost,
+    mspIncome: postFRAGrossIncome + ssBasisAnnualWait,
     householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,

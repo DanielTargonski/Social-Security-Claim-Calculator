@@ -126,7 +126,12 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
     );
     // Both row labels present, regardless of claim age.
     expect(screen.getByText(/ACA premium \(pre-65\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Medicare \(B \+ IRMAA\), 65\+/i)).toBeInTheDocument();
+    // "IRMAA" is now wrapped in a glossary <Term>, so the label's text is
+    // split across nodes — assert the surrounding label plus the tooltip.
+    expect(screen.getByText(/Medicare \(B \+/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Income-Related Monthly Adjustment/i)
+    ).toBeInTheDocument();
     // Both annual costs displayed as debits.
     expect(screen.getByText(/−\$5,130\/yr/)).toBeInTheDocument();
     expect(screen.getByText(/−\$2,435\/yr/)).toBeInTheDocument();
@@ -158,7 +163,12 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
       />
     );
     expect(screen.getByText(/ACA premium \(pre-65\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Medicare \(B \+ IRMAA\), 65\+/i)).toBeInTheDocument();
+    // "IRMAA" is now wrapped in a glossary <Term>, so the label's text is
+    // split across nodes — assert the surrounding label plus the tooltip.
+    expect(screen.getByText(/Medicare \(B \+/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Income-Related Monthly Adjustment/i)
+    ).toBeInTheDocument();
     expect(screen.getByText(/−\$4,750\/yr/)).toBeInTheDocument();
     expect(screen.getByText(/−\$2,435\/yr/)).toBeInTheDocument();
     // No "until age 65" annotation when claim is past 65 (they're already past).
@@ -198,7 +208,12 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
       />
     );
     expect(screen.getByText(/ACA premium \(pre-65\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Medicare \(B \+ IRMAA\), 65\+/i)).toBeInTheDocument();
+    // "IRMAA" is now wrapped in a glossary <Term>, so the label's text is
+    // split across nodes — assert the surrounding label plus the tooltip.
+    expect(screen.getByText(/Medicare \(B \+/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Income-Related Monthly Adjustment/i)
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Next cliff/i)).toBeNull();
   });
 
@@ -236,6 +251,11 @@ describe("MetadataStrip — healthcare rows (OBBBA / NYC)", () => {
     );
     expect(screen.getByText("By the numbers")).toBeInTheDocument();
     expect(screen.getByText(/ACA premium \(pre-65\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Medicare \(B \+ IRMAA\), 65\+/i)).toBeInTheDocument();
+    // "IRMAA" is now wrapped in a glossary <Term>, so the label's text is
+    // split across nodes — assert the surrounding label plus the tooltip.
+    expect(screen.getByText(/Medicare \(B \+/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Income-Related Monthly Adjustment/i)
+    ).toBeInTheDocument();
   });
 });

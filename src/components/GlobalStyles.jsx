@@ -140,6 +140,66 @@ export default function GlobalStyles() {
         border-bottom: 1px solid ${C.border};
         margin-bottom: 4px;
       }
+
+      /* Inline glossary term + hover/focus tooltip (see Term.jsx). The dotted
+         underline marks a definable acronym; the tooltip reveals on hover or
+         keyboard focus and inverts ink/paper so it reads on either theme. */
+      .term {
+        position: relative;
+        border-bottom: 1px dotted currentColor;
+        cursor: help;
+        font-weight: 500;
+        outline: none;
+      }
+      .term-tip {
+        position: absolute;
+        bottom: calc(100% + 9px);
+        left: 50%;
+        transform: translateX(-50%) translateY(4px);
+        z-index: 60;
+        width: max-content;
+        max-width: 250px;
+        padding: 10px 12px;
+        background: ${C.ink};
+        color: ${C.bg};
+        border-radius: 4px;
+        box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+        /* Reset the label's mono/uppercase/tracking so the explanation reads
+           as plain prose regardless of which label hosts the term. */
+        font-family: 'Fraunces', Georgia, serif;
+        font-size: 12.5px;
+        font-weight: 400;
+        line-height: 1.5;
+        letter-spacing: normal;
+        text-transform: none;
+        text-align: left;
+        white-space: normal;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+      }
+      .term-tip-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .term-tip::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: ${C.ink};
+      }
+      .term:hover .term-tip,
+      .term:focus .term-tip,
+      .term:focus-visible .term-tip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+      }
     `}</style>
   );
 }
