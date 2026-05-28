@@ -285,3 +285,61 @@ describe("App — URL hydration round-trip", () => {
     expect(window.location.search).toMatch(/mode=survivor/);
   });
 });
+
+describe("App — Card 3 verdict copy across claim-age regimes", () => {
+  // Regression: claim age == FRA used to show "Claiming early wins +$0",
+  // which is mathematically right (advantage = 0) but copy-wrong because
+  // there is no early claim at FRA. Claim age > FRA used to call the
+  // delayed claim "early", which contradicts the slider position.
+  it("shows the neutral 'Claiming at FRA' verdict when claim age == 67", () => {
+    setUrlSearch("mode=retirement&age=67");
+    render(<App />);
+    expect(screen.getByText(/Claiming at FRA/i)).toBeInTheDocument();
+    expect(screen.getByText(/same as waiting/i)).toBeInTheDocument();
+    // Should NOT show the legacy "Claiming early wins" verdict here.
+    expect(screen.queryByText(/Claiming early wins/i)).toBeNull();
+  });
+
+  it("uses 'delayed claim' wording when claim age > 67", () => {
+    setUrlSearch("mode=retirement&age=70");
+    render(<App />);
+    // Default 7% return + 23-year-life advantage at age 70 lands in the
+    // crossover branch (wait leads early on, delayed claim catches up). Both
+    // "pulls ahead" and "leads by" lines should now read "delayed claim" not
+    // "early". Without this, the old copy ("early pulls ahead" / "early
+    // leads by") would mismatch the slider position.
+    expect(screen.getByText(/delayed claim pulls ahead/i)).toBeInTheDocument();
+    expect(screen.getByText(/delayed claim leads by/i)).toBeInTheDocument();
+    // The legacy wording must NOT appear anywhere.
+    expect(screen.queryByText(/Claiming early wins/i)).toBeNull();
+    expect(screen.queryByText(/early still leads/i)).toBeNull();
+  });
+
+  it("keeps the original 'Claiming early wins' copy when claim age < FRA", () => {
+    setUrlSearch("mode=retirement&age=62");
+    render(<App />);
+    // Default scenario at age 62 → early wins through 85 with no crossover.
+    expect(screen.getByText(/Claiming early wins/i)).toBeInTheDocument();
+  });
+});
+
+describe("App — healthcare MAGI uses post-earnings-test SS", () => {
+  // Regression: when the pre-FRA earnings test wipes out the early SS check,
+  // SSA-1099 reports the post-ET amount, so AGI (and hence MAGI for ACA / IRMAA)
+  // should only include SS that was actually paid. The display previously used
+  // gross SS, surfacing a phantom IRMAA surcharge and inflating the displayed
+  // FPL %. The chart math was already correct; this pins the display layer.
+  it("does not add ET-withheld SS to displayed MAGI on the FPL ladder", () => {
+    // Retirement at 62 with $100K pre-FRA wage: ET caps at the annual benefit
+    // ($1,750/mo × 12 = $21,000) → ssBasisPostET = 0. Displayed pre-65 MAGI
+    // line should read $100,000 ÷ $15,650 FPL, NOT $121,000 ÷ $15,650 FPL.
+    setUrlSearch("mode=retirement&fra=2500&age=62&inc=100000");
+    render(<App />);
+    // The correct (post-fix) MAGI line — appears at least once in the
+    // healthcare-cost panel. (Wage-only MAGI = $100K, no SS added because
+    // the ET wiped the entire $21,000 annual benefit.)
+    expect(screen.getAllByText(/MAGI \$100,000 · 639% FPL/i).length).toBeGreaterThan(0);
+    // The buggy (pre-fix) MAGI line must NOT appear anywhere.
+    expect(screen.queryByText(/MAGI \$121,000/i)).toBeNull();
+  });
+});

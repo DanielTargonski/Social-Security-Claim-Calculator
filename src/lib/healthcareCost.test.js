@@ -116,10 +116,18 @@ describe("computeACAAnnualCost — 400% FPL cliff", () => {
     expect(closeTo(cost, 62443 * ACA_PTC_CONTRIBUTION_CAP, 1)).toBe(true);
   });
 
-  it("at exactly 400% FPL: still subsidized (≤ is the boundary)", () => {
+  it("at exactly 400% FPL: still subsidized (per IRC §36B 'does not exceed 400 percent')", () => {
     const cost = computeACAAnnualCost({ magi: 62600 });
-    // 400% FPL exactly: cliff fires (>= is the cliff condition)
-    expect(cost).toBe(NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT);
+    // 9.96% of $62,600 = $6,235 (under the $9,679 unsubsidized default).
+    expect(closeTo(cost, 62600 * ACA_PTC_CONTRIBUTION_CAP, 1)).toBe(true);
+    expect(cost).toBeLessThan(NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT);
+  });
+
+  it("at exactly 400% FPL couple ($84,600): still subsidized", () => {
+    // Same boundary semantics with the couple FPL.
+    const cost = computeACAAnnualCost({ magi: 84600, householdSize: 2 });
+    expect(closeTo(cost, 84600 * ACA_PTC_CONTRIBUTION_CAP, 1)).toBe(true);
+    expect(cost).toBeLessThan(NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT);
   });
 
   it("just above 400% FPL: full unsubsidized — the famous OBBBA cliff", () => {

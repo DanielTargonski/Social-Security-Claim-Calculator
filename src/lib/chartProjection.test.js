@@ -319,6 +319,75 @@ describe("buildChartData — invariants", () => {
     expect(last.age).toBe(85);
     expect(secondLast.age).toBeLessThan(last.age);
   });
+
+  // Regression: claimAge > FRA (the delayed-retirement-credit strategy)
+  // was producing waitInvested = $0 across the entire FRA → claimAge window
+  // even as the analytical `wait` line correctly showed FRA checks
+  // accumulating. The fix rebases the per-month simulation arrays on
+  // simBase = min(claimAge, FRA) so the wait scenario's FRA-to-claimAge
+  // contributions are captured.
+  it("claimAge > FRA: waitInvested matches wait at age = claimAge (returnRate=0)", () => {
+    const r = buildChartData({
+      ...baseChart,
+      claimAge: 70,
+      investStopAge: 70,
+      returnRate: 0,
+    });
+    // At age 70 exactly, the wait scenario has collected (70 - 67) × 12 = 36
+    // checks at fraMonthlyNet=$2500. With returnRate=0 the invested pot just
+    // sums contributions, so waitInvested = wait.
+    const rowAt70 = r.find((d) => Math.abs(d.age - 70) < 0.01);
+    expect(rowAt70).toBeDefined();
+    expect(rowAt70.wait).toBe(36 * 2500);
+    expect(rowAt70.waitInvested).toBe(rowAt70.wait);
+  });
+
+  it("claimAge > FRA, mid-window: waitInvested >= wait when invested with positive return", () => {
+    // At positive return the wait+invest pot should pull ahead of the
+    // bare-cash wait line, not lag at $0 (the bug).
+    const r = buildChartData({
+      ...baseChart,
+      claimAge: 70,
+      investStopAge: 70,
+      returnRate: 7,
+    });
+    const rowAt70 = r.find((d) => Math.abs(d.age - 70) < 0.01);
+    expect(rowAt70.wait).toBeGreaterThan(0);
+    expect(rowAt70.waitInvested).toBeGreaterThan(rowAt70.wait); // compounding > sum
+  });
+
+  it("claimAge > FRA: pre-claim rows show early=0 but nonzero wait and waitInvested", () => {
+    // The early curve must stay at 0 until claimAge (no checks yet) while
+    // wait and waitInvested already reflect FRA contributions.
+    const r = buildChartData({
+      ...baseChart,
+      claimAge: 70,
+      investStopAge: 70,
+      returnRate: 0,
+    });
+    const rowAt68 = r.find((d) => Math.abs(d.age - 68) < 0.01);
+    expect(rowAt68).toBeDefined();
+    expect(rowAt68.early).toBe(0);
+    expect(rowAt68.wait).toBe(12 * 2500); // 12 months past FRA
+    expect(rowAt68.waitInvested).toBe(rowAt68.wait); // r=0, no compounding
+  });
+
+  it("claimAge == lifeExpectancy: wait and waitInvested stay internally consistent", () => {
+    // Degenerate but URL-reachable: claim at 70, die at 70. Wait still
+    // collected from age 67 through 70. waitInvested must reflect those
+    // collections, not render as $0.
+    const r = buildChartData({
+      ...baseChart,
+      claimAge: 70,
+      investStopAge: 70,
+      lifeExpectancy: 70,
+      returnRate: 0,
+    });
+    const last = r[r.length - 1];
+    expect(last.age).toBe(70);
+    expect(last.wait).toBe(36 * 2500);
+    expect(last.waitInvested).toBe(last.wait);
+  });
 });
 
 describe("buildChartData — lumpy SSA withholding pattern", () => {

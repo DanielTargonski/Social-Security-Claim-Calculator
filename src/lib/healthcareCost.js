@@ -136,7 +136,12 @@ export function fplPctOf({ magi, householdSize = 1 }) {
 // Annual ACA premium cost for a pre-65 enrollee. Three regimes:
 //   ≤ 200% FPL    → $0 (NY Essential Plan)
 //   200–400% FPL  → min(unsubsidized, 9.96% of MAGI) — capped subsidized silver
-//   ≥ 400% FPL    → unsubsidized (cliff)
+//   > 400% FPL    → unsubsidized (cliff)
+// Cliff boundary is inclusive on the subsidized side: per IRC §36B the PTC
+// applies when household income "equals or exceeds 100 percent but does not
+// exceed 400 percent of [FPL]" — so a household at exactly 400% FPL is still
+// PTC-eligible. The cliff fires strictly above 400% FPL. Matches the
+// "Subsidized ACA" label used at <= 400% FPL in SummaryCards and HealthcarePanel.
 // Couples: pass `unsubsidizedAnnual` already doubled, or rely on the default
 // (single-coverage rate × 2). The function doesn't double automatically — the
 // caller knows whether both spouses are pre-65.
@@ -147,7 +152,7 @@ export function computeACAAnnualCost({
 }) {
   const fplPct = fplPctOf({ magi, householdSize });
   if (fplPct <= ESSENTIAL_PLAN_FPL_CEILING) return 0;
-  if (fplPct >= ACA_PTC_CLIFF_FPL) return unsubsidizedAnnual;
+  if (fplPct > ACA_PTC_CLIFF_FPL) return unsubsidizedAnnual;
   // Subsidized: contribution capped at 9.96% of MAGI, but never more than
   // the unsubsidized rate (small edge case for very low-income enrollees
   // just above 200% FPL where 9.96% of MAGI could exceed the actual premium).
