@@ -37,6 +37,9 @@ const SCHEMA = [
   { key: "postFRAWorkYears",   url: "wy",    type: "num",  default: 0,    min: 0,    max: 20 },
   { key: "autoTax",            url: "tax",   type: "bool", default: true },
   { key: "manualFedRate",      url: "mrate", type: "num",  default: 12,   min: 0,    max: 37 },
+  // State/local income tax jurisdiction for the wage take-home figures.
+  // Display-only (never enters the break-even). See lib/stateLocalTax.js.
+  { key: "locality",           url: "loc",   type: "enum", options: ["none", "ny", "nyc"], default: "nyc" },
   { key: "investedPct",        url: "inv",   type: "num",  default: 100,  min: 0,    max: 100 },
   { key: "investedPctWait",    url: "invw",  type: "num",  default: 100,  min: 0,    max: 100 },
   // Healthcare-cost modeling (OBBBA / NYC). See lib/healthcareCost.js.

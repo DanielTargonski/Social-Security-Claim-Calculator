@@ -22,6 +22,7 @@ const sample = {
   householdSize: 2,
   coveredElsewhere: true,
   unsubsidizedSilverAnnual: 12000,
+  locality: "ny",
 };
 
 describe("shareableState — round-trip", () => {
@@ -142,6 +143,16 @@ describe("shareableState — clamping out-of-range values", () => {
     expect(out.investedPct).toBe(100);
   });
 
+  it("round-trips a valid locality and drops an unrecognized one", () => {
+    // Valid enum value survives serialize → parse.
+    const params = serializeStateToParams({ ...DEFAULT_STATE, locality: "nyc" });
+    expect(parseStateFromParams(params).locality).toBe("nyc");
+    // A hand-crafted URL with a bogus jurisdiction is ignored (falls back to
+    // DEFAULT_STATE.locality once merged), not held as invalid state.
+    const bogus = parseStateFromParams(new URLSearchParams("loc=texas"));
+    expect(bogus.locality).toBeUndefined();
+  });
+
   it("clamps claimAge to the mode's allowed range (survivor max = 67)", () => {
     // Locks in the bug: ?mode=survivor&age=70 used to leave React state
     // holding 70 even though the survivor slider only allows 60–67.
@@ -176,6 +187,7 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "investedPct",
         "investedPctWait",
         "lifeExpectancy",
+        "locality",
         "manualFedRate",
         "mode",
         "ownBenefit",

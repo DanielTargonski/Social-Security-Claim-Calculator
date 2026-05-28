@@ -5,6 +5,7 @@ import {
   computeSSEffectiveTaxRate,
   computeSeniorDeduction,
   computeFederalTax2026,
+  computeWageFederalTax,
   STANDARD_DEDUCTION_2026,
   OBBBA_SENIOR_DEDUCTION_BASE,
   OBBBA_SENIOR_DEDUCTION_PHASE_START_SINGLE,
@@ -382,5 +383,75 @@ describe("2026 official-source pinning (IRS Rev. Proc. 2025-32)", () => {
     // = $4,500 → 22.5% of SS.
     const at34k = computeTaxableSSPct({ ssBasisAnnual: 20000, grossIncome: 24000 });
     expect(closeTo(at34k, 0.225, 0.001)).toBe(true);
+  });
+});
+
+describe("computeWageFederalTax — wage at the bottom of the stack", () => {
+  it("returns 0 for a zero or missing wage", () => {
+    expect(computeWageFederalTax({ autoTax: true, wageIncome: 0 })).toBe(0);
+    expect(
+      computeWageFederalTax({ autoTax: true, wageIncome: undefined })
+    ).toBe(0);
+  });
+
+  it("returns 0 when the wage is below the standard deduction", () => {
+    expect(computeWageFederalTax({ autoTax: true, wageIncome: 10000 })).toBe(0);
+  });
+
+  it("auto mode walks the brackets on wage minus the standard deduction", () => {
+    // 40000 − 16100 = 23900 → 10%×12400 + 12%×11500 = 1240 + 1380 = 2620.
+    expect(
+      closeTo(computeWageFederalTax({ autoTax: true, wageIncome: 40000 }), 2620)
+    ).toBe(true);
+  });
+
+  it("subtracts an extra (senior) deduction before the bracket walk", () => {
+    // 40000 − 16100 − 6000 = 17900 → 1240 + 12%×5500 = 1900.
+    expect(
+      closeTo(
+        computeWageFederalTax({
+          autoTax: true,
+          wageIncome: 40000,
+          extraDeduction: 6000,
+        }),
+        1900
+      )
+    ).toBe(true);
+  });
+
+  it("manual mode applies the flat rate to the post-deduction wage", () => {
+    // (40000 − 16100) × 22% = 23900 × 0.22 = 5258.
+    expect(
+      closeTo(
+        computeWageFederalTax({
+          autoTax: false,
+          manualFedRate: 22,
+          wageIncome: 40000,
+        }),
+        5258
+      )
+    ).toBe(true);
+  });
+
+  it("reconciles with the SS-effective model: wage tax + SS tax ≈ a single combined bracket walk", () => {
+    // The decomposition is sound when the taxable-SS slice stays within one
+    // bracket. wage = 40000, gross SS = 20000, grossIncome = 40000.
+    const wageIncome = 40000;
+    const ssBasisAnnual = 20000;
+    const grossIncome = 40000;
+
+    const wageTax = computeWageFederalTax({ autoTax: true, wageIncome });
+    const ss = computeSSEffectiveTaxRate({
+      autoTax: true,
+      ssBasisAnnual,
+      grossIncome,
+    });
+    const ssTax = ssBasisAnnual * ss.ssEffectiveTaxRate;
+
+    const combinedTaxable =
+      grossIncome + ss.taxableSSPct * ssBasisAnnual - STANDARD_DEDUCTION_2026;
+    const combinedWalk = computeFederalTax2026(combinedTaxable);
+
+    expect(closeTo(wageTax + ssTax, combinedWalk, 0.01)).toBe(true);
   });
 });

@@ -25,6 +25,7 @@ export function useBenefitProjection(inputs) {
       inputs.householdSize,
       inputs.coveredElsewhere,
       inputs.unsubsidizedSilverAnnual,
+      inputs.locality,
     ]
   );
 }

@@ -204,6 +204,8 @@ export default function InputsPanel({
   autoTax,
   setAutoTax,
   setManualFedRate,
+  locality,
+  setLocality,
   investedPct,
   setInvestedPct,
   investedPctWait,
@@ -553,6 +555,58 @@ export default function InputsPanel({
             <span>0%</span>
             <span style={{ color: C.inkSoft }}>NY & NYC don't tax SS</span>
             <span>37%</span>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between items-baseline mb-2">
+            <label
+              className="text-xs tracking-widest uppercase"
+              style={{ color: C.inkSoft, letterSpacing: "0.12em" }}
+            >
+              State / city (on wages)
+            </label>
+            <span
+              className="num text-lg"
+              style={{ color: C.ink, fontWeight: 500 }}
+            >
+              {locality === "nyc"
+                ? "NYC"
+                : locality === "ny"
+                ? "NY State"
+                : "None"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {[
+              ["none", "None"],
+              ["ny", "NY State"],
+              ["nyc", "NYC"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setLocality(value)}
+                className="num"
+                style={{
+                  fontSize: "10px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.15em",
+                  padding: "4px 10px",
+                  backgroundColor: locality === value ? C.ink : "transparent",
+                  color: locality === value ? C.bg : C.ink,
+                  border: `1px solid ${C.ink}`,
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs mt-2" style={{ color: C.inkFaint }}>
+            {locality === "none"
+              ? "no state/city income tax on wages"
+              : "NY/NYC tax wages (not SS) — shown in the take-home figures"}
           </div>
         </div>
 
