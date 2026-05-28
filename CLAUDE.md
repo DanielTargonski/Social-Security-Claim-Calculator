@@ -119,9 +119,14 @@ The Phase 3 cash split is subtle and was the source of a real bug — the old co
 When the earnings test withholds N months of benefit pre-FRA, SSA recomputes the benefit at FRA as if the claimant had claimed N/12 years later — shrinking the early-claiming reduction. The new (higher) rate is paid from FRA onward for life.
 
 ```js
-monthsWithheld    = totalDollarsWithheld / earlyMonthlyGross   // capped at total months pre-FRA
-effectiveClaimAge = claimAge + monthsWithheld / 12
-recoupedFactor    = mode-appropriate factor at the effective claim age
+// SSA credits a WHOLE reduction-month for any month with full OR partial
+// earnings-test withholding (POMS RS 00615.482: "proration of work deductions
+// has no effect on the ARF"). Withholding is applied as whole checks per year,
+// so credited months/year = ceil(annual withholding / monthly check), <= 12.
+creditedMonthsPerYear = min(ceil(earningsTestWithholding / earlyMonthlyGross), 12)
+monthsWithheld        = creditedMonthsPerYear * yearsPreFRA
+effectiveClaimAge     = claimAge + monthsWithheld / 12
+recoupedFactor        = mode-appropriate factor at the effective claim age
 ```
 
 **Applies to retirement and survivor modes only.** In switch mode the claimant abandons own retirement at FRA, so the recoup is moot — `computeRecoupedFactor` returns `null`.
