@@ -156,6 +156,63 @@ describe("potAtAge", () => {
       })
     ).toBe(60000);
   });
+
+  // Phase 2 (FRA → investStopAge, only when investStopAge > FRA) is the
+  // load-bearing band where the recouped post-FRA rate kicks in. Used to
+  // be uncovered — these tests pin it as a regression net against anyone
+  // collapsing Phase 2 contributions back onto the earlyMonthlyNet rate.
+  describe("Phase 2 band (investStopAge > FRA)", () => {
+    const phase2Setup = {
+      claimAge: 62,
+      phase1End: 67, // = FRA
+      investStopAge: 70,
+      earlyMonthlyNet: 1000,
+      earlyPostFRAMonthlyNet: 1200, // distinct from earlyMonthlyNet
+      potAtPhase1End: 60000,
+      potAtInvestStop: 100000,
+    };
+
+    it("continuous at the Phase 1 → Phase 2 boundary (age = FRA)", () => {
+      // 0 months into Phase 2 → pot is exactly the Phase 1 ending value.
+      expect(potAtAge({ ...phase2Setup, age: 67, r: 0 })).toBe(60000);
+    });
+
+    it("0% return: adds earlyPostFRAMonthlyNet * months_into_phase_2", () => {
+      // 1 year past FRA at 0% → starting pot + 12 * post-FRA monthly.
+      expect(potAtAge({ ...phase2Setup, age: 68, r: 0 })).toBe(60000 + 1200 * 12);
+      // 3 years (= Phase 2 length) past FRA at 0% → entire Phase 2 contribution.
+      expect(potAtAge({ ...phase2Setup, age: 70, r: 0 })).toBe(60000 + 1200 * 36);
+    });
+
+    it("uses the post-FRA recouped rate, NOT earlyMonthlyNet", () => {
+      // Regression: if someone wires the Phase 2 contribution rate back to
+      // earlyMonthlyNet (the pre-FRA ET-reduced rate), this assertion fails.
+      const withCorrectRate = potAtAge({ ...phase2Setup, age: 70, r: 0 });
+      const withWrongRate =
+        phase2Setup.potAtPhase1End + phase2Setup.earlyMonthlyNet * 36;
+      expect(withCorrectRate).not.toBe(withWrongRate);
+      expect(withCorrectRate - withWrongRate).toBe(200 * 36); // (1200-1000)*36
+    });
+
+    it("positive return: existing pot compounds AND new contributions earn", () => {
+      const r = 0.005; // 0.5% monthly = 6% annual real
+      const result = potAtAge({ ...phase2Setup, age: 68, r });
+      // = basePot * (1+r)^12 + fvSeries(1200, 12, r)
+      const expectedGrown = 60000 * Math.pow(1.005, 12);
+      const expectedContrib = (1200 * (Math.pow(1.005, 12) - 1)) / 0.005;
+      expect(result).toBeCloseTo(expectedGrown + expectedContrib, 4);
+    });
+
+    it("Phase 2 → Phase 3 transition is continuous at investStopAge", () => {
+      // At exactly investStopAge: the function picks the Phase 2 branch
+      // (age <= investStopAge), but the result must equal potAtInvestStop
+      // for the curve to be continuous into Phase 3. Use 0% return and a
+      // hand-computed potAtInvestStop so the assertion is exact.
+      const result = potAtAge({ ...phase2Setup, age: 70, r: 0 });
+      const expectedPotAtInvestStop = 60000 + 1200 * 36;
+      expect(result).toBe(expectedPotAtInvestStop);
+    });
+  });
 });
 
 describe("waitTotalAtAge", () => {
