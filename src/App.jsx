@@ -206,23 +206,30 @@ export default function App() {
   // time Medicare kicks in for any modeled scenario).
   //
   // ACA MAGI counts 100% of gross SS; IRMAA MAGI uses the taxable portion
-  // only (consistent with taxMath's federal-tax math).
+  // only (consistent with taxMath's federal-tax math). The SS amount that
+  // enters MAGI is net of any earnings-test withholding — SSA-1099 reports
+  // benefits PAID, not benefits owed-before-withholding, so AGI (and hence
+  // MAGI) only sees the post-ET amount. The chart math in benefitMath.js
+  // already uses this basis (ssBasisAnnualEarlyPreFRA); keep the display
+  // consistent so a user with a heavy pre-FRA wage doesn't see a phantom
+  // ACA cliff or IRMAA tier driven by SS dollars they never received.
+  const ssBasisPostET = annualEarlyGross - earningsTestWithholding;
   const magiACAPre65 = computeMagiACA({
     grossIncome,
-    ssAnnualGross: claimAge < 65 ? annualEarlyGross : 0,
+    ssAnnualGross: claimAge < 65 ? ssBasisPostET : 0,
   });
   // For the 65–67 window: pre-67 wages still apply, and the SS basis is the
-  // pre-FRA reduced amount. The taxableSSPct returned by the math layer is
-  // the post-FRA value (computed against post-67 wages + recouped SS), so
-  // we recompute fresh against pre-67 inputs to get the right IRMAA MAGI
-  // for this window.
+  // pre-FRA reduced amount (net of ET withholding). The taxableSSPct returned
+  // by the math layer is the post-FRA value (computed against post-67 wages
+  // + recouped SS), so we recompute fresh against pre-67 inputs to get the
+  // right IRMAA MAGI for this window.
   const taxableSSPctPre67 = computeTaxableSSPct({
-    ssBasisAnnual: annualEarlyGross,
+    ssBasisAnnual: ssBasisPostET,
     grossIncome,
   });
   const magiIRMAA65Plus = computeMagiIRMAA({
     grossIncome,
-    ssAnnualGross: annualEarlyGross,
+    ssAnnualGross: ssBasisPostET,
     taxableSSPct: taxableSSPctPre67,
   });
   const acaAnnualCost = computeAnnualHealthcareCost({

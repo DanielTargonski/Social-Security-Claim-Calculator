@@ -194,17 +194,25 @@ export function buildChartData({
 }) {
   const data = [];
   const r = returnRate / 100 / 12;
+  // Simulation rebase: index the per-month arrays from `simBase`
+  // = min(claimAge, FRA), not from claimAge. The wait scenario's first
+  // contribution lands at FRA; when claimAge > FRA (delayed-claim strategy)
+  // the period from FRA to claimAge must still be simulated for wait, or
+  // the waitInvested curve renders as $0 over that window while the
+  // analytical `wait` curve correctly shows the FRA checks accumulating —
+  // a visible internal contradiction.
   const startAge = Math.min(claimAge, FRA);
+  const simBase = startAge;
 
-  // Total months from claimAge to lifeExpectancy. We simulate this whole
+  // Total months from simBase to lifeExpectancy. We simulate this whole
   // window and then sample at quarter-year resolution for the chart rows.
   const totalMonthsLife = Math.max(
     0,
-    Math.round((lifeExpectancy - claimAge) * 12)
+    Math.round((lifeExpectancy - simBase) * 12)
   );
 
   // monthlyPot[m] = invested-pot value at the END of month m (where month
-  // 0 = claimAge, no contribution yet). monthlyCumCash[m] = cumulative
+  // 0 = simBase, no contribution yet). monthlyCumCash[m] = cumulative
   // cash collected through end of month m. Cash includes both Phase 3
   // checks AND the non-invested fraction of pre-investStopAge checks.
   const monthlyPot = new Array(totalMonthsLife + 1).fill(0);
@@ -220,28 +228,43 @@ export function buildChartData({
   let waitCumCash = 0;
 
   for (let m = 1; m <= totalMonthsLife; m++) {
-    const ageAtMonthEnd = claimAge + m / 12;
-    // Pre-FRA contribution: lumpy if params provided, else flat.
-    // monthIndex passed to lumpyContrib is (m - 1) so month 1 = year-cycle
-    // month 0 (the first withheld month if any).
-    const preFRAContrib = lumpyContribAtMonth(m - 1, lumpy, earlyMonthlyNet);
-    const checkThisMonth =
-      ageAtMonthEnd <= FRA
-        ? preFRAContrib
-        : ageAtMonthEnd <= postFRAWorkEndAge
-        ? earlyPostFRAMonthlyNet
-        : earlyPostFRAMonthlyNetRetired;
+    const ageAtMonthEnd = simBase + m / 12;
 
+    // Early scenario: the claimant hasn't claimed yet for ages < claimAge,
+    // so contributions and cash are both 0 in that pre-claim window. The
+    // guard matters when claimAge > FRA (simBase = FRA, claimAge > FRA);
+    // when claimAge <= FRA the guard is always satisfied after m=1.
     let contribThisMonth = 0;
     let cashThisMonth = 0;
-    if (ageAtMonthEnd <= investStopAge) {
-      // Phase 1 or Phase 2 — split the check between invested pot and cash
-      // per investedFraction. Default 1.0 keeps every dollar going to the pot.
-      contribThisMonth = checkThisMonth * investedFraction;
-      cashThisMonth = checkThisMonth * (1 - investedFraction);
-    } else {
-      // Phase 3 — pot just compounds, the entire check is cash.
-      cashThisMonth = checkThisMonth;
+    if (ageAtMonthEnd >= claimAge) {
+      // monthsSinceClaim drives the lumpy earnings-test withholding's
+      // year-cycle (12-month wrap). Use round-to-int via the rebase math so
+      // it's stable to float noise from m / 12.
+      const monthsSinceClaim = Math.max(
+        0,
+        Math.round(m - (claimAge - simBase) * 12)
+      );
+      const preFRAContrib = lumpyContribAtMonth(
+        monthsSinceClaim - 1,
+        lumpy,
+        earlyMonthlyNet
+      );
+      const checkThisMonth =
+        ageAtMonthEnd <= FRA
+          ? preFRAContrib
+          : ageAtMonthEnd <= postFRAWorkEndAge
+          ? earlyPostFRAMonthlyNet
+          : earlyPostFRAMonthlyNetRetired;
+
+      if (ageAtMonthEnd <= investStopAge) {
+        // Phase 1 or Phase 2 — split the check between invested pot and cash
+        // per investedFraction. Default 1.0 keeps every dollar going to the pot.
+        contribThisMonth = checkThisMonth * investedFraction;
+        cashThisMonth = checkThisMonth * (1 - investedFraction);
+      } else {
+        // Phase 3 — pot just compounds, the entire check is cash.
+        cashThisMonth = checkThisMonth;
+      }
     }
 
     monthlyPot[m] = monthlyPot[m - 1] * (1 + r) + contribThisMonth;
@@ -274,7 +297,7 @@ export function buildChartData({
 
   // Sample the simulation at quarter-year intervals for the chart.
   const pushSample = (age) => {
-    const m = Math.round((age - claimAge) * 12);
+    const m = Math.round((age - simBase) * 12);
     let pot = 0;
     let cash = 0;
     let waitPot = 0;

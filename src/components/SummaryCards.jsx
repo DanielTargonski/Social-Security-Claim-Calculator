@@ -130,12 +130,32 @@ export default function SummaryCards({
       ? Math.abs(advantage) / (lifeExpectancy - FRA_YEARS)
       : 0;
 
+  // "Early" vs "wait" framing only makes sense when the user actually
+  // claims before FRA. At claim age == FRA the early and wait scenarios
+  // collapse into the same thing → the dollar advantage is $0, and a
+  // verdict like "Claiming early wins +$0" is misleading (there is no
+  // early claim). Past FRA (retirement mode, ages 67–70 with DRC) the
+  // user is delaying, not "claiming early" — rename the verdict
+  // accordingly so the copy matches what the slider position says.
+  // Tolerance is half a month since the claim-age slider's step is 1/12.
+  const claimAtFRA = Math.abs(claimAge - FRA_YEARS) < 1 / 24 && mode !== "switch";
+  const claimPastFRA = claimAge > FRA_YEARS + 1 / 24 && mode !== "switch";
+
   // Left-border + headline-number accent for the verdict card. Mirrors the
   // colored left borders on cards 1 (early) and 2 (wait): switch-mode pot is
-  // upside (green), a crossover age uses the chart's gold marker color, and
-  // an outright verdict uses the winning side's color (early=red, wait=green).
+  // upside (green), a crossover age uses the chart's gold marker color, an
+  // outright verdict uses the winning side's color (early=red, wait=green),
+  // and the at-FRA neutral case (no contest) uses the wait/baseline color.
   const verdictAccent =
-    mode === "switch" ? C.wait : breakEvenAge ? C.cross : earlyWins ? C.early : C.wait;
+    mode === "switch"
+      ? C.wait
+      : claimAtFRA
+      ? C.wait
+      : breakEvenAge
+      ? C.cross
+      : earlyWins
+      ? C.early
+      : C.wait;
 
   // Card 2 shows the user's actual check at 67 given their strategy:
   //   - Switch mode: they switch to the survivor benefit at FRA → fraMonthlyNet
@@ -209,7 +229,9 @@ export default function SummaryCards({
         {waitInvestedBreakEvenAge ? (
           <div className="text-xs" style={{ color: C.inkFaint }}>
             {waitInvestedAdvantage >= 0
-              ? "early still leads"
+              ? claimAge > FRA_YEARS + 1 / 24
+                ? "delaying still leads"
+                : "early still leads"
               : "wait+invest pulls ahead"}{" "}
             — crossover at{" "}
             <span className="num" style={{ color: C.ink, fontWeight: 500 }}>
@@ -219,7 +241,9 @@ export default function SummaryCards({
         ) : (
           <div className="text-xs" style={{ color: C.inkFaint }}>
             {waitInvestedAdvantage >= 0
-              ? "early still leads by "
+              ? claimAge > FRA_YEARS + 1 / 24
+                ? "delaying still leads by "
+                : "early still leads by "
               : "wait+invest leads by "}
             <span className="num" style={{ color: C.ink, fontWeight: 500 }}>
               {fmtBig(Math.abs(waitInvestedAdvantage))}
@@ -454,14 +478,28 @@ export default function SummaryCards({
                   style={{ color: C.inkFaint }}
                 >
                   at the crossover · then{" "}
-                  {advantage >= 0 ? "early" : "wait"} pulls ahead
+                  {advantage >= 0
+                    ? claimPastFRA
+                      ? "delayed claim"
+                      : "early"
+                    : claimPastFRA
+                    ? "FRA claim"
+                    : "wait"}{" "}
+                  pulls ahead
                 </div>
                 <div
                   className="text-xs mt-3"
                   style={{ color: C.inkFaint }}
                 >
                   by <Var>{fmtAge(lifeExpectancy)}</Var>:{" "}
-                  {advantage >= 0 ? "early" : "wait"} leads by{" "}
+                  {advantage >= 0
+                    ? claimPastFRA
+                      ? "delayed claim"
+                      : "early"
+                    : claimPastFRA
+                    ? "FRA claim"
+                    : "wait"}{" "}
+                  leads by{" "}
                   <span
                     className="num"
                     style={{ color: C.ink, fontWeight: 500 }}
@@ -473,17 +511,53 @@ export default function SummaryCards({
             )}
             {waitInvestedAddendum}
           </>
-        ) : (
-          // No crossover in range — early wins for life. Replace the bare
-          // "—" with a verdict + dollar advantage + annual-edge breakdown
-          // so this card pulls its weight visually.
+        ) : claimAtFRA ? (
+          // Claim age == FRA: the early and wait scenarios are the same
+          // strategy, so the "advantage" is mathematically $0 and there is
+          // no verdict to render. Show a neutral "same as waiting" note.
+          // Annual-edge block and wait-invested addendum are suppressed too
+          // — both compare two identical curves and would just show $0.
           <>
             <div
               className="text-xs uppercase mb-2"
               style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
             >
-              {earlyWins ? "Claiming early wins" : "Waiting wins"} through{" "}
-              {fmtAge(lifeExpectancy)}
+              Claiming at FRA
+            </div>
+            <div
+              className="num"
+              style={{
+                color: verdictAccent,
+                fontSize: "1.875rem",
+                fontWeight: 600,
+                lineHeight: 1,
+              }}
+            >
+              same as waiting
+            </div>
+            <div className="text-xs mt-2" style={{ color: C.inkFaint }}>
+              no early scenario at FRA — claim and wait are the same path
+            </div>
+          </>
+        ) : (
+          // No crossover in range — one side wins for life. Replace the bare
+          // "—" with a verdict + dollar advantage + annual-edge breakdown
+          // so this card pulls its weight visually. Past FRA the user is
+          // "delaying" not "claiming early"; flip the noun so the copy
+          // matches the slider position.
+          <>
+            <div
+              className="text-xs uppercase mb-2"
+              style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            >
+              {earlyWins
+                ? claimPastFRA
+                  ? "Delaying wins"
+                  : "Claiming early wins"
+                : claimPastFRA
+                ? "Claiming at FRA wins"
+                : "Waiting wins"}{" "}
+              through {fmtAge(lifeExpectancy)}
             </div>
             <div
               className="num"
