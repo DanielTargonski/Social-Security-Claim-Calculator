@@ -69,7 +69,6 @@ export default function HealthcarePanel({
   acaAnnualCost,
   medicareAnnualCost,
   healthcareNextCliff,
-  unsubsidizedSilverAnnual,
 }) {
   if (coveredElsewhere) {
     return (

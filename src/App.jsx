@@ -174,7 +174,6 @@ export default function App() {
     crossoverValue,
     waitInvestedAdvantage,
     waitInvestedBreakEvenAge,
-    healthcareDeltaAnnualPre,
     seniorDeductionPreFRA,
     seniorDeductionPreFRA65Plus,
     seniorDeductionPostFRA,
@@ -479,7 +478,6 @@ export default function App() {
             acaAnnualCost={acaAnnualCost}
             medicareAnnualCost={medicareAnnualCost}
             healthcareNextCliff={healthcareNextCliff}
-            unsubsidizedSilverAnnual={unsubsidizedSilverAnnual}
           />
 
           <OptimalClaimAge
