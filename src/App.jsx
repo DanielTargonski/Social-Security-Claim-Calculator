@@ -28,6 +28,7 @@ import SensitivityTornado from "./components/SensitivityTornado.jsx";
 import HealthcarePanel from "./components/HealthcarePanel.jsx";
 import OptimalClaimAge from "./components/OptimalClaimAge.jsx";
 import AboutPage from "./components/AboutPage.jsx";
+import MathReferencePage from "./components/MathReferencePage.jsx";
 import TabNav from "./components/TabNav.jsx";
 import ThemeToggle from "./components/ThemeToggle.jsx";
 
@@ -299,6 +300,11 @@ export default function App() {
           {view === "about" ? (
             <>
               <AboutPage />
+              <Footnotes />
+            </>
+          ) : view === "math" ? (
+            <>
+              <MathReferencePage />
               <Footnotes />
             </>
           ) : (

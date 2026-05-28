@@ -1,11 +1,12 @@
 import { C } from "../constants/colors.js";
 
-// Two-tab nav at the very top of the page: the calculator itself, vs. the
-// "Why this exists" explainer. Visually echoes the ModeSwitcher chip pattern
-// so the two controls feel like part of the same family.
+// Three-tab nav at the very top of the page: the calculator itself, the
+// "Why this exists" explainer, and the "The math" reference page. Visually
+// echoes the ModeSwitcher chip pattern so the two controls feel like part
+// of the same family.
 //
 // Kept small and inline (no router): the project is single-page, the tab
-// state lives in App.jsx and conditionally renders one of two subtrees.
+// state lives in App.jsx and conditionally renders one of three subtrees.
 export default function TabNav({ view, onChange }) {
   return (
     <div
@@ -28,6 +29,13 @@ export default function TabNav({ view, onChange }) {
         className={`mode-btn ${view === "about" ? "mode-btn-active" : ""}`}
       >
         Why this exists
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("math")}
+        className={`mode-btn ${view === "math" ? "mode-btn-active" : ""}`}
+      >
+        The math
       </button>
     </div>
   );
