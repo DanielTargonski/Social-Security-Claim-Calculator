@@ -44,15 +44,28 @@ export function computeEarningsTest({ claimAge, grossIncome, annualEarlyGross })
   return Math.min(excess / 2, annualEarlyGross);
 }
 
-// Earnings-test recoup at FRA.
+// Earnings-test recoup at FRA — SSA's "Adjustment of the Reduction Factor"
+// (ARF; POMS RS 00615.482).
 // When the earnings test withholds benefits pre-FRA, SSA recomputes the
 // benefit at FRA as if those withheld months had never been claimed —
 // shrinking the early-claiming reduction. The new (higher) rate is paid
 // from FRA onward for life.
-//   monthsWithheld    = totalDollarsWithheld / earlyMonthlyGross
-//                       capped at the total months pre-FRA
-//   effectiveClaimAge = claimAge + monthsWithheld / 12
-//   recoupedFactor    = mode-appropriate factor at the effective claim age
+//
+// Crucial crediting rule: SSA grants a WHOLE reduction-month of credit for
+// any month with a full OR partial earnings-test deduction — "proration of
+// work deductions has no effect on the adjustment of the reduction factor"
+// (POMS RS 00615.482, stated identically for RIB, spouse, and widow(er)).
+// SSA applies the test annually by withholding whole monthly checks from the
+// start of each year, so the credited months per pre-FRA year is the number
+// of checks the withholding touches = ceil(annual withholding / monthly
+// check), capped at 12. A plain dollar-average (annual / monthly, unrounded)
+// drops the partial month and under-credits the recoup — understating the
+// post-FRA benefit whenever the withholding isn't an exact multiple of the
+// monthly check.
+//   creditedMonthsPerYear = ceil(earningsTestWithholding / earlyMonthlyGross), ≤ 12
+//   monthsWithheld        = creditedMonthsPerYear × yearsPreFRA
+//   effectiveClaimAge     = claimAge + monthsWithheld / 12
+//   recoupedFactor        = mode-appropriate factor at the effective claim age
 // Returns null when no recoup applies (already at/past FRA, no withholding,
 // or switch mode where the claimant abandons own retirement at FRA anyway).
 export function computeRecoupedFactor({
@@ -67,11 +80,11 @@ export function computeRecoupedFactor({
   if (earlyMonthlyGross <= 0) return null;
 
   const yearsPreFRA = FRA - claimAge;
-  const totalDollarsWithheld = earningsTestWithholding * yearsPreFRA;
-  const monthsWithheld = Math.min(
-    totalDollarsWithheld / earlyMonthlyGross,
-    yearsPreFRA * 12
+  const creditedMonthsPerYear = Math.min(
+    Math.ceil(earningsTestWithholding / earlyMonthlyGross),
+    12
   );
+  const monthsWithheld = creditedMonthsPerYear * yearsPreFRA;
   const effectiveClaimAge = claimAge + monthsWithheld / 12;
 
   if (mode === "retirement") return retirementFactor(effectiveClaimAge);

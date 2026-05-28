@@ -223,6 +223,37 @@ describe("computeRecoupedFactor — math", () => {
     expect(closeTo(r, survivorFactor(65), 0.005)).toBe(true);
   });
 
+  it("survivor: partial-withholding month is credited as a WHOLE month (POMS RS 00615.482)", () => {
+    // earlyMonthlyGross 2000. Annual withholding $5,000 = 2.5 monthly checks:
+    // two full checks plus a partial third. ARF credits the partial month as a
+    // whole month, so credited months per year = ceil(5000/2000) = 3, not 2.5.
+    // claimAge 64 → yearsPreFRA 3 → 9 months withheld → effective age 64.75.
+    const r = computeRecoupedFactor({
+      mode: "survivor",
+      claimAge: 64,
+      earlyMonthlyGross: 2000,
+      earningsTestWithholding: 5000,
+    });
+    expect(closeTo(r, survivorFactor(64 + 9 / 12), 0.0001)).toBe(true);
+    // And strictly above the old dollar-average (2.5/yr → effective 64.625),
+    // confirming the partial month is no longer dropped.
+    expect(r).toBeGreaterThan(survivorFactor(64 + 7.5 / 12));
+  });
+
+  it("survivor: per-year crediting caps at 12 months and the factor at 1.0", () => {
+    // Withholding equal to a full year of benefits → 12 credited months/yr.
+    // claimAge 60 → 7 yearsPreFRA → 84 months → effective age 67 → factor 1.0.
+    const earlyMonthlyGross = 1500;
+    const r = computeRecoupedFactor({
+      mode: "survivor",
+      claimAge: 60,
+      earlyMonthlyGross,
+      earningsTestWithholding: earlyMonthlyGross * 12,
+    });
+    expect(closeTo(r, 1.0, 1e-9)).toBe(true);
+    expect(r).toBeLessThanOrEqual(1.0 + 1e-9);
+  });
+
   it("recouped factor is always >= original early factor", () => {
     const cases = [
       { mode: "retirement", claimAge: 62 },
