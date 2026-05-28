@@ -483,6 +483,132 @@ describe("computeProjection — postFRAWorkYears", () => {
   });
 });
 
+describe("computeProjection — post-67 working vs retired net checks", () => {
+  // The UI's "Working past 67" card needs both the net check WHILE working
+  // (taxed against post-67 wages) and the net check AFTER work stops (taxed
+  // against zero wages). These are exposed as earlyPostFRAMonthlyNetRetired /
+  // fraMonthlyNetRetired plus the postFRAWorkEndAge boundary.
+
+  it("exposes the retired-rate net checks and the work-end boundary", () => {
+    const r = computeProjection({
+      ...baseInputs,
+      claimAge: 64,
+      grossIncome: 40000,
+      postFRAGrossIncome: 40000,
+      postFRAWorkYears: 3,
+    });
+    expect(Number.isFinite(r.earlyPostFRAMonthlyNetRetired)).toBe(true);
+    expect(Number.isFinite(r.fraMonthlyNetRetired)).toBe(true);
+    // FRA (67) + 3 work years = age 70, well under life=85.
+    expect(r.postFRAWorkEndAge).toBe(70);
+  });
+
+  it("retiring lifts the net check vs while working when post-67 wages push SS into tax", () => {
+    // High post-67 wages tax SS heavily while working; dropping the wage to
+    // $0 at retirement collapses the combined-income tier, so the retired
+    // net check should be strictly higher than the working net check.
+    const r = computeProjection({
+      ...baseInputs,
+      claimAge: 64,
+      grossIncome: 40000,
+      postFRAGrossIncome: 80000,
+      postFRAWorkYears: 5,
+    });
+    expect(r.earlyPostFRAMonthlyNetRetired).toBeGreaterThan(
+      r.earlyPostFRAMonthlyNet
+    );
+    expect(r.fraMonthlyNetRetired).toBeGreaterThan(r.fraMonthlyNet);
+  });
+
+  it("retired and working net checks coincide when there are no post-67 wages", () => {
+    const r = computeProjection({
+      ...baseInputs,
+      claimAge: 64,
+      grossIncome: 40000,
+      postFRAGrossIncome: 0,
+      postFRAWorkYears: 5,
+    });
+    expect(closeTo(r.earlyPostFRAMonthlyNetRetired, r.earlyPostFRAMonthlyNet, 0.001)).toBe(true);
+    expect(closeTo(r.fraMonthlyNetRetired, r.fraMonthlyNet, 0.001)).toBe(true);
+  });
+
+  it("postFRAWorkEndAge caps at lifeExpectancy", () => {
+    const r = computeProjection({
+      ...baseInputs,
+      lifeExpectancy: 80,
+      postFRAGrossIncome: 40000,
+      postFRAWorkYears: 50, // would land at 117 uncapped
+    });
+    expect(r.postFRAWorkEndAge).toBe(80);
+  });
+});
+
+describe("computeProjection — wage take-home (federal + state/city)", () => {
+  // Display-only wage-tax fields feeding the summary cards' take-home figures.
+  // claimAge 64 in 2026 → age-67 calendar year is 2029, past the OBBBA senior-
+  // deduction sunset, so the senior deduction is 0 in both windows and the
+  // federal wage tax is a clean walk(40000 − 16100) = $2,620.
+  const wageInputs = {
+    ...baseInputs,
+    claimAge: 64,
+    grossIncome: 40000,
+    postFRAGrossIncome: 40000,
+  };
+
+  it("locality 'none': no state/city tax, federal only, net = wage − federal", () => {
+    const r = computeProjection({ ...wageInputs, locality: "none" });
+    expect(r.wageTaxPostFRA.state).toBe(0);
+    expect(r.wageTaxPostFRA.city).toBe(0);
+    expect(closeTo(r.wageTaxPostFRA.federal, 2620, 0.01)).toBe(true);
+    expect(closeTo(r.wageTaxPostFRA.net, 40000 - 2620, 0.01)).toBe(true);
+  });
+
+  it("locality 'ny': state tax only, no city component", () => {
+    const r = computeProjection({ ...wageInputs, locality: "ny" });
+    expect(closeTo(r.wageTaxPostFRA.state, 1595, 0.01)).toBe(true);
+    expect(r.wageTaxPostFRA.city).toBe(0);
+  });
+
+  it("locality 'nyc': state + city tax stack, lowering the net wage", () => {
+    const r = computeProjection({ ...wageInputs, locality: "nyc" });
+    expect(closeTo(r.wageTaxPostFRA.state, 1595, 0.01)).toBe(true);
+    expect(closeTo(r.wageTaxPostFRA.city, 1125.75, 0.01)).toBe(true);
+    // net = 40000 − 2620 federal − 2720.75 state/city = 34659.25.
+    expect(closeTo(r.wageTaxPostFRA.net, 34659.25, 0.01)).toBe(true);
+    expect(r.wageTaxPostFRA.total).toBeGreaterThan(
+      computeProjection({ ...wageInputs, locality: "none" }).wageTaxPostFRA.total
+    );
+  });
+
+  it("both pre-FRA and post-FRA windows expose a wage breakdown", () => {
+    const r = computeProjection({ ...wageInputs, locality: "nyc" });
+    expect(closeTo(r.wageTaxPreFRA.net, 34659.25, 0.01)).toBe(true);
+    expect(closeTo(r.wageTaxPostFRA.net, 34659.25, 0.01)).toBe(true);
+  });
+
+  it("zero wage → zero tax and zero net", () => {
+    const r = computeProjection({
+      ...baseInputs,
+      grossIncome: 0,
+      postFRAGrossIncome: 0,
+      locality: "nyc",
+    });
+    expect(r.wageTaxPostFRA).toMatchObject({
+      federal: 0,
+      state: 0,
+      city: 0,
+      total: 0,
+      net: 0,
+    });
+  });
+
+  it("defaults locality to 'none' when omitted (back-compat)", () => {
+    const r = computeProjection(wageInputs); // no locality
+    expect(r.wageTaxPostFRA.state).toBe(0);
+    expect(r.wageTaxPostFRA.city).toBe(0);
+  });
+});
+
 describe("computeProjection — fractional lifeExpectancy", () => {
   // The Live Until slider now steps by 1/12 so the user can express their
   // expected lifespan to month precision. The math layer must accept the

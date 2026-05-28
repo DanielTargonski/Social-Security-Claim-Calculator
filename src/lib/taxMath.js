@@ -108,6 +108,33 @@ export function computeSeniorDeduction({ age, magi, taxYear }) {
   return Math.max(0, OBBBA_SENIOR_DEDUCTION_BASE - phaseOut);
 }
 
+// Federal income tax on WAGE income, modeled as the BOTTOM of the tax stack
+// (the federally-taxable portion of Social Security sits on top — consistent
+// with computeSSEffectiveTaxRate, which taxes the SS portion at the
+// household's marginal rate). The standard deduction and any extra deduction
+// (OBBBA senior bonus) are absorbed by the wage here, so wage tax +
+// SS-effective tax ≈ a single bracket walk on combined taxable income (exact
+// when the taxable-SS slice doesn't span a bracket boundary).
+//
+// Display-only: this feeds take-home figures in the summary cards and never
+// the break-even projection (wages are identical in both claiming arms, so
+// wage tax cancels in the comparison). In manual-tax mode the user is
+// dictating the rate, so we apply it flat to the post-deduction wage.
+export function computeWageFederalTax({
+  autoTax,
+  manualFedRate,
+  wageIncome,
+  extraDeduction = 0,
+}) {
+  if (!wageIncome || wageIncome <= 0) return 0;
+  const taxable = Math.max(
+    0,
+    wageIncome - STANDARD_DEDUCTION_2026 - extraDeduction
+  );
+  if (autoTax) return computeFederalTax2026(taxable);
+  return taxable * (manualFedRate / 100);
+}
+
 // Combine the auto/manual marginal rate logic and produce the effective tax
 // rate on Social Security checks. When auto, uses the tier-aware combined-
 // income formula. When manual, assumes 85% of the benefit is taxable.

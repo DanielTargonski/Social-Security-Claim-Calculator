@@ -22,8 +22,22 @@ export default function SummaryCards({
   earlyMonthlyNet,
   earlyPostFRAMonthlyGross,
   earlyPostFRAMonthlyNet,
+  earlyPostFRAMonthlyNetRetired,
   fraMonthlyGross,
   fraMonthlyNet,
+  fraMonthlyNetRetired,
+  // Post-67 work modeling. When the user keeps working past FRA, the SS
+  // check during those years is taxed at the working rate (wages elevate
+  // combined income); once work stops the check rises to its retired rate.
+  postFRAWorkYears = 0,
+  postFRAWorkEndAge = 67,
+  // Wage take-home (display-only): federal + NY/NYC state/city tax on the
+  // wage, used to turn the "wage + SS" figures into a true after-tax
+  // take-home. The state/city amounts are already locality-derived upstream,
+  // so the breakdown labels them directly (only NY produces state tax, only
+  // NYC produces city tax).
+  wageTaxPreFRA = { federal: 0, state: 0, city: 0, total: 0, net: 0 },
+  wageTaxPostFRA = { federal: 0, state: 0, city: 0, total: 0, net: 0 },
   earningsTestWithholding,
   recoupedFactor,
   potAtStopRow,
@@ -210,6 +224,57 @@ export default function SummaryCards({
   const showsReductionNote =
     earlyClaimReduces && card2Net < fraMonthlyNet - 1;
 
+  // "Working past 67" card. Only meaningful when the user actually models
+  // continued work past FRA (postFRAWorkYears > 0) AND has post-67 wages —
+  // below that the working and retired checks are identical and this card
+  // would just duplicate Card 2. The slider treats anything under half a
+  // month as "Retired at 67", so mirror that floor here.
+  const worksPastFRA =
+    postFRAWorkYears >= 1 / 24 && postFRAGrossIncome > 0;
+  // Net SS check while still working: same scenario selection as Card 2 (an
+  // early claim keeps its recouped check; wait / claim-at-FRA gets the FRA
+  // check). Wages keep combined income elevated, so SS is taxed at the
+  // working rate → this is exactly card2Net.
+  const workingBenefitNet = card2Net;
+  // Net SS check after work stops — wages drop to $0, the SS-taxation tier
+  // usually falls, so the check rises to this permanent "final fixed amount."
+  const retiredBenefitNet = earlyClaimReduces
+    ? earlyPostFRAMonthlyNetRetired
+    : fraMonthlyNetRetired;
+  // Per-working-year take-home = wage NET of income tax + annual net SS.
+  // SS is already federal-net; for NY/NYC it carries no state/city tax.
+  const workingYearTotalIncome = wageTaxPostFRA.net + workingBenefitNet * 12;
+  // Cumulative across the chosen number of working years.
+  const workingTotalAllYears = workingYearTotalIncome * postFRAWorkYears;
+  // Whether there's any income tax on the post-67 wage worth itemizing.
+  const showsPostFRAWageTax = wageTaxPostFRA.total >= 1;
+  // How much the monthly check climbs once wages stop dragging SS into a
+  // higher taxable tier. Zero in manual-tax mode (no wage interaction).
+  const retiredCheckUplift = retiredBenefitNet - workingBenefitNet;
+  // Whether a retired phase exists at all: if work runs to (or past) life
+  // expectancy there's never a post-work check to show.
+  const hasRetiredPhase = postFRAWorkEndAge < lifeExpectancy - 1e-9;
+
+  // Pre-67 take-home (Card 1 addendum). When the claimant is still working
+  // before FRA, the "net check" headline is only the SS slice; the full
+  // pocketed amount is wage NET of income tax + the early SS check. Wages
+  // never touch the break-even — this is display-only context.
+  const preFRAWorks =
+    grossIncome > 0 && claimAge < FRA_YEARS - 1 / 24;
+  const preFRATakeHome = wageTaxPreFRA.net + earlyMonthlyNet * 12;
+  const showsPreFRAWageTax = wageTaxPreFRA.total >= 1;
+
+  // Compact wage-tax breakdown for the take-home lines: federal always,
+  // then NY State / NYC only when those localities apply (their tax is > 0).
+  // Returns a string like "−$6,000 fed −$2,400 NY State −$1,200 NYC".
+  const wageTaxBreakdown = (wt) => {
+    const parts = [];
+    if (wt.federal >= 1) parts.push(`−${fmtMoney(wt.federal)} fed`);
+    if (wt.state >= 1) parts.push(`−${fmtMoney(wt.state)} NY State`);
+    if (wt.city >= 1) parts.push(`−${fmtMoney(wt.city)} NYC`);
+    return parts.join(" ");
+  };
+
   // The "if wait also invested" addendum at the bottom of Card 3. Only
   // renders when the user has the wait-invest slider above 0 (so the
   // comparison is meaningful) and the mode isn't switch (Card 3's switch
@@ -334,6 +399,36 @@ export default function SummaryCards({
             </>
           )}
         </div>
+        {preFRAWorks && (
+          <div
+            className="mt-3 pt-3"
+            style={{ borderTop: `1px solid ${C.border}` }}
+          >
+            <div
+              className="text-xs uppercase mb-1"
+              style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            >
+              Take-home while working
+            </div>
+            <div
+              className="num"
+              style={{ color: C.ink, fontSize: "1.125rem", fontWeight: 500 }}
+            >
+              {fmtMoney(preFRATakeHome)}/yr
+            </div>
+            <div className="text-xs num mt-1" style={{ color: C.inkFaint }}>
+              {showsPreFRAWageTax ? (
+                <>
+                  {fmtMoney(wageTaxPreFRA.net)} wage net (
+                  {wageTaxBreakdown(wageTaxPreFRA)})
+                </>
+              ) : (
+                <>{fmtMoney(grossIncome)} wage</>
+              )}{" "}
+              + {fmtMoney(earlyMonthlyNet * 12)} SS net
+            </div>
+          </div>
+        )}
       </div>
 
       <div
@@ -397,6 +492,111 @@ export default function SummaryCards({
           )}
         </div>
       </div>
+
+      {worksPastFRA && (
+        <div
+          className="p-4 col-span-2 lg:col-span-1"
+          style={{
+            backgroundColor: C.paper,
+            border: `1px solid ${C.border}`,
+            borderLeft: `3px solid ${C.wait}`,
+          }}
+        >
+          <div
+            className="text-xs uppercase mb-2"
+            style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+          >
+            Each year working past 67
+          </div>
+          <div
+            className="num"
+            style={{
+              color: C.wait,
+              fontSize: "1.875rem",
+              fontWeight: 600,
+              lineHeight: 1,
+            }}
+          >
+            {fmtMoney(workingYearTotalIncome)}/yr
+          </div>
+          <div className="text-xs num mt-2" style={{ color: C.inkFaint }}>
+            {showsPostFRAWageTax ? (
+              <>
+                {fmtMoney(wageTaxPostFRA.net)} wage net (
+                {wageTaxBreakdown(wageTaxPostFRA)})
+              </>
+            ) : (
+              <>{fmtMoney(postFRAGrossIncome)} wage</>
+            )}{" "}
+            + {fmtMoney(workingBenefitNet * 12)} SS net
+            <br />
+            through {fmtAge(postFRAWorkEndAge)} ·{" "}
+            {fmtDuration(postFRAWorkYears)} past FRA
+            {postFRAWorkYears >= 1 + 1 / 24 && (
+              <>
+                {" "}
+                ·{" "}
+                <span style={{ color: C.ink, fontWeight: 500 }}>
+                  {fmtBig(workingTotalAllYears)} total
+                </span>
+              </>
+            )}
+          </div>
+          <div
+            className="mt-3 pt-3"
+            style={{ borderTop: `1px solid ${C.border}` }}
+          >
+            <div
+              className="text-xs uppercase mb-1"
+              style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            >
+              Benefit while working
+            </div>
+            <div
+              className="num"
+              style={{ color: C.ink, fontSize: "1.125rem", fontWeight: 500 }}
+            >
+              {fmtMoney(workingBenefitNet)}/mo net
+            </div>
+            <div className="text-xs num mt-1" style={{ color: C.inkFaint }}>
+              {fmtMoney(workingBenefitNet * 12)}/yr · wages keep SS taxed at the
+              working rate
+            </div>
+          </div>
+          {hasRetiredPhase && (
+            <div
+              className="mt-3 pt-3"
+              style={{ borderTop: `1px solid ${C.border}` }}
+            >
+              <div
+                className="text-xs uppercase mb-1"
+                style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+              >
+                After you stop at {fmtAge(postFRAWorkEndAge)}
+              </div>
+              <div
+                className="num"
+                style={{ color: C.wait, fontSize: "1.125rem", fontWeight: 500 }}
+              >
+                {fmtMoney(retiredBenefitNet)}/mo net
+              </div>
+              <div className="text-xs num mt-1" style={{ color: C.inkFaint }}>
+                final fixed check
+                {retiredCheckUplift >= 1 && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <span style={{ color: C.wait }}>
+                      +{fmtMoney(retiredCheckUplift)}/mo
+                    </span>{" "}
+                    once wages stop lifting SS into tax
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div
         className="p-4 col-span-2 lg:col-span-1 flex flex-col"

@@ -38,8 +38,11 @@ export default function Footnotes() {
         benefits are federally taxable depending on combined income (single
         filer thresholds are $25K and $34K). The calculator simplifies by
         applying the marginal rate to 85% of the benefit. Wage income is
-        separately taxed at federal, state, and city rates but that's outside
-        this model.
+        separately taxed at federal, NY State, and NYC rates — pick a locality
+        in Income &amp; Tax to fold that into the take-home figures. Wage tax is
+        display-only: it falls equally on both the claim-early and wait-to-67
+        paths (the wages are identical), so it cancels in the break-even and
+        never moves the crossover age.
       </div>
       <div>
         <div

@@ -73,6 +73,7 @@ export default function App() {
     householdSize,
     coveredElsewhere,
     unsubsidizedSilverAnnual,
+    locality,
   } = state;
   const {
     setMode,
@@ -92,6 +93,7 @@ export default function App() {
     setHouseholdSize,
     setCoveredElsewhere,
     setUnsubsidizedSilverAnnual,
+    setLocality,
   } = setters;
 
   // Mirror state into the URL on every change. Stored raw investStopAge
@@ -142,6 +144,7 @@ export default function App() {
     householdSize,
     coveredElsewhere,
     unsubsidizedSilverAnnual,
+    locality,
   };
 
   const {
@@ -159,6 +162,9 @@ export default function App() {
     earlyMonthlyNet,
     earlyPostFRAMonthlyNet,
     fraMonthlyNet,
+    earlyPostFRAMonthlyNetRetired,
+    fraMonthlyNetRetired,
+    postFRAWorkEndAge,
     chartData,
     breakEvenAge,
     finalEarly,
@@ -181,6 +187,8 @@ export default function App() {
     seniorDeductionLifetimeWait,
     seniorDeductionEligibleYearsEarly,
     seniorDeductionEligibleYearsWait,
+    wageTaxPreFRA,
+    wageTaxPostFRA,
   } = useBenefitProjection(inputs);
 
   // Sweeps claimAge across the mode's range and reports the peak. Shared
@@ -347,6 +355,8 @@ export default function App() {
               autoTax={autoTax}
               setAutoTax={setAutoTax}
               setManualFedRate={setManualFedRate}
+              locality={locality}
+              setLocality={setLocality}
               investedPct={investedPct}
               setInvestedPct={setInvestedPct}
               investedPctWait={investedPctWait}
@@ -374,8 +384,12 @@ export default function App() {
               earlyMonthlyNet={earlyMonthlyNet}
               earlyPostFRAMonthlyGross={earlyPostFRAMonthlyGross}
               earlyPostFRAMonthlyNet={earlyPostFRAMonthlyNet}
+              earlyPostFRAMonthlyNetRetired={earlyPostFRAMonthlyNetRetired}
               fraMonthlyGross={fraMonthlyGross}
               fraMonthlyNet={fraMonthlyNet}
+              fraMonthlyNetRetired={fraMonthlyNetRetired}
+              postFRAWorkYears={postFRAWorkYears}
+              postFRAWorkEndAge={postFRAWorkEndAge}
               earningsTestWithholding={earningsTestWithholding}
               recoupedFactor={recoupedFactor}
               potAtStopRow={potAtStopRow}
@@ -408,6 +422,8 @@ export default function App() {
               seniorDeductionLifetimeWait={seniorDeductionLifetimeWait}
               seniorDeductionEligibleYearsEarly={seniorDeductionEligibleYearsEarly}
               seniorDeductionEligibleYearsWait={seniorDeductionEligibleYearsWait}
+              wageTaxPreFRA={wageTaxPreFRA}
+              wageTaxPostFRA={wageTaxPostFRA}
             />
           </div>
 

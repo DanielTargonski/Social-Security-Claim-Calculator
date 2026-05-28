@@ -17,9 +17,11 @@ import {
   getMarginalRate2026,
   computeSSEffectiveTaxRate,
   computeSeniorDeduction,
+  computeWageFederalTax,
   OBBBA_SENIOR_DEDUCTION_FIRST_YEAR,
   OBBBA_SENIOR_DEDUCTION_LAST_YEAR,
 } from "./taxMath.js";
+import { computeStateLocalWageTax } from "./stateLocalTax.js";
 import {
   buildChartData,
   findBreakEvenAge,
@@ -46,6 +48,7 @@ export {
   getMarginalRate2026,
   computeSSEffectiveTaxRate,
   computeSeniorDeduction,
+  computeWageFederalTax,
   OBBBA_SENIOR_DEDUCTION_FIRST_YEAR,
   OBBBA_SENIOR_DEDUCTION_LAST_YEAR,
   buildChartData,
@@ -100,6 +103,12 @@ export function computeProjection({
   // Default 2026 = the calculator's "live" year. The calendar year of each
   // projection age is `currentYear + (age - claimAge)`.
   currentYear = 2026,
+  // State/local income-tax jurisdiction for the WAGE take-home figures
+  // ("none" | "ny" | "nyc"). Display-only — never enters the break-even
+  // (wages are identical in both claiming arms, so wage tax cancels).
+  // Defaults to "none" so existing call sites / tests stay neutral; the UI
+  // passes the user's selection (which defaults to "nyc").
+  locality = "none",
 }) {
   const {
     earlyFactor,
@@ -611,6 +620,50 @@ export function computeProjection({
     }
   }
 
+  // ---- Wage take-home (display-only; never enters the break-even) ----
+  // Federal tax on the wage modeled as the bottom of the bracket stack (the
+  // taxable-SS slice sits on top — see computeWageFederalTax), plus NY/NYC
+  // state/city tax on the wage. NY excludes Social Security from its base, so
+  // SS carries no state/city tax; the *MonthlyNet figures already net SS of
+  // federal tax. The window's OBBBA senior deduction reduces the wage's
+  // federal taxable. These feed the summary cards' "take-home" figures; they
+  // do NOT touch the chart (wages are identical in both claiming arms).
+  const preFRAWageFederal = computeWageFederalTax({
+    autoTax,
+    manualFedRate,
+    wageIncome: grossIncome,
+    extraDeduction: seniorDeductionEarlyPreFRA,
+  });
+  const preFRAWageStateLocal = computeStateLocalWageTax({
+    locality,
+    wageIncome: grossIncome,
+  });
+  const wageTaxPreFRA = {
+    federal: preFRAWageFederal,
+    state: preFRAWageStateLocal.stateTax,
+    city: preFRAWageStateLocal.cityTax,
+    total: preFRAWageFederal + preFRAWageStateLocal.total,
+    net: grossIncome - preFRAWageFederal - preFRAWageStateLocal.total,
+  };
+
+  const postFRAWageFederal = computeWageFederalTax({
+    autoTax,
+    manualFedRate,
+    wageIncome: postFRAGrossIncome,
+    extraDeduction: seniorDeductionEarlyPostFRA,
+  });
+  const postFRAWageStateLocal = computeStateLocalWageTax({
+    locality,
+    wageIncome: postFRAGrossIncome,
+  });
+  const wageTaxPostFRA = {
+    federal: postFRAWageFederal,
+    state: postFRAWageStateLocal.stateTax,
+    city: postFRAWageStateLocal.cityTax,
+    total: postFRAWageFederal + postFRAWageStateLocal.total,
+    net: postFRAGrossIncome - postFRAWageFederal - postFRAWageStateLocal.total,
+  };
+
   return {
     earlyFactor,
     earlyMonthlyGross,
@@ -626,6 +679,14 @@ export function computeProjection({
     earlyMonthlyNet,
     earlyPostFRAMonthlyNet,
     fraMonthlyNet,
+    // Post-FRA net checks once the claimant STOPS working (wages → $0).
+    // Equal to the working variants above when postFRAGrossIncome is 0; when
+    // the user models post-FRA wages, these are higher because dropping the
+    // wage income collapses the SS-taxation tier. This is the "final fixed
+    // amount" the claimant settles into for the rest of life after retiring.
+    earlyPostFRAMonthlyNetRetired,
+    fraMonthlyNetRetired,
+    postFRAWorkEndAge,
     chartData,
     breakEvenAge,
     finalEarly,
@@ -667,6 +728,11 @@ export function computeProjection({
     seniorDeductionLifetimeWait,
     seniorDeductionEligibleYearsEarly: earlyEligibleYears,
     seniorDeductionEligibleYearsWait: waitEligibleYears,
+    // Wage take-home (display-only). Federal + NY/NYC state/city tax on the
+    // pre-FRA and post-FRA wage, and the resulting net wage. Combined with the
+    // (already-net) SS checks in SummaryCards to show a true take-home.
+    wageTaxPreFRA,
+    wageTaxPostFRA,
   };
 }
 
