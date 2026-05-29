@@ -58,7 +58,6 @@ export default function SummaryCards({
   // bottom of the sticky sidebar so the user can see pre-65 and 65+ cost
   // bands while they scroll through the inputs.
   coveredElsewhere = false,
-  householdSize = 1,
   acaAnnualCost = 0,
   medicareAnnualCost = 0,
   magiACAPre65 = 0,
@@ -91,10 +90,7 @@ export default function SummaryCards({
   // 65+ MSP-vs-IRMAA status from the MAGI inputs. Kept local rather than
   // duplicating HealthcarePanel's `bandForFplPct` because the sidebar
   // shows a compact label, not the full panel's detail line.
-  const fpl =
-    householdSize === 2
-      ? FPL_2025_FOR_2026_PTC.couple
-      : FPL_2025_FOR_2026_PTC.single;
+  const fpl = FPL_2025_FOR_2026_PTC.single;
   const acaFplPct = magiACAPre65 / fpl;
   const irmaaFplPct = magiIRMAA65Plus / fpl;
   let acaBandLabel;

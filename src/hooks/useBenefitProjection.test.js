@@ -50,7 +50,6 @@ describe("useBenefitProjection", () => {
     ["manualFedRate", 22],
     ["investedPct", 50],
     ["investedPctWait", 75],
-    ["householdSize", 2],
     ["coveredElsewhere", true],
     ["unsubsidizedSilverAnnual", 12000],
   ];

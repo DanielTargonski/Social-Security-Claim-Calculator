@@ -794,7 +794,6 @@ describe("computeProjection — healthcare cost integration (OBBBA / NYC)", () =
     fraBenefit: 5000,
     grossIncome: 25000,
     autoTax: true,
-    householdSize: 1,
     coveredElsewhere: false, // healthcare modeling ON
     unsubsidizedSilverAnnual: 9679,
   };
@@ -840,7 +839,6 @@ describe("computeProjection — healthcare cost integration (OBBBA / NYC)", () =
       grossIncome: 45000,
       fraBenefit: 2400,
       coveredElsewhere: true,
-      householdSize: 1,
       unsubsidizedSilverAnnual: 9679,
     });
     expect(omitted.advantage).toBe(explicit.advantage);

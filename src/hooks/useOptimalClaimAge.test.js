@@ -45,7 +45,6 @@ describe("useOptimalClaimAge", () => {
     ["autoTax", false],
     ["manualFedRate", 22],
     ["investedPct", 50],
-    ["householdSize", 2],
     ["coveredElsewhere", true],
     ["unsubsidizedSilverAnnual", 12000],
   ];

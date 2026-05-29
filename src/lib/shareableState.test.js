@@ -19,7 +19,6 @@ const sample = {
   autoTax: false,
   manualFedRate: 22,
   investedPct: 60,
-  householdSize: 2,
   coveredElsewhere: true,
   unsubsidizedSilverAnnual: 12000,
   locality: "ny",
@@ -72,7 +71,6 @@ describe("shareableState — round-trip", () => {
       "tax",
       "mrate",
       "inv",
-      "hh",
       "cov",
       "usil",
     ]) {
@@ -182,7 +180,6 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "coveredElsewhere",
         "fraBenefit",
         "grossIncome",
-        "householdSize",
         "investStopAge",
         "investedPct",
         "investedPctWait",

@@ -43,7 +43,9 @@ const SCHEMA = [
   { key: "investedPct",        url: "inv",   type: "num",  default: 100,  min: 0,    max: 100 },
   { key: "investedPctWait",    url: "invw",  type: "num",  default: 100,  min: 0,    max: 100 },
   // Healthcare-cost modeling (OBBBA / NYC). See lib/healthcareCost.js.
-  { key: "householdSize",      url: "hh",    type: "num",  default: 1,    min: 1,    max: 2 },
+  // Single-filer only — see lib/healthcareCost.js header for the joint-filer
+  // follow-up. The FPL primitive there is household-size aware, but the app
+  // only ever models a single filer.
   { key: "coveredElsewhere",   url: "cov",   type: "bool", default: false },
   { key: "unsubsidizedSilverAnnual", url: "usil", type: "num", default: 9679, min: 0, max: 50000 },
 ];

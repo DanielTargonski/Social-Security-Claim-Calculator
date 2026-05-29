@@ -70,7 +70,6 @@ export default function App() {
     manualFedRate,
     investedPct,
     investedPctWait,
-    householdSize,
     coveredElsewhere,
     unsubsidizedSilverAnnual,
     locality,
@@ -90,7 +89,6 @@ export default function App() {
     setManualFedRate,
     setInvestedPct,
     setInvestedPctWait,
-    setHouseholdSize,
     setCoveredElsewhere,
     setUnsubsidizedSilverAnnual,
     setLocality,
@@ -141,7 +139,6 @@ export default function App() {
     manualFedRate,
     investedPct,
     investedPctWait,
-    householdSize,
     coveredElsewhere,
     unsubsidizedSilverAnnual,
     locality,
@@ -250,7 +247,6 @@ export default function App() {
     age: 62,
     magiACA: magiACAPre65,
     magiIRMAA: 0,
-    householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
@@ -259,7 +255,6 @@ export default function App() {
     magiACA: 0,
     magiIRMAA: magiIRMAA65Plus,
     mspIncome: mspIncome65Plus,
-    householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
@@ -289,7 +284,6 @@ export default function App() {
     magiACA: 0,
     magiIRMAA: magiIRMAAPost67,
     mspIncome: mspIncomePost67,
-    householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
@@ -300,7 +294,6 @@ export default function App() {
     magiACA: magiACAPre65,
     magiIRMAA: magiIRMAA65Plus,
     mspIncome: mspIncome65Plus,
-    householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
@@ -374,8 +367,6 @@ export default function App() {
               setInvestedPct={setInvestedPct}
               investedPctWait={investedPctWait}
               setInvestedPctWait={setInvestedPctWait}
-              householdSize={householdSize}
-              setHouseholdSize={setHouseholdSize}
               coveredElsewhere={coveredElsewhere}
               setCoveredElsewhere={setCoveredElsewhere}
               unsubsidizedSilverAnnual={unsubsidizedSilverAnnual}
@@ -414,7 +405,6 @@ export default function App() {
               waitInvestedAdvantage={waitInvestedAdvantage}
               waitInvestedBreakEvenAge={waitInvestedBreakEvenAge}
               coveredElsewhere={coveredElsewhere}
-              householdSize={householdSize}
               acaAnnualCost={acaAnnualCost}
               medicareAnnualCost={medicareAnnualCost}
               magiACAPre65={magiACAPre65}
@@ -488,7 +478,6 @@ export default function App() {
           <HealthcarePanel
             claimAge={claimAge}
             coveredElsewhere={coveredElsewhere}
-            householdSize={householdSize}
             magiACAPre65={magiACAPre65}
             magiIRMAA65Plus={magiIRMAA65Plus}
             mspIncome65Plus={mspIncome65Plus}
