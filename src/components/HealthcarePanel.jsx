@@ -65,7 +65,6 @@ function bandForFplPct(fplPct) {
 export default function HealthcarePanel({
   claimAge,
   coveredElsewhere,
-  householdSize,
   magiACAPre65,
   magiIRMAA65Plus,
   // Gross-SS countable income for the MSP test (65+). Distinct from IRMAA
@@ -99,11 +98,8 @@ export default function HealthcarePanel({
     );
   }
 
-  const fpl =
-    householdSize === 2
-      ? FPL_2025_FOR_2026_PTC.couple
-      : FPL_2025_FOR_2026_PTC.single;
-  const fplPct = fplPctOf({ magi: magiACAPre65, householdSize });
+  const fpl = FPL_2025_FOR_2026_PTC.single;
+  const fplPct = fplPctOf({ magi: magiACAPre65 });
   const band = bandForFplPct(fplPct);
 
   const irmaaTier = getIRMAATier(magiIRMAA65Plus);

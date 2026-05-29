@@ -94,8 +94,9 @@ export function computeProjection({
   // Healthcare-cost modeling (OBBBA / NYC). Defaults make the math a no-op
   // (coveredElsewhere=true → zero delta) so existing call sites and tests
   // that don't pass these stay neutral. The UI passes the user's actual
-  // toggle/household-size/silver-rate values.
-  householdSize = 1,
+  // toggle/silver-rate values. Single-filer only — the healthcareCost FPL
+  // helpers stay household-size aware for a future joint-filer addition, but
+  // this orchestrator always models a single filer (default household size).
   coveredElsewhere = true,
   unsubsidizedSilverAnnual = NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
   // Calendar year of the claim decision (today). Used to age-anchor the
@@ -412,7 +413,6 @@ export function computeProjection({
     magiIRMAA: magiIRMAAEarlyPre,
     // MSP (65+ only) tests against gross-SS income, not taxable-SS MAGI.
     mspIncome: grossIncome + ssBasisAnnualEarlyPreFRA,
-    householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
@@ -421,7 +421,6 @@ export function computeProjection({
     magiACA: magiACAWaitPre,
     magiIRMAA: magiIRMAAWaitPre,
     mspIncome: grossIncome, // wait scenario has no SS yet pre-FRA
-    householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
@@ -447,7 +446,6 @@ export function computeProjection({
     magiIRMAA: magiIRMAAEarlyPost,
     // MSP test: post-67 wage + GROSS recouped SS (not the taxable portion).
     mspIncome: postFRAGrossIncome + ssBasisAnnualEarlyPostFRA,
-    householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
@@ -456,7 +454,6 @@ export function computeProjection({
     magiACA: 0,
     magiIRMAA: magiIRMAAWaitPost,
     mspIncome: postFRAGrossIncome + ssBasisAnnualWait,
-    householdSize,
     unsubsidizedAnnual: unsubsidizedSilverAnnual,
     coveredElsewhere,
   });

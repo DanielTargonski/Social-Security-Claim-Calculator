@@ -22,7 +22,6 @@ export function useBenefitProjection(inputs) {
       inputs.manualFedRate,
       inputs.investedPct,
       inputs.investedPctWait,
-      inputs.householdSize,
       inputs.coveredElsewhere,
       inputs.unsubsidizedSilverAnnual,
       inputs.locality,

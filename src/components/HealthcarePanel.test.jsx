@@ -6,7 +6,6 @@ import HealthcarePanel from "./HealthcarePanel.jsx";
 const baseProps = {
   claimAge: 62,
   coveredElsewhere: false,
-  householdSize: 1,
   magiACAPre65: 20000,
   magiIRMAA65Plus: 25000,
   acaAnnualCost: 0,
