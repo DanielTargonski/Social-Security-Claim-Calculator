@@ -33,10 +33,14 @@
      on the inverted light surface in dark mode. */
   --c-ink-on-dark: #c7cedb;
 
-  /* Brand accent — indigo. Interactive chrome only (active controls, focus
-     rings, primary CTA, slider fill). Deliberately NOT a data color. */
-  --c-accent: #4f46e5; /* indigo-600, ~6:1 on paper */
-  --c-accent-soft: #eceefe; /* pale indigo wash for accent backgrounds */
+  /* Brand accent — emerald/teal. Interactive chrome (active controls, focus
+     rings, primary CTA, slider fill). Shares hue space with the green data
+     colors, so it's kept a touch darker/deeper than the chart greens and the
+     two never sit adjacent (chrome vs data viz). --c-accent-on is the text /
+     icon color that sits ON an accent fill — white here, near-black in dark. */
+  --c-accent: #0f766e; /* teal-700, ~5:1 on paper; white text ~5:1 */
+  --c-accent-soft: #e2f2ef; /* pale teal wash for accent backgrounds */
+  --c-accent-on: #ffffff;
 
   /* Data colors — the strategy semantics. */
   --c-early: #dc2626; /* claim-early line / "worse" in tornado, ~4.8:1 */
@@ -53,7 +57,7 @@
   --shadow-sm: 0 1px 2px rgba(15, 23, 41, 0.04), 0 1px 3px rgba(15, 23, 41, 0.07);
   --shadow-md: 0 2px 4px rgba(15, 23, 41, 0.04), 0 6px 18px rgba(15, 23, 41, 0.08);
   --shadow-lg: 0 8px 30px rgba(15, 23, 41, 0.12);
-  --ring: 0 0 0 3px rgba(79, 70, 229, 0.25);
+  --ring: 0 0 0 3px rgba(15, 118, 110, 0.22);
 
   color-scheme: light;
 }
@@ -76,8 +80,9 @@
   --c-ink-faint: #7e8da3; /* ~5:1  on bg */
   --c-ink-on-dark: #4a5568; /* muted-dark text on the inverted light surface */
 
-  --c-accent: #818cf8; /* indigo-400, brighter for the dark canvas */
-  --c-accent-soft: #20243a;
+  --c-accent: #5eead4; /* teal-300, bright for the dark canvas; dark text on fill */
+  --c-accent-soft: #11302b;
+  --c-accent-on: #06241f; /* near-black teal — text/icons on the bright accent fill */
 
   --c-early: #f87171; /* ~6:1 on bg */
   --c-early-soft: #fca5a5;
@@ -88,7 +93,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
-  --ring: 0 0 0 3px rgba(129, 140, 248, 0.3);
+  --ring: 0 0 0 3px rgba(94, 234, 212, 0.28);
 
   color-scheme: dark;
 }

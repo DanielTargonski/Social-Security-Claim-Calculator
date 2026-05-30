@@ -158,7 +158,7 @@ export default function GlobalStyles() {
         background: ${C.accent};
         border: 1px solid ${C.accent};
         border-radius: var(--radius-pill);
-        color: #fff;
+        color: ${C.accentOn};
         cursor: pointer;
         transition: filter 0.18s ease, transform 0.05s ease;
         box-shadow: var(--shadow-sm);
@@ -184,9 +184,9 @@ export default function GlobalStyles() {
       .chip-toggle-active {
         background: ${C.accent};
         border-color: ${C.accent};
-        color: #fff;
+        color: ${C.accentOn};
       }
-      .chip-toggle-active:hover { color: #fff; filter: brightness(1.06); }
+      .chip-toggle-active:hover { color: ${C.accentOn}; filter: brightness(1.06); }
 
       /* ── Section label — small caps with an accent tick ────────────────── */
       .section-divider {

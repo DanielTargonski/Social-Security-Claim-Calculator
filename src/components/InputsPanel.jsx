@@ -19,7 +19,7 @@ function UnitToggle({ mode, onChange }) {
   const pill = (active) => ({
     padding: "2px 9px",
     backgroundColor: active ? C.accent : C.surface,
-    color: active ? "#fff" : C.inkSoft,
+    color: active ? C.accentOn : C.inkSoft,
     border: `1px solid ${active ? C.accent : C.border}`,
     borderRadius: "var(--radius-pill)",
     cursor: "pointer",
