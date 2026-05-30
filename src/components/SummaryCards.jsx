@@ -334,16 +334,12 @@ export default function SummaryCards({
   return (
     <div className="lg:col-span-2 grid grid-cols-2 lg:grid-cols-1 gap-3 lg:sticky lg:top-4 lg:self-start">
       <div
-        className="p-4"
-        style={{
-          backgroundColor: C.paper,
-          border: `1px solid ${C.border}`,
-          borderLeft: `3px solid ${C.early}`,
-        }}
+        className="card p-5"
+        style={{ borderLeft: `3px solid ${C.early}` }}
       >
         <div
           className="text-xs uppercase mb-2"
-          style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+          style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
         >
           Net check at {fmtAge(claimAge)}
         </div>
@@ -444,16 +440,12 @@ export default function SummaryCards({
       </div>
 
       <div
-        className="p-4"
-        style={{
-          backgroundColor: C.paper,
-          border: `1px solid ${C.border}`,
-          borderLeft: `3px solid ${C.wait}`,
-        }}
+        className="card p-5"
+        style={{ borderLeft: `3px solid ${C.wait}` }}
       >
         <div
           className="text-xs uppercase mb-2"
-          style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+          style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
         >
           Net check at 67
         </div>
@@ -507,16 +499,12 @@ export default function SummaryCards({
 
       {worksPastFRA && (
         <div
-          className="p-4 col-span-2 lg:col-span-1"
-          style={{
-            backgroundColor: C.paper,
-            border: `1px solid ${C.border}`,
-            borderLeft: `3px solid ${C.wait}`,
-          }}
+          className="card p-5 col-span-2 lg:col-span-1"
+          style={{ borderLeft: `3px solid ${C.wait}` }}
         >
           <div
             className="text-xs uppercase mb-2"
-            style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             Each year working past 67
           </div>
@@ -611,13 +599,8 @@ export default function SummaryCards({
       )}
 
       <div
-        className="p-4 col-span-2 lg:col-span-1 flex flex-col"
-        style={{
-          backgroundColor: C.paper,
-          color: C.ink,
-          border: `1px solid ${C.border}`,
-          borderLeft: `3px solid ${verdictAccent}`,
-        }}
+        className="card p-5 col-span-2 lg:col-span-1 flex flex-col"
+        style={{ color: C.ink, borderLeft: `3px solid ${verdictAccent}` }}
       >
         {mode === "switch" ? (
           <>
@@ -818,16 +801,12 @@ export default function SummaryCards({
           framing in two places. Hidden when "covered elsewhere" is on. */}
       {!coveredElsewhere && (
         <div
-          className="p-4 col-span-2 lg:col-span-1"
-          style={{
-            backgroundColor: C.paper,
-            border: `1px solid ${C.border}`,
-            borderLeft: `3px solid ${acaBandColor}`,
-          }}
+          className="card p-5 col-span-2 lg:col-span-1"
+          style={{ borderLeft: `3px solid ${acaBandColor}` }}
         >
           <div
             className="text-xs uppercase mb-2"
-            style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             Healthcare cost
           </div>

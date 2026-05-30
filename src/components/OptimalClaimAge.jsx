@@ -29,13 +29,7 @@ export default function OptimalClaimAge({ inputs, optimal, setClaimAge }) {
   const optimalPct = ((optimalAge - earliest) / rangeWidth) * 100;
 
   return (
-    <div
-      className="mt-5 p-6 md:p-7"
-      style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-      }}
-    >
+    <div className="card mt-5 p-6 md:p-7">
       <div className="mb-5">
         <h3 className="display text-xl" style={{ color: C.ink }}>
           <em>The optimal claim age</em>
@@ -56,16 +50,12 @@ export default function OptimalClaimAge({ inputs, optimal, setClaimAge }) {
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-stretch gap-3 mb-5">
         {/* Your pick */}
         <div
-          className="p-4"
-          style={{
-            backgroundColor: C.bg,
-            border: `1px solid ${C.border}`,
-            borderLeft: `3px solid ${C.early}`,
-          }}
+          className="card-flat p-4"
+          style={{ borderLeft: `3px solid ${C.early}` }}
         >
           <div
             className="text-xs uppercase mb-2"
-            style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             Your pick
           </div>
@@ -101,17 +91,20 @@ export default function OptimalClaimAge({ inputs, optimal, setClaimAge }) {
           style={{
             backgroundColor: alreadyOptimal ? C.paper : C.ink,
             color: alreadyOptimal ? C.ink : C.paper,
-            border: alreadyOptimal ? `1px solid ${C.wait}` : "none",
-            borderLeft: alreadyOptimal
-              ? `3px solid ${C.wait}`
-              : `3px solid ${C.wait}`,
+            borderTop: `1px solid ${alreadyOptimal ? C.border : C.ink}`,
+            borderRight: `1px solid ${alreadyOptimal ? C.border : C.ink}`,
+            borderBottom: `1px solid ${alreadyOptimal ? C.border : C.ink}`,
+            borderLeft: `3px solid ${C.wait}`,
+            borderRadius: "var(--radius)",
+            boxShadow: "var(--shadow-sm)",
           }}
         >
           <div
             className="text-xs uppercase mb-2"
             style={{
               color: alreadyOptimal ? C.inkSoft : C.inkOnDark,
-              letterSpacing: "0.15em",
+              letterSpacing: "0.1em",
+              fontWeight: 600,
             }}
           >
             {alreadyOptimal ? "You're at the optimum" : "Optimal"}
@@ -242,18 +235,7 @@ export default function OptimalClaimAge({ inputs, optimal, setClaimAge }) {
         {!alreadyOptimal && (
           <button
             onClick={() => setClaimAge(optimalAge)}
-            className="num"
-            style={{
-              fontSize: "11px",
-              textTransform: "uppercase",
-              letterSpacing: "0.15em",
-              padding: "8px 16px",
-              backgroundColor: C.ink,
-              color: C.paper,
-              border: `1px solid ${C.ink}`,
-              cursor: "pointer",
-              fontWeight: 500,
-            }}
+            className="btn-primary"
           >
             Use {fmtAge(optimalAge)}
           </button>

@@ -76,13 +76,7 @@ export default function HealthcarePanel({
 }) {
   if (coveredElsewhere) {
     return (
-      <div
-        className="mt-5 p-6 md:p-7"
-        style={{
-          backgroundColor: C.paper,
-          border: `1px solid ${C.border}`,
-        }}
-      >
+      <div className="card mt-5 p-6 md:p-7">
         <h3 className="display text-xl" style={{ color: C.ink }}>
           <em>Healthcare cost picture</em>
         </h3>
@@ -132,13 +126,7 @@ export default function HealthcarePanel({
   ];
 
   return (
-    <div
-      className="mt-5 p-6 md:p-7"
-      style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-      }}
-    >
+    <div className="card mt-5 p-6 md:p-7">
       <div className="mb-5">
         <h3 className="display text-xl" style={{ color: C.ink }}>
           <em>Healthcare cost picture</em>
@@ -158,16 +146,12 @@ export default function HealthcarePanel({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
         {/* Pre-65 ACA card */}
         <div
-          className="p-4"
-          style={{
-            backgroundColor: C.bg,
-            border: `1px solid ${C.border}`,
-            borderLeft: `3px solid ${band.ribbon}`,
-          }}
+          className="card-flat p-4"
+          style={{ borderLeft: `3px solid ${band.ribbon}` }}
         >
           <div
             className="text-xs uppercase mb-2"
-            style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             Pre-65 · ACA / Medicaid / Essential Plan
           </div>
@@ -198,10 +182,8 @@ export default function HealthcarePanel({
 
         {/* 65+ Medicare card */}
         <div
-          className="p-4"
+          className="card-flat p-4"
           style={{
-            backgroundColor: C.bg,
-            border: `1px solid ${C.border}`,
             borderLeft: `3px solid ${
               mspEligible || irmaaTierIdx === 0 ? C.wait : C.early
             }`,
@@ -209,7 +191,7 @@ export default function HealthcarePanel({
         >
           <div
             className="text-xs uppercase mb-2"
-            style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             65+ · Medicare (Part B + <Term {...GLOSSARY.IRMAA}>IRMAA</Term>)
           </div>

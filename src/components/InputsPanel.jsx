@@ -17,18 +17,22 @@ import ShareLinkButton from "./ShareLinkButton.jsx";
 // user can flip to "$" to type an exact dollar amount instead.
 function UnitToggle({ mode, onChange }) {
   const pill = (active) => ({
-    padding: "1px 6px",
-    backgroundColor: active ? C.ink : "transparent",
-    color: active ? C.bg : C.inkSoft,
-    border: `1px solid ${active ? C.ink : C.border}`,
+    padding: "2px 9px",
+    backgroundColor: active ? C.accent : C.surface,
+    color: active ? "#fff" : C.inkSoft,
+    border: `1px solid ${active ? C.accent : C.border}`,
+    borderRadius: "var(--radius-pill)",
     cursor: "pointer",
-    fontWeight: 500,
+    fontWeight: 600,
     fontFamily: "inherit",
     fontSize: "10px",
     lineHeight: 1.4,
   });
   return (
-    <span style={{ display: "inline-flex", gap: "2px" }} className="num">
+    <span
+      style={{ display: "inline-flex", gap: "3px", padding: 2 }}
+      className="num"
+    >
       <button
         type="button"
         onClick={() => onChange("%")}
@@ -237,13 +241,7 @@ export default function InputsPanel({
     investedPctWaitMode === "$" ? dollarModeProps(fraMonthlyNet) : null;
 
   return (
-    <div
-      className="lg:col-span-3 p-6 md:p-7"
-      style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-      }}
-    >
+    <div className="card lg:col-span-3 p-6 md:p-7">
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h3 className="display text-xl" style={{ color: C.ink }}>
           <em>Inputs</em>
@@ -511,18 +509,8 @@ export default function InputsPanel({
           <div className="flex items-center gap-2 mb-2">
             <button
               onClick={() => setAutoTax(!autoTax)}
-              className="num"
-              style={{
-                fontSize: "10px",
-                textTransform: "uppercase",
-                letterSpacing: "0.15em",
-                padding: "4px 10px",
-                backgroundColor: autoTax ? C.ink : "transparent",
-                color: autoTax ? C.bg : C.ink,
-                border: `1px solid ${C.ink}`,
-                cursor: "pointer",
-                fontWeight: 500,
-              }}
+              className={`chip-toggle${autoTax ? " chip-toggle-active" : ""}`}
+              aria-pressed={autoTax}
             >
               {autoTax ? "● Auto" : "○ Auto"}
             </button>
@@ -544,6 +532,7 @@ export default function InputsPanel({
               width: "100%",
               opacity: autoTax ? 0.4 : 1,
               cursor: autoTax ? "not-allowed" : "pointer",
+              "--pct": `${(fedMarginalRate / 37) * 100}%`,
             }}
           />
           <div
@@ -584,18 +573,10 @@ export default function InputsPanel({
               <button
                 key={value}
                 onClick={() => setLocality(value)}
-                className="num"
-                style={{
-                  fontSize: "10px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.15em",
-                  padding: "4px 10px",
-                  backgroundColor: locality === value ? C.ink : "transparent",
-                  color: locality === value ? C.bg : C.ink,
-                  border: `1px solid ${C.ink}`,
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}
+                className={`chip-toggle${
+                  locality === value ? " chip-toggle-active" : ""
+                }`}
+                aria-pressed={locality === value}
               >
                 {label}
               </button>
@@ -615,18 +596,10 @@ export default function InputsPanel({
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <button
               onClick={() => setCoveredElsewhere(!coveredElsewhere)}
-              className="num"
-              style={{
-                fontSize: "10px",
-                textTransform: "uppercase",
-                letterSpacing: "0.15em",
-                padding: "4px 10px",
-                backgroundColor: coveredElsewhere ? C.ink : "transparent",
-                color: coveredElsewhere ? C.bg : C.ink,
-                border: `1px solid ${C.ink}`,
-                cursor: "pointer",
-                fontWeight: 500,
-              }}
+              className={`chip-toggle${
+                coveredElsewhere ? " chip-toggle-active" : ""
+              }`}
+              aria-pressed={coveredElsewhere}
               title="Skip ACA / Medicare cost modeling — pick this if you have employer coverage, retiree health benefits, VA care, or are covered through a working spouse"
             >
               {coveredElsewhere ? "● Covered elsewhere" : "○ Covered elsewhere"}

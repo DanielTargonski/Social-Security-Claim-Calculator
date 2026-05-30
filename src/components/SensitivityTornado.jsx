@@ -217,13 +217,7 @@ export default function SensitivityTornado({ inputs }) {
   const outputLabel = getOutputLabelForMode(inputs.mode, inputs.lifeExpectancy);
 
   return (
-    <div
-      className="mt-5 p-6 md:p-7"
-      style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-      }}
-    >
+    <div className="card mt-5 p-6 md:p-7">
       <div className="flex justify-between items-end mb-2 flex-wrap gap-3">
         <div>
           <h3 className="display text-xl" style={{ color: C.ink }}>
@@ -306,7 +300,7 @@ export default function SensitivityTornado({ inputs }) {
                     right: "50%",
                     width: `${leftPct}%`,
                     backgroundColor: C.early,
-                    opacity: 0.85,
+                    borderRadius: "5px 0 0 5px",
                   }}
                   title={`${row.formatValue(row.minSideValue)} → ${
                     row.minOutput >= 0 ? "+" : "−"
@@ -319,7 +313,7 @@ export default function SensitivityTornado({ inputs }) {
                     left: "50%",
                     width: `${rightPct}%`,
                     backgroundColor: C.wait,
-                    opacity: 0.85,
+                    borderRadius: "0 5px 5px 0",
                   }}
                   title={`${row.formatValue(row.maxSideValue)} → ${
                     row.maxOutput >= 0 ? "+" : "−"
