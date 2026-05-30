@@ -16,13 +16,7 @@ export default function PotTable({
   chartData,
 }) {
   return (
-    <div
-      className="mt-5 p-6 md:p-7"
-      style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-      }}
-    >
+    <div className="card mt-5 p-6 md:p-7">
       <h3 className="display text-xl mb-4" style={{ color: C.ink }}>
         <em>The pot, year by year</em>
       </h3>
@@ -100,11 +94,30 @@ export default function PotTable({
                         ? (growth >= 0 ? "+" : "") + fmtBig(growth)
                         : "—"}
                     </td>
-                    <td
-                      className="py-3 text-right text-xs"
-                      style={{ color: C.inkFaint }}
-                    >
-                      {row.age <= investStopAge ? "Contributing" : "Compounding"}
+                    <td className="py-3 text-right text-xs">
+                      {(() => {
+                        const contributing = row.age <= investStopAge;
+                        return (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              padding: "3px 10px",
+                              borderRadius: "var(--radius-pill)",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              backgroundColor: contributing
+                                ? C.accentSoft
+                                : C.surface,
+                              color: contributing ? C.accent : C.inkFaint,
+                              border: `1px solid ${
+                                contributing ? "transparent" : C.border
+                              }`,
+                            }}
+                          >
+                            {contributing ? "Contributing" : "Compounding"}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );

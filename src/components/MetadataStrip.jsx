@@ -110,14 +110,7 @@ export default function MetadataStrip({
   const gridStyle = { gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" };
 
   return (
-    <div
-      className="mb-5 p-4"
-      style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-        color: C.inkSoft,
-      }}
-    >
+    <div className="card mb-5 p-5 md:p-6" style={{ color: C.inkSoft }}>
       <h3 className="display text-xl mb-4" style={{ color: C.ink }}>
         <em>By the numbers</em>
       </h3>

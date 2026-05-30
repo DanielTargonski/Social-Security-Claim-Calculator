@@ -1,122 +1,212 @@
 import { C } from "../constants/colors.js";
 
 // Single inline <style> block for the calculator. Lives at the App root so
-// these classes (.num, .display, .mode-btn, .grain, range-input styling) are
-// available everywhere. Google Fonts are imported here too, intentionally —
-// keeps the calculator's font assets self-contained.
+// these classes (.num, .display, .card, .mode-btn, range-input styling, etc.)
+// are available everywhere. Google Fonts are imported here too, intentionally
+// — keeps the calculator's font assets self-contained.
+//
+// Type system: Inter for UI + headings (the de-facto modern-fintech sans),
+// JetBrains Mono for every numeral (tabular figures read as a clean ledger).
 export default function GlobalStyles() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-      .num { font-family: 'JetBrains Mono', monospace; font-feature-settings: "tnum"; }
-      .display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+      :root { --pct: 0%; }
 
-      body { background: ${C.bg}; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        background: ${C.bg};
+        color: ${C.ink};
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        font-feature-settings: "cv05", "ss01";
+      }
 
+      /* Numerals — tabular so columns of figures align. */
+      .num {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-feature-settings: "tnum";
+        font-variant-numeric: tabular-nums;
+      }
+      /* Display / heading face — clean bold Inter. The codebase wraps heading
+         text in <em>; neutralize the italic so headings read upright. */
+      .display {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .display em { font-style: normal; }
+
+      /* ── Card ────────────────────────────────────────────────────────── */
+      .card {
+        background: ${C.paper};
+        border: 1px solid ${C.border};
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+      }
+      .card-flat {
+        background: ${C.surface};
+        border: 1px solid ${C.border};
+        border-radius: var(--radius);
+      }
+
+      /* ── Range slider — filled track via --pct + floating thumb ───────── */
       input[type="range"] {
         -webkit-appearance: none;
         appearance: none;
         width: 100%;
-        height: 2px;
-        background: ${C.borderDark};
+        height: 6px;
+        border-radius: 999px;
+        background-color: ${C.track};
+        background-image: linear-gradient(${C.accent}, ${C.accent});
+        background-size: var(--pct, 0%) 100%;
+        background-repeat: no-repeat;
         outline: none;
         cursor: pointer;
       }
       input[type="range"]::-webkit-slider-thumb {
         -webkit-appearance: none;
-        width: 22px; height: 22px;
-        background: ${C.ink};
+        width: 18px; height: 18px;
+        margin-top: 0;
+        background: ${C.accent};
         cursor: pointer;
         border-radius: 50%;
-        border: 4px solid ${C.bg};
-        box-shadow: 0 0 0 1px ${C.ink};
-        transition: transform 0.15s ease;
+        border: 3px solid ${C.paper};
+        box-shadow: 0 0 0 1px ${C.borderDark}, 0 1px 4px rgba(15,23,41,0.25);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
-      input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+      input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); }
+      input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: var(--ring); }
       input[type="range"]::-moz-range-thumb {
-        width: 22px; height: 22px;
-        background: ${C.ink};
+        width: 18px; height: 18px;
+        background: ${C.accent};
         cursor: pointer;
         border-radius: 50%;
-        border: 4px solid ${C.bg};
-        box-shadow: 0 0 0 1px ${C.ink};
+        border: 3px solid ${C.paper};
+        box-shadow: 0 0 0 1px ${C.borderDark}, 0 1px 4px rgba(15,23,41,0.25);
       }
 
-      .grain {
-        position: absolute; inset: 0; pointer-events: none; opacity: 0.4;
-        background-image: radial-gradient(${C.borderDark} 0.5px, transparent 0.5px);
-        background-size: 3px 3px;
-        mix-blend-mode: multiply;
+      /* ── Segmented control (mode + tab pickers) ───────────────────────── */
+      .segment {
+        display: inline-flex;
+        gap: 2px;
+        padding: 4px;
+        background: ${C.surface};
+        border: 1px solid ${C.border};
+        border-radius: var(--radius-pill);
       }
-
       .mode-btn {
-        padding: 8px 16px;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.15em;
+        padding: 7px 16px;
+        font-size: 13px;
         font-weight: 500;
-        font-family: 'JetBrains Mono', monospace;
-        transition: all 0.2s ease;
+        font-family: 'Inter', system-ui, sans-serif;
+        letter-spacing: -0.01em;
+        line-height: 1;
+        transition: all 0.18s ease;
         background: transparent;
-        /* Each inactive button keeps a visible outline so all the choices read
-           as distinct, clickable buttons — not just plain text next to the one
-           filled-in active button. */
-        border: 1px solid ${C.borderDark};
+        border: none;
+        border-radius: var(--radius-pill);
         cursor: pointer;
-        color: ${C.ink};
+        color: ${C.inkSoft};
+        white-space: nowrap;
       }
-      /* Hover preview only on inactive tabs — :not(.mode-btn-active)
-         keeps the active black fill from reverting on hover. */
-      .mode-btn:not(.mode-btn-active):hover {
-        background: ${C.border};
-      }
+      .mode-btn:not(.mode-btn-active):hover { color: ${C.ink}; background: ${C.paper}; }
       .mode-btn-active {
-        background: ${C.ink};
-        border-color: ${C.ink};
-        color: ${C.bg};
+        background: ${C.paper};
+        color: ${C.ink};
+        font-weight: 600;
+        box-shadow: var(--shadow-sm);
       }
 
-      .share-link-btn {
-        padding: 6px 12px;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
+      /* ── Ghost / pill buttons (share link, theme toggle) ───────────────── */
+      .pill-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 14px;
+        font-size: 12.5px;
         font-weight: 500;
-        font-family: 'JetBrains Mono', monospace;
-        background: transparent;
-        border: 1px solid ${C.borderDark};
+        font-family: 'Inter', system-ui, sans-serif;
+        background: ${C.paper};
+        border: 1px solid ${C.border};
+        border-radius: var(--radius-pill);
         color: ${C.inkSoft};
         cursor: pointer;
         transition: all 0.18s ease;
+        box-shadow: var(--shadow-sm);
       }
-      .share-link-btn:hover {
-        background: ${C.border};
-        color: ${C.ink};
-      }
+      .pill-btn:hover { color: ${C.ink}; border-color: ${C.borderDark}; }
+      .share-link-btn { /* alias kept for component clarity */ }
       .share-link-btn.copied,
       .share-link-btn.copied:hover {
         background: ${C.wait};
         border-color: ${C.wait};
-        color: ${C.bg};
+        color: #fff;
       }
 
-      .theme-toggle-btn {
-        padding: 6px 12px;
+      /* ── Primary CTA ───────────────────────────────────────────────────── */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 18px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: 'Inter', system-ui, sans-serif;
+        background: ${C.accent};
+        border: 1px solid ${C.accent};
+        border-radius: var(--radius-pill);
+        color: ${C.accentOn};
+        cursor: pointer;
+        transition: filter 0.18s ease, transform 0.05s ease;
+        box-shadow: var(--shadow-sm);
+      }
+      .btn-primary:hover { filter: brightness(1.08); }
+      .btn-primary:active { transform: translateY(1px); }
+
+      /* Small toggle chips (Auto, Covered elsewhere, locality, % / $). */
+      .chip-toggle {
         font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
         font-weight: 500;
-        font-family: 'JetBrains Mono', monospace;
-        background: transparent;
-        border: 1px solid ${C.borderDark};
+        font-family: 'Inter', system-ui, sans-serif;
+        letter-spacing: 0;
+        padding: 5px 11px;
+        border-radius: var(--radius-pill);
+        border: 1px solid ${C.border};
+        background: ${C.surface};
         color: ${C.inkSoft};
         cursor: pointer;
-        transition: all 0.18s ease;
+        transition: all 0.16s ease;
       }
-      .theme-toggle-btn:hover {
-        background: ${C.border};
-        color: ${C.ink};
+      .chip-toggle:hover { border-color: ${C.borderDark}; color: ${C.ink}; }
+      .chip-toggle-active {
+        background: ${C.accent};
+        border-color: ${C.accent};
+        color: ${C.accentOn};
+      }
+      .chip-toggle-active:hover { color: ${C.accentOn}; filter: brightness(1.06); }
+
+      /* ── Section label — small caps with an accent tick ────────────────── */
+      .section-divider {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: ${C.inkFaint};
+        padding-bottom: 2px;
+      }
+      .section-divider::before {
+        content: "";
+        width: 6px; height: 6px;
+        border-radius: 2px;
+        background: ${C.accent};
+        flex: none;
       }
 
       .attribution-link {
@@ -126,29 +216,22 @@ export default function GlobalStyles() {
       }
       .attribution-link:hover {
         color: ${C.ink} !important;
-        border-bottom-color: ${C.inkSoft};
+        border-bottom-color: ${C.accent};
       }
 
-      .section-divider {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 10px;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        color: ${C.inkFaint};
-        padding-top: 8px;
-        padding-bottom: 4px;
-        border-bottom: 1px solid ${C.border};
-        margin-bottom: 4px;
+      /* Global focus ring for keyboard users. */
+      :focus-visible {
+        outline: none;
+        box-shadow: var(--ring);
+        border-radius: var(--radius-sm);
       }
 
-      /* Inline glossary term + hover/focus tooltip (see Term.jsx). The dotted
-         underline marks a definable acronym; the tooltip reveals on hover or
-         keyboard focus and inverts ink/paper so it reads on either theme. */
+      /* Inline glossary term + hover/focus tooltip (see Term.jsx). */
       .term {
         position: relative;
         border-bottom: 1px dotted currentColor;
         cursor: help;
-        font-weight: 500;
+        font-weight: 600;
         outline: none;
       }
       .term-tip {
@@ -161,12 +244,10 @@ export default function GlobalStyles() {
         max-width: 250px;
         padding: 10px 12px;
         background: ${C.ink};
-        color: ${C.bg};
-        border-radius: 4px;
-        box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
-        /* Reset the label's mono/uppercase/tracking so the explanation reads
-           as plain prose regardless of which label hosts the term. */
-        font-family: 'Fraunces', Georgia, serif;
+        color: ${C.paper};
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-lg);
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 12.5px;
         font-weight: 400;
         line-height: 1.5;

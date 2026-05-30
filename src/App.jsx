@@ -303,17 +303,15 @@ export default function App() {
       style={{
         backgroundColor: C.bg,
         minHeight: "100vh",
-        fontFamily: "'Fraunces', Georgia, serif",
+        fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
       <GlobalStyles />
       <Analytics />
 
       <div style={{ position: "relative" }}>
-        <div className="grain" />
-
-        <div className="max-w-5xl mx-auto px-5 py-8 md:py-12 relative">
-          <div className="flex justify-between items-start gap-3 flex-wrap">
+        <div className="max-w-6xl mx-auto px-5 md:px-8 py-7 md:py-10 relative">
+          <div className="flex justify-between items-center gap-3 flex-wrap mb-7">
             <TabNav view={view} onChange={setView} />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>

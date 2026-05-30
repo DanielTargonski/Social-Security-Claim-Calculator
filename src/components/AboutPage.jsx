@@ -16,33 +16,36 @@ export default function AboutPage() {
     <div className="max-w-3xl">
       {/* Header */}
       <div className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <div
-            style={{ width: "48px", height: "1px", backgroundColor: C.ink }}
-          />
-          <span
-            className="num text-xs uppercase"
-            style={{ color: C.inkSoft, letterSpacing: "0.22em" }}
-          >
-            About &nbsp;·&nbsp; Why this exists
-          </span>
-        </div>
-        <h1
-          className="display leading-[0.95]"
+        <span
+          className="inline-flex items-center gap-2 mb-5"
           style={{
-            color: C.ink,
-            fontSize: "clamp(2.25rem, 6vw, 3.75rem)",
-            fontWeight: 300,
-            fontVariationSettings: '"SOFT" 50',
+            padding: "5px 12px 5px 10px",
+            borderRadius: "var(--radius-pill)",
+            background: C.accentSoft,
+            color: C.accent,
+            fontSize: "11.5px",
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
           }}
         >
-          The half of the answer
-          <br />
           <span
-            style={{ fontStyle: "italic", fontWeight: 400, color: C.early }}
-          >
-            the SSA leaves out.
-          </span>
+            style={{ width: 6, height: 6, borderRadius: 999, background: C.accent }}
+          />
+          About · Why this exists
+        </span>
+        <h1
+          className="display"
+          style={{
+            color: C.ink,
+            fontSize: "clamp(2.1rem, 6vw, 3.4rem)",
+            fontWeight: 800,
+            lineHeight: 1.03,
+            letterSpacing: "-0.035em",
+          }}
+        >
+          The half of the answer{" "}
+          <span style={{ color: C.accent }}>the SSA leaves out.</span>
         </h1>
         <p
           className="mt-5 text-base leading-relaxed"
@@ -82,11 +85,9 @@ export default function AboutPage() {
         </p>
 
         <div
-          className="p-5 mb-5 num text-sm"
+          className="card-flat p-5 mb-5 num text-sm"
           style={{
-            backgroundColor: C.paper,
-            border: `1px solid ${C.border}`,
-            borderLeft: `3px solid ${C.borderDark}`,
+            borderLeft: `3px solid ${C.accent}`,
             color: C.ink,
             lineHeight: 1.7,
           }}
@@ -104,16 +105,10 @@ export default function AboutPage() {
           and the benefit is shrunk by 28.5% for life.
         </p>
 
-        <div
-          className="p-5 mt-6"
-          style={{
-            backgroundColor: C.paper,
-            border: `1px solid ${C.border}`,
-          }}
-        >
+        <div className="card p-5 mt-6">
           <div
             className="text-xs uppercase mb-3"
-            style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+            style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             Worked example, in the SSA's style
           </div>
@@ -176,16 +171,12 @@ export default function AboutPage() {
         {/* Side-by-side comparison */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
           <div
-            className="p-5"
-            style={{
-              backgroundColor: C.paper,
-              border: `1px solid ${C.border}`,
-              borderLeft: `3px solid ${C.early}`,
-            }}
+            className="card-flat p-5"
+            style={{ borderLeft: `3px solid ${C.early}` }}
           >
             <div
               className="text-xs uppercase mb-3"
-              style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+              style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
             >
               Claim at 64, invest at 5% real
             </div>
@@ -213,16 +204,12 @@ export default function AboutPage() {
           </div>
 
           <div
-            className="p-5"
-            style={{
-              backgroundColor: C.paper,
-              border: `1px solid ${C.border}`,
-              borderLeft: `3px solid ${C.wait}`,
-            }}
+            className="card-flat p-5"
+            style={{ borderLeft: `3px solid ${C.wait}` }}
           >
             <div
               className="text-xs uppercase mb-3"
-              style={{ color: C.inkSoft, letterSpacing: "0.15em" }}
+              style={{ color: C.inkSoft, letterSpacing: "0.1em", fontWeight: 600 }}
             >
               Wait until 67, no investment
             </div>

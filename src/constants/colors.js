@@ -20,9 +20,21 @@
 // the per-theme ratios are documented next to the hexes in index.css.
 export const C = {
   bg: "var(--c-bg)",
+  surface: "var(--c-surface)",
   paper: "var(--c-paper)",
   border: "var(--c-border)",
   borderDark: "var(--c-border-dark)",
+  track: "var(--c-track)",
+  // Brand accent (indigo) — interactive chrome only (active controls, focus
+  // rings, primary CTAs, slider fill). Deliberately distinct from the data
+  // colors so "interactive" never reads as "good/bad". accentSoft is the pale
+  // wash used behind accent content.
+  accent: "var(--c-accent)",
+  accentSoft: "var(--c-accent-soft)",
+  // Text / icon color that sits ON an accent fill (primary buttons, active
+  // chips). White in light mode; near-black teal in dark, since the dark
+  // accent is a bright teal that white text wouldn't read on.
+  accentOn: "var(--c-accent-on)",
   ink: "var(--c-ink)",
   inkSoft: "var(--c-ink-soft)",
   inkFaint: "var(--c-ink-faint)",

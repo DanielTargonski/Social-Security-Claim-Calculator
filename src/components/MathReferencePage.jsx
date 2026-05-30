@@ -44,33 +44,36 @@ export default function MathReferencePage() {
 function PageHeader() {
   return (
     <div className="mb-10">
-      <div className="flex items-center gap-3 mb-4">
-        <div
-          style={{ width: "48px", height: "1px", backgroundColor: C.ink }}
-        />
-        <span
-          className="num text-xs uppercase"
-          style={{ color: C.inkSoft, letterSpacing: "0.22em" }}
-        >
-          The math &nbsp;·&nbsp; every formula, sourced
-        </span>
-      </div>
-      <h1
-        className="display leading-[0.95]"
+      <span
+        className="inline-flex items-center gap-2 mb-5"
         style={{
-          color: C.ink,
-          fontSize: "clamp(2.25rem, 6vw, 3.75rem)",
-          fontWeight: 300,
-          fontVariationSettings: '"SOFT" 50',
+          padding: "5px 12px 5px 10px",
+          borderRadius: "var(--radius-pill)",
+          background: C.accentSoft,
+          color: C.accent,
+          fontSize: "11.5px",
+          fontWeight: 600,
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
         }}
       >
-        How everything is
-        <br />
         <span
-          style={{ fontStyle: "italic", fontWeight: 400, color: C.wait }}
-        >
-          actually calculated.
-        </span>
+          style={{ width: 6, height: 6, borderRadius: 999, background: C.accent }}
+        />
+        The math · every formula, sourced
+      </span>
+      <h1
+        className="display"
+        style={{
+          color: C.ink,
+          fontSize: "clamp(2.1rem, 6vw, 3.4rem)",
+          fontWeight: 800,
+          lineHeight: 1.03,
+          letterSpacing: "-0.035em",
+        }}
+      >
+        How everything is{" "}
+        <span style={{ color: C.accent }}>actually calculated.</span>
       </h1>
       <p
         className="mt-5 text-base leading-relaxed"
@@ -95,11 +98,9 @@ function PageHeader() {
 function Formula({ children }) {
   return (
     <div
-      className="p-5 mb-4 num text-sm"
+      className="card-flat p-5 mb-4 num text-sm"
       style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-        borderLeft: `3px solid ${C.borderDark}`,
+        borderLeft: `3px solid ${C.accent}`,
         color: C.ink,
         lineHeight: 1.7,
         whiteSpace: "pre-wrap",
@@ -151,19 +152,18 @@ function Ref({ href, children }) {
 function TierTable({ headers, rows }) {
   return (
     <div
-      className="num text-sm mb-4"
+      className="card-flat num text-sm mb-4 overflow-hidden"
       style={{
-        border: `1px solid ${C.border}`,
-        borderLeft: `3px solid ${C.borderDark}`,
-        backgroundColor: C.paper,
+        borderLeft: `3px solid ${C.accent}`,
         color: C.ink,
       }}
     >
       <div
-        className="grid grid-cols-2 px-5 py-2 text-xs uppercase"
+        className="grid grid-cols-2 px-5 py-2.5 text-xs uppercase"
         style={{
           color: C.inkFaint,
-          letterSpacing: "0.15em",
+          letterSpacing: "0.1em",
+          fontWeight: 600,
           borderBottom: `1px solid ${C.border}`,
         }}
       >

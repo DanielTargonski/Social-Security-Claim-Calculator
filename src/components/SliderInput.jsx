@@ -57,6 +57,11 @@ export default function SliderInput({
     setEditing(false);
   };
 
+  // Fraction of the track that's filled, driving the accent fill via the
+  // --pct custom property (see input[type="range"] in GlobalStyles).
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  const clampedPct = Math.min(100, Math.max(0, pct));
+
   return (
     <div>
       <div className="flex justify-between items-baseline mb-2 gap-3">
@@ -87,10 +92,11 @@ export default function SliderInput({
             }}
             style={{
               color: C.ink,
-              fontWeight: 500,
-              backgroundColor: C.bg,
-              border: `1px solid ${C.borderDark}`,
-              padding: "2px 8px",
+              fontWeight: 600,
+              backgroundColor: C.surface,
+              border: `1px solid ${C.accent}`,
+              borderRadius: "var(--radius-sm)",
+              padding: "3px 10px",
               width: "9rem",
               textAlign: "right",
               fontSize: "1.125rem",
@@ -101,20 +107,25 @@ export default function SliderInput({
           <button
             type="button"
             onClick={startEdit}
-            className="num text-lg"
+            className="num"
             title="Click to type an exact value"
             style={{
               color: C.ink,
-              fontWeight: 500,
+              fontWeight: 600,
               background: "transparent",
-              border: "none",
-              padding: "2px 6px",
-              margin: "-2px -6px",
+              border: `1px solid transparent`,
+              padding: "3px 8px",
+              margin: "-3px -8px",
               cursor: "text",
               fontSize: "1.125rem",
-              borderBottom: `1px dashed ${C.borderDark}`,
+              borderRadius: "var(--radius-sm)",
               fontFamily: "inherit",
+              transition: "background 0.15s ease",
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = C.surface)}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = "transparent")
+            }
           >
             {format(value)}
           </button>
@@ -127,7 +138,7 @@ export default function SliderInput({
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        style={{ width: "100%" }}
+        style={{ width: "100%", "--pct": `${clampedPct}%` }}
       />
       <div
         className="flex justify-between mt-1 text-xs num"

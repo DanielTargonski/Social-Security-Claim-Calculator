@@ -1,47 +1,47 @@
 import { C } from "../constants/colors.js";
 import Var from "./Var.jsx";
 
-// Top-of-page heading: kicker, title, and lede paragraph. The lede references
-// investStopAge so it stays in sync with the user's chosen "stop investing"
-// boundary.
+// Top-of-page hero: an eyebrow badge, the headline, and a lede paragraph. The
+// lede references investStopAge so it stays in sync with the user's chosen
+// "stop investing" boundary.
 export default function Header({ investStopAge }) {
   return (
-    <div className="mb-8 md:mb-10">
-      <div className="flex items-center gap-3 mb-4">
-        <div
-          style={{
-            width: "48px",
-            height: "1px",
-            backgroundColor: C.ink,
-          }}
-        />
-        <span
-          className="num text-xs uppercase"
-          style={{ color: C.inkSoft, letterSpacing: "0.22em" }}
-        >
-          The Claim Calculator
-        </span>
-      </div>
-      <h1
-        className="display leading-[0.95]"
+    <div className="mb-9 md:mb-12">
+      <span
+        className="inline-flex items-center gap-2 mb-5"
         style={{
-          color: C.ink,
-          fontSize: "clamp(2.5rem, 7vw, 4.25rem)",
-          fontWeight: 300,
-          fontVariationSettings: '"SOFT" 50',
+          padding: "5px 12px 5px 10px",
+          borderRadius: "var(--radius-pill)",
+          background: C.accentSoft,
+          color: C.accent,
+          fontSize: "11.5px",
+          fontWeight: 600,
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
         }}
       >
-        Take it now,
-        <br />
         <span
           style={{
-            fontStyle: "italic",
-            fontWeight: 400,
-            color: C.early,
+            width: 6,
+            height: 6,
+            borderRadius: 999,
+            background: C.accent,
           }}
-        >
-          or wait for more.
-        </span>
+        />
+        The Claim Calculator
+      </span>
+      <h1
+        className="display"
+        style={{
+          color: C.ink,
+          fontSize: "clamp(2.25rem, 5.5vw, 3.6rem)",
+          fontWeight: 800,
+          lineHeight: 1.02,
+          letterSpacing: "-0.035em",
+        }}
+      >
+        Take it now,{" "}
+        <span style={{ color: C.accent }}>or wait for more.</span>
       </h1>
       <p
         className="mt-5 text-sm md:text-base leading-relaxed max-w-xl"

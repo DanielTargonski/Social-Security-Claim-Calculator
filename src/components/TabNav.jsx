@@ -1,5 +1,3 @@
-import { C } from "../constants/colors.js";
-
 // Three-tab nav at the very top of the page: the calculator itself, the
 // "Why this exists" explainer, and the "The math" reference page. Visually
 // echoes the ModeSwitcher chip pattern so the two controls feel like part
@@ -9,13 +7,7 @@ import { C } from "../constants/colors.js";
 // state lives in App.jsx and conditionally renders one of three subtrees.
 export default function TabNav({ view, onChange }) {
   return (
-    <div
-      className="inline-flex gap-1.5 p-1 mb-6 flex-wrap"
-      style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-      }}
-    >
+    <div className="segment flex-wrap">
       <button
         type="button"
         onClick={() => onChange("calculator")}

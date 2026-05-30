@@ -31,13 +31,7 @@ export default function ChartCard({
   advantage,
 }) {
   return (
-    <div
-      className="p-6 md:p-7"
-      style={{
-        backgroundColor: C.paper,
-        border: `1px solid ${C.border}`,
-      }}
-    >
+    <div className="card p-6 md:p-7">
       <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
         <div>
           <h3 className="display text-xl" style={{ color: C.ink }}>
@@ -157,10 +151,12 @@ export default function ChartCard({
               }
             />
             <Tooltip
+              cursor={{ stroke: C.borderDark, strokeDasharray: "3 3" }}
               contentStyle={{
-                backgroundColor: C.bg,
-                border: `1px solid ${C.ink}`,
-                borderRadius: 0,
+                backgroundColor: C.paper,
+                border: `1px solid ${C.border}`,
+                borderRadius: 12,
+                boxShadow: "var(--shadow-md)",
                 fontFamily: "JetBrains Mono",
                 fontSize: 12,
                 padding: "10px 12px",
@@ -267,14 +263,11 @@ export default function ChartCard({
         </ResponsiveContainer>
       </div>
 
-      <div
-        className="mt-6 pt-5 grid grid-cols-2 md:grid-cols-4 gap-5"
-        style={{ borderTop: `1px solid ${C.border}` }}
-      >
-        <div>
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="card-flat p-4">
           <div
             className="text-xs uppercase mb-1"
-            style={{ color: C.inkFaint, letterSpacing: "0.15em" }}
+            style={{ color: C.inkFaint, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             Pot at {investStopAge}
           </div>
@@ -289,10 +282,10 @@ export default function ChartCard({
             {fmtBig(potAtStopRow)}
           </div>
         </div>
-        <div>
+        <div className="card-flat p-4">
           <div
             className="text-xs uppercase mb-1"
-            style={{ color: C.inkFaint, letterSpacing: "0.15em" }}
+            style={{ color: C.inkFaint, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             Pot at {fmtAge(lifeExpectancy)}
           </div>
@@ -307,10 +300,10 @@ export default function ChartCard({
             {fmtBig(finalPot)}
           </div>
         </div>
-        <div>
+        <div className="card-flat p-4">
           <div
             className="text-xs uppercase mb-1"
-            style={{ color: C.inkFaint, letterSpacing: "0.15em" }}
+            style={{ color: C.inkFaint, letterSpacing: "0.1em", fontWeight: 600 }}
           >
             Total at {fmtAge(lifeExpectancy)} · Early
           </div>
@@ -325,12 +318,13 @@ export default function ChartCard({
             {fmtBig(finalEarly)}
           </div>
         </div>
-        <div>
+        <div className="card-flat p-4">
           <div
             className="text-xs uppercase mb-1"
             style={{
               color: C.inkFaint,
-              letterSpacing: "0.15em",
+              letterSpacing: "0.1em",
+              fontWeight: 600,
               whiteSpace: "nowrap",
             }}
           >

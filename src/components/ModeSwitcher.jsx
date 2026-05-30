@@ -6,13 +6,7 @@ import { C } from "../constants/colors.js";
 export default function ModeSwitcher({ mode, onChange }) {
   return (
     <>
-      <div
-        className="inline-flex gap-1.5 p-1 mb-6 flex-wrap"
-        style={{
-          backgroundColor: C.paper,
-          border: `1px solid ${C.border}`,
-        }}
-      >
+      <div className="segment mb-6 flex-wrap">
         <button
           onClick={() => onChange("retirement")}
           className={`mode-btn ${mode === "retirement" ? "mode-btn-active" : ""}`}
@@ -35,17 +29,15 @@ export default function ModeSwitcher({ mode, onChange }) {
 
       {mode === "switch" && (
         <div
-          className="mb-6 p-4 text-xs leading-relaxed"
+          className="card mb-6 p-4 text-xs leading-relaxed"
           style={{
-            backgroundColor: C.paper,
-            border: `1px solid ${C.border}`,
             borderLeft: `3px solid ${C.cross}`,
             color: C.inkSoft,
           }}
         >
           <span
             className="display"
-            style={{ color: C.ink, fontStyle: "italic", fontSize: "13px" }}
+            style={{ color: C.ink, fontSize: "13px" }}
           >
             The survivor's switch.
           </span>{" "}

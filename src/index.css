@@ -5,47 +5,95 @@
    calculator themes itself almost entirely through the CSS variables below. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* The C palette (src/constants/colors.js) resolves to these variables. Light
-   is the default; [data-theme="dark"] overrides. Contrast ratios noted are
-   against the theme's own bg/paper (AA = 4.5:1 text, 3:1 graphics). */
+/* ─────────────────────────────────────────────────────────────────────────
+   Design tokens — modern-fintech system (Mercury / Stripe / Ramp school).
+
+   The C palette (src/constants/colors.js) resolves to the --c-* variables.
+   Light is the default; [data-theme="dark"] overrides. The foundation is a
+   cool neutral surface stack, one confident brand accent (indigo) for
+   interactive chrome, and vivid-but-legible data colors (red / emerald /
+   teal / amber) kept distinct from the brand so "interactive" never reads as
+   "good/bad". Radius + shadow tokens give the layered-card depth that
+   defines the look. Contrast (WCAG AA = 4.5:1 text, 3:1 graphics) is held in
+   both themes. */
 :root {
-  --c-bg: #efe7d6;
-  --c-paper: #f7f0de;
-  --c-border: #d9cbae;
-  --c-border-dark: #a89677;
-  --c-ink: #181410; /* ~14:1 on bg  — primary copy */
-  --c-ink-soft: #5c4f3d; /* ~7:1   on bg  — secondary copy */
-  --c-ink-faint: #6b5c44; /* ~5.7:1 on bg  — labels, hints */
-  --c-ink-on-dark: #b5a688; /* ~7.7:1 on ink — text on dark accent card */
-  --c-early: #a02b2b;
-  --c-early-soft: #c97070;
-  --c-wait: #1f4d3f;
-  --c-wait-invested: #3f7d5f;
-  --c-cross: #b8860b;
+  /* Surface stack — cool neutrals, low chroma. */
+  --c-bg: #eef1f7; /* app canvas */
+  --c-surface: #f5f7fc; /* inset / nested panel */
+  --c-paper: #ffffff; /* card */
+  --c-border: #e5e9f2; /* hairline */
+  --c-border-dark: #c8d0e0; /* stronger divider, control outline */
+  --c-track: #e2e8f0; /* slider unfilled track */
+
+  /* Ink — near-navy, not pure black. */
+  --c-ink: #0f1729; /* ~16:1 on bg — primary copy + KPIs */
+  --c-ink-soft: #475569; /* ~7:1  on bg — secondary copy */
+  --c-ink-faint: #64748b; /* ~5:1  on bg — labels, axis, hints */
+  /* Text drawn on a dark `C.ink` surface (light mode) — flips to muted-dark
+     on the inverted light surface in dark mode. */
+  --c-ink-on-dark: #c7cedb;
+
+  /* Brand accent — emerald/teal. Interactive chrome (active controls, focus
+     rings, primary CTA, slider fill). Shares hue space with the green data
+     colors, so it's kept a touch darker/deeper than the chart greens and the
+     two never sit adjacent (chrome vs data viz). --c-accent-on is the text /
+     icon color that sits ON an accent fill — white here, near-black in dark. */
+  --c-accent: #0f766e; /* teal-700, ~5:1 on paper; white text ~5:1 */
+  --c-accent-soft: #e2f2ef; /* pale teal wash for accent backgrounds */
+  --c-accent-on: #ffffff;
+
+  /* Data colors — the strategy semantics. */
+  --c-early: #dc2626; /* claim-early line / "worse" in tornado, ~4.8:1 */
+  --c-early-soft: #f87171; /* dashed invested-pot line (graphic) */
+  --c-wait: #047857; /* wait line / "better", ~5.2:1 */
+  --c-wait-invested: #0d9488; /* wait+invest line, distinct teal */
+  --c-cross: #b45309; /* crossover marker, amber-700, ~5:1 */
+
+  /* Depth. */
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 41, 0.04), 0 1px 3px rgba(15, 23, 41, 0.07);
+  --shadow-md: 0 2px 4px rgba(15, 23, 41, 0.04), 0 6px 18px rgba(15, 23, 41, 0.08);
+  --shadow-lg: 0 8px 30px rgba(15, 23, 41, 0.12);
+  --ring: 0 0 0 3px rgba(15, 118, 110, 0.22);
 
   color-scheme: light;
 }
 
-/* Warm dark theme — charcoal-brown rather than cold gray, to keep the
-   paper/ink character. Text colors lifted to hold AA on the dark bg; chart
-   lines brightened so they read as graphics (>=3:1) on the dark surfaces.
-   The ink/bg pair is complementary, so accent surfaces that use `C.ink` as a
-   background (Crossover card, active pills) invert to a light card with dark
-   `C.bg`/`C.ink-on-dark` text automatically. */
+/* Dark theme — deep navy-charcoal, layered surfaces lifted by lightness
+   rather than shadow. Data colors brightened to read as graphics (>=3:1) and
+   text (>=4.5:1) on the dark surfaces. The ink/paper pair stays
+   complementary, so accent surfaces that use `C.ink` as a background invert
+   to a light card with dark `C.paper`/`C.ink-on-dark` text automatically. */
 [data-theme="dark"] {
-  --c-bg: #17130d;
-  --c-paper: #221c14;
-  --c-border: #3a3225;
-  --c-border-dark: #5e5440;
-  --c-ink: #f2eada; /* ~15:1 on bg  — primary copy */
-  --c-ink-soft: #cabda3; /* ~10:1  on bg  — secondary copy */
-  --c-ink-faint: #a5967c; /* ~6:1   on bg  — labels, hints */
-  --c-ink-on-dark: #4a4031; /* dark text on the inverted (light) accent card */
-  --c-early: #e07272; /* ~5:1 on bg — claim-early line */
-  --c-early-soft: #e8a3a3; /* dashed invested-pot line */
-  --c-wait: #5fc79e; /* ~8:1 on bg — wait line */
-  --c-wait-invested: #3e9e74; /* ~4:1 on bg — wait+invest line, distinct from wait */
-  --c-cross: #e0a82e; /* ~8:1 on bg — crossover marker */
+  --c-bg: #0b0f17;
+  --c-surface: #121925;
+  --c-paper: #161d29;
+  --c-border: #242d3c;
+  --c-border-dark: #38445a;
+  --c-track: #2a3340;
+
+  --c-ink: #f1f5f9; /* ~16:1 on bg */
+  --c-ink-soft: #aeb9c9; /* ~9:1  on bg */
+  --c-ink-faint: #7e8da3; /* ~5:1  on bg */
+  --c-ink-on-dark: #4a5568; /* muted-dark text on the inverted light surface */
+
+  --c-accent: #5eead4; /* teal-300, bright for the dark canvas; dark text on fill */
+  --c-accent-soft: #11302b;
+  --c-accent-on: #06241f; /* near-black teal — text/icons on the bright accent fill */
+
+  --c-early: #f87171; /* ~6:1 on bg */
+  --c-early-soft: #fca5a5;
+  --c-wait: #34d399; /* ~9:1 on bg */
+  --c-wait-invested: #2dd4bf;
+  --c-cross: #fbbf24; /* ~11:1 on bg */
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --ring: 0 0 0 3px rgba(94, 234, 212, 0.28);
 
   color-scheme: dark;
 }
@@ -57,4 +105,8 @@ body,
   margin: 0;
   padding: 0;
   min-height: 100%;
+}
+
+* {
+  box-sizing: border-box;
 }
