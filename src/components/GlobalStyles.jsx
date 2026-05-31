@@ -90,6 +90,7 @@ export default function GlobalStyles() {
 
       /* ── Segmented control (mode + tab pickers) ───────────────────────── */
       .segment {
+        position: relative;
         display: inline-flex;
         gap: 2px;
         padding: 4px;
@@ -98,6 +99,8 @@ export default function GlobalStyles() {
         border-radius: var(--radius-pill);
       }
       .mode-btn {
+        position: relative;
+        z-index: 1;
         padding: 7px 16px;
         font-size: 13px;
         font-weight: 500;
@@ -113,11 +116,80 @@ export default function GlobalStyles() {
         white-space: nowrap;
       }
       .mode-btn:not(.mode-btn-active):hover { color: ${C.ink}; background: ${C.paper}; }
+      /* Active pill carries a solid accent fill + glow so the selection reads
+         instantly (the old paper-on-surface treatment was near-invisible in
+         dark mode, where paper and surface are nearly the same navy). Shared
+         with TabNav's tab strip — same "teal = selected" language everywhere. */
       .mode-btn-active {
-        background: ${C.paper};
-        color: ${C.ink};
-        font-weight: 600;
-        box-shadow: var(--shadow-sm);
+        background: ${C.accent};
+        color: ${C.accentOn};
+        font-weight: 700;
+        box-shadow:
+          0 2px 10px color-mix(in srgb, ${C.accent} 45%, transparent),
+          0 0 0 1px color-mix(in srgb, ${C.accent} 55%, transparent);
+      }
+      .mode-btn-active:hover { filter: brightness(1.04); }
+
+      /* Sliding variant: a single .segment-thumb element provides the accent
+         fill and animates between options, so the active pill itself goes
+         transparent (its label still flips to accent-on text over the thumb).
+         Opt in by adding .segment-sliding to the container (see <Segment>). */
+      .segment-sliding .mode-btn-active {
+        background: transparent;
+        box-shadow: none;
+      }
+      .segment-thumb {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 0;
+        border-radius: var(--radius-pill);
+        background: ${C.accent};
+        box-shadow:
+          0 2px 10px color-mix(in srgb, ${C.accent} 45%, transparent),
+          0 0 0 1px color-mix(in srgb, ${C.accent} 55%, transparent);
+        transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+                    width 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .segment-thumb { transition: none; }
+      }
+
+      /* ── Active-mode echo (under the mode picker) ──────────────────────────
+         A persistent accent chip + one-line summary so the current calculator
+         is unmistakable at a glance, reinforcing the filled pill above. */
+      .mode-active {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .mode-active-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 4px 12px;
+        border-radius: var(--radius-pill);
+        background: ${C.accentSoft};
+        color: ${C.accent};
+        border: 1px solid color-mix(in srgb, ${C.accent} 35%, transparent);
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+      .mode-chip-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: ${C.accent};
+        flex: none;
+      }
+      .mode-active-blurb {
+        font-size: 13px;
+        color: ${C.inkSoft};
       }
 
       /* ── Ghost / pill buttons (share link, theme toggle) ───────────────── */
