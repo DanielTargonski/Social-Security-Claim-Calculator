@@ -77,6 +77,38 @@ function dollarModeProps(monthly) {
   };
 }
 
+// Inline link that smooth-scrolls down to the StrategyCompare panel (rendered
+// below the chart in survivor/switch modes, anchored by id="strategy-compare").
+// Used in the own-benefit slider's hint to tie the input to the comparison it
+// feeds. Styled as a text link rather than a button so it reads inline in the
+// small hint row.
+function ScrollToCompareLink({ children }) {
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        document
+          .getElementById("strategy-compare")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+      style={{
+        color: C.accent,
+        background: "transparent",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        fontFamily: "inherit",
+        fontSize: "inherit",
+        fontWeight: 500,
+        textDecoration: "underline",
+        textUnderlineOffset: "2px",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 // Display-rounded percentage: at most one decimal, strip trailing ".0" so
 // whole numbers stay clean. Used by chips/labels — never for math. The $-mode
 // input can land the underlying percentage on a long decimal (e.g. $500 of a
@@ -212,6 +244,11 @@ export default function InputsPanel({
   setLocality,
   investedPct,
   setInvestedPct,
+  // Early-invest entry unit ("%" / "$") is lifted to App so the strategy
+  // comparison can honor a dollar entry across scenarios. The wait-invest
+  // entry unit stays local below (the comparison doesn't use it).
+  investedPctEarlyMode,
+  setInvestedPctEarlyMode,
   investedPctWait,
   setInvestedPctWait,
   // healthcare-cost modeling (OBBBA / NYC) — see lib/healthcareCost.js
@@ -230,10 +267,10 @@ export default function InputsPanel({
   // below the chart share one computation.
   optimal,
 }) {
-  // Per-slider input-unit preference. Local UI state, not URL-persisted:
-  // the underlying stored value is always a percentage, so a shared link
-  // round-trips identically no matter which mode the sender used.
-  const [investedPctEarlyMode, setInvestedPctEarlyMode] = useState("%");
+  // Wait-invest entry-unit preference. Local UI state, not URL-persisted: the
+  // underlying stored value is always a percentage, so a shared link round-trips
+  // identically. (The early-invest unit is lifted to App — see props above —
+  // so the strategy comparison can read it.)
   const [investedPctWaitMode, setInvestedPctWaitMode] = useState("%");
   const earlyDollarProps =
     investedPctEarlyMode === "$" ? dollarModeProps(earlyMonthlyNet) : null;
@@ -259,7 +296,10 @@ export default function InputsPanel({
           step={50}
           format={(v) => "$" + v.toLocaleString() + "/mo"}
         />
-        {mode === "switch" && (
+        {/* Own benefit is needed by both the switch projection AND the
+            strategy comparison panel (shown in survivor mode too), so surface
+            the slider in both survivor-context modes — not just switch. */}
+        {mode !== "retirement" && (
           <SliderInput
             label="Own retirement at 67"
             value={ownBenefit}
@@ -273,8 +313,12 @@ export default function InputsPanel({
                 <span style={{ color: C.early, fontWeight: 500 }}>
                   above survivor — switching is a downgrade
                 </span>
-              ) : (
+              ) : mode === "switch" ? (
                 "must be < survivor"
+              ) : (
+                <ScrollToCompareLink>
+                  used by the strategy comparison below ↓
+                </ScrollToCompareLink>
               )
             }
           />

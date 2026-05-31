@@ -65,6 +65,15 @@ describe("App — mode switching (white-page regression)", () => {
     await user.click(screen.getByRole("button", { name: /Survivor \(Spouse\)/i }));
     expect(screen.getByText("Survivor benefit at 67")).toBeInTheDocument();
     expect(screen.getByText("What moves the answer")).toBeInTheDocument();
+    // The strategy-comparison panel is shown in survivor mode, and the
+    // own-benefit slider's hint links down to it (default own $1,500 <
+    // survivor $2,500, so the "downgrade" variant doesn't take over).
+    expect(
+      screen.getByText(/Survivor early vs Own → Survivor/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /strategy comparison below/i })
+    ).toBeInTheDocument();
   });
 
   it("renders in switch mode (Own → Survivor) and shows the explanation banner", async () => {
@@ -82,13 +91,14 @@ describe("App — mode switching (white-page regression)", () => {
   it("can switch retirement → survivor → switch → retirement without crashing", async () => {
     const user = userEvent.setup();
     render(<App />);
-    const sequence = [
-      /Survivor \(Spouse\)/i,
-      /Own → Survivor/i,
-      /Retirement/i,
-    ];
+    // Exact names target the segmented-control mode buttons specifically.
+    // The StrategyCompare panel (shown in survivor/switch modes) adds cards
+    // whose accessible names also contain "Own → Survivor"/"Survivor", so a
+    // loose regex would match two buttons; the mode buttons' full names are
+    // exactly these strings.
+    const sequence = ["Survivor (Spouse)", "Own → Survivor", "Retirement"];
     for (const name of sequence) {
-      await user.click(screen.getByRole("button", { name }));
+      await user.click(screen.getByRole("button", { name, exact: true }));
       expect(
         screen.getByRole("heading", { level: 1 })
       ).toHaveTextContent(/Take it now/);
