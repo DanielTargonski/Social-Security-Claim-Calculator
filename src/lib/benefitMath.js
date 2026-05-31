@@ -426,6 +426,34 @@ export function computeProjection({
   });
   const healthcareDeltaAnnualPre =
     healthcareEarlyAnnualPre - healthcareWaitAnnualPre;
+  // The pre-FRA window straddles Medicare eligibility (65) for anyone claiming
+  // before 65: ages claimAge-65 are on the ACA (priced above at age=claimAge),
+  // but ages 65-FRA are on Medicare. Pricing those 65/66 years as ACA (the old
+  // single-snapshot behavior) materially overstated the early-claim healthcare
+  // drag, since the ACA cliff premium ($9,679/yr) dwarfs Medicare base + any
+  // IRMAA. Recompute the SAME pre-FRA income picture (early still on its
+  // reduced pre-FRA benefit; wait still has no SS yet) but force Medicare
+  // pricing with age=65. When claimAge >= 65 this collapses to the same value
+  // as healthcareDeltaAnnualPre (both are already Medicare), so the split is a
+  // no-op there.
+  const healthcareEarlyAnnualPre65to67 = computeAnnualHealthcareCost({
+    age: 65,
+    magiACA: 0, // unused at 65+
+    magiIRMAA: magiIRMAAEarlyPre,
+    mspIncome: grossIncome + ssBasisAnnualEarlyPreFRA,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const healthcareWaitAnnualPre65to67 = computeAnnualHealthcareCost({
+    age: 65,
+    magiACA: 0,
+    magiIRMAA: magiIRMAAWaitPre,
+    mspIncome: grossIncome, // wait scenario has no SS yet pre-FRA
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const healthcareDeltaAnnualPre65to67 =
+    healthcareEarlyAnnualPre65to67 - healthcareWaitAnnualPre65to67;
   // Post-FRA: both scenarios are on Medicare. Wait now has SS (full FRA
   // benefit) in MAGI; early has the recouped post-FRA benefit. IRMAA tier
   // crossings in this window can favor either scenario depending on which
@@ -464,9 +492,16 @@ export function computeProjection({
   // contribution. Negative delta (rare — happens when waiting pushes the
   // larger FRA benefit across an IRMAA cliff that early avoided) = bonus.
   const healthcareDeltaMonthlyPre = healthcareDeltaAnnualPre / 12;
+  const healthcareDeltaMonthlyPre65to67 = healthcareDeltaAnnualPre65to67 / 12;
   const healthcareDeltaMonthlyPost = healthcareDeltaAnnualPost / 12;
+  // Two pre-FRA nets: pre-65 carries the ACA delta, 65-to-FRA carries the
+  // Medicare/IRMAA delta. buildChartData switches between them at age 65.
   const adjustedEarlyMonthlyNet = earlyMonthlyNet - healthcareDeltaMonthlyPre;
+  const adjustedEarlyMonthlyNet65Plus =
+    earlyMonthlyNet - healthcareDeltaMonthlyPre65to67;
   const adjustedFullMonthlyNet = fullMonthlyNet - healthcareDeltaMonthlyPre;
+  const adjustedFullMonthlyNet65Plus =
+    fullMonthlyNet - healthcareDeltaMonthlyPre65to67;
   const adjustedEarlyPostFRAMonthlyNet =
     earlyPostFRAMonthlyNet - healthcareDeltaMonthlyPost;
   const adjustedEarlyPostFRAMonthlyNetRetired =
@@ -478,6 +513,9 @@ export function computeProjection({
     lifeExpectancy,
     returnRate,
     earlyMonthlyNet: lumpy ? adjustedFullMonthlyNet : adjustedEarlyMonthlyNet,
+    earlyMonthlyNet65Plus: lumpy
+      ? adjustedFullMonthlyNet65Plus
+      : adjustedEarlyMonthlyNet65Plus,
     earlyPostFRAMonthlyNet: adjustedEarlyPostFRAMonthlyNet,
     earlyPostFRAMonthlyNetRetired: adjustedEarlyPostFRAMonthlyNetRetired,
     fraMonthlyNet,
@@ -708,6 +746,10 @@ export function computeProjection({
     // the adjusted monthly nets above; consumers use these for "claiming
     // early costs $X/yr extra in healthcare" copy.
     healthcareDeltaAnnualPre,
+    // Medicare/IRMAA delta for the 65-to-FRA slice of the pre-FRA window
+    // (distinct from the pre-65 ACA delta above). Equals healthcareDeltaAnnualPre
+    // when claimAge >= 65. Surfaced so UI/consumers can show the two regimes.
+    healthcareDeltaAnnualPre65to67,
     healthcareDeltaAnnualPost,
     // OBBBA senior bonus deduction (2025–2028, age 65+). Per-window
     // deduction amounts AND the dollar-savings each yields in federal tax.
