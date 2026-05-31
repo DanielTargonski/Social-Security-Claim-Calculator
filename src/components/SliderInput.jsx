@@ -59,7 +59,18 @@ export default function SliderInput({
 
   // Fraction of the track that's filled, driving the accent fill via the
   // --pct custom property (see input[type="range"] in GlobalStyles).
-  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  //
+  // The native range thumb snaps to the nearest `step` (measured from `min`),
+  // so a value that lands off that grid — e.g. a $-mode invest amount that maps
+  // to 66.67% on a 5%-step slider — renders the thumb at the snapped position
+  // (65%) while the raw value is 66.67%. Computing the fill from the raw value
+  // then overshoots the thumb. Snap the fill to the same grid so the green fill
+  // ends exactly at the thumb. No-op for sliders whose values are already
+  // on-grid (benefits, ages, rates). The big value label still shows the exact
+  // typed value — only the track geometry snaps.
+  const snappedValue =
+    step > 0 ? min + Math.round((value - min) / step) * step : value;
+  const pct = max > min ? ((snappedValue - min) / (max - min)) * 100 : 0;
   const clampedPct = Math.min(100, Math.max(0, pct));
 
   return (

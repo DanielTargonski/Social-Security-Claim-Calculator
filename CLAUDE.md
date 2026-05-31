@@ -56,10 +56,13 @@ src/
 │  ├─ ShareLinkButton.jsx        Copies window.location.href (state in query params)
 │  ├─ SensitivityTornado.jsx     "What moves the answer" panel
 │  ├─ SensitivityTornado.test.jsx (mode-by-mode + bounds-collapse regression)
+│  ├─ StrategyCompare.jsx        Head-to-head: survivor-early vs own→survivor (vs own-only)
+│  ├─ StrategyCompare.test.jsx   (render/verdict/navigation/clamp tests)
 │  └─ Var.jsx                    Tiny inline pill for dynamic numbers in prose
 ├─ hooks/
 │  ├─ useBenefitProjection.js   useMemo wrapper around computeProjection
 │  ├─ useOptimalClaimAge.js     useMemo wrapper around the claim-age sweep
+│  ├─ useStrategyCompare.js     useMemo wrapper around compareStrategies
 │  ├─ useFormState.js           Single state bag + auto-generated setX setters
 │  ├─ useFormState.test.js
 │  └─ useUrlSync.js             Mirror form state into window.location.search
@@ -76,6 +79,8 @@ src/
    ├─ healthcareCost.test.js
    ├─ optimalClaimAge.js         96-step claim-age sweep that finds the peak
    ├─ optimalClaimAge.test.js
+   ├─ strategyCompare.js         Runs all 3 strategies on one input set + verdict/crossover
+   ├─ strategyCompare.test.js
    ├─ shareableState.js          URL ↔ state schema + clamp on hydrate
    ├─ shareableState.test.js
    ├─ modeConfig.js              Per-mode claim-age bounds + snap-on-mode-switch
@@ -220,7 +225,7 @@ npm run preview          # serve the production build at :4173
 npm run lint             # eslint
 ```
 
-`npm test` should always pass before committing. **332 tests across 16 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
+`npm test` should always pass before committing. **560 tests across 30 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
 
 `@vitest/coverage-v8` is a dev dependency — `npx vitest run --coverage` prints a per-file table. `coverage/` is gitignored.
 
@@ -263,6 +268,8 @@ The user's git is locally configured to push as `DanielTargonski` (this account 
 - **OBBBA healthcare-cost modeling (PR #10)**: `healthcareCost.js` math module pinning 2026 ACA cliffs (400% FPL = $62,600 single, NY Essential Plan 200% post-July 2026) + Medicare IRMAA tiers; new "Healthcare (NYC, 2026+)" section in InputsPanel with `coveredElsewhere` toggle + NYC silver-plan override; `MetadataStrip` cliff-proximity rows ("Next cliff $X away · +$Y/yr if crossed"); chart math subtracts the early-vs-wait healthcare delta so break-even actually shifts; new footnote replaces the old "Medicare Part B premiums" caveat
 - Browser-verified via headless Chromium / Playwright (default load, sub-cliff scenario, post-65 IRMAA scenario, covered-elsewhere toggle, URL hydration)
 - **Removed the Single/Couple household-size toggle**: it scaled only the healthcare FPL denominator while leaving premiums, IRMAA, and all federal tax math single-filer, producing an incoherent half-couple model (a couple's wait-scenario wage could drop under the doubled 200% Essential Plan floor → $0 ACA baseline → a misleadingly large early-vs-wait delta and crossover swing). Pulled `householdSize`/`hh` out of the schema, UI, App wiring, `benefitMath`, hooks, and components; `healthcareCost.js`'s FPL helpers keep the `householdSize` arg as a primitive for a future proper joint-filer feature.
+- **Strategy comparison panel (`StrategyCompare`)**: answers the surviving-spouse question the three separate modes couldn't on their own — "is own→survivor better or *worse* than claiming survivor early?". Pure `lib/strategyCompare.js` runs all three strategies (survivor-early / own→survivor switch / own-only) through the SAME `computeProjection` on one input set, so the numbers are guaranteed consistent across what were previously three modes the user had to flip between. Scores each by total dollars in hand at lifeExpectancy (`finalEarly`); survivor & switch share `fraBenefit`=survivor benefit so they're directly comparable, own-only reinterprets with `fraBenefit`=`ownBenefit`. Each strategy clamps to its own mode's claim-age range (recorded so the UI annotates "claims at 62, its limit"). Surfaces a verdict ("X comes out ahead by $Y by age 85"), a head-to-head crossover age (`findSeriesCrossover` on a merged `early`-series — no mode guards, unlike `chartProjection.findCrossoverAge`), and a two-line overlay chart. Shown only in survivor-context modes (survivor/switch); each card click navigates into that mode. Side effect: the own-benefit slider now shows in **survivor** mode too (was switch-only). Key insight surfaced, not hidden: at high real returns claiming the *larger* survivor check early and investing it can beat the switch even at long life (the calculator's core thesis), while the switch's bigger guaranteed post-67 benefit wins when returns are flat — the verdict moves with the assumptions. Browser-verified (verdict flips ret 7%→0%, crossover marker, card-click navigation, survivor-mode own slider).
+  - **Dollar-mode early invest**: when the "Invest % of early-claim checks" slider is in its **$** entry mode, the user means a fixed *dollar* amount, but each scenario's early check differs — so a single fixed *percentage* would invest different dollars per calc. `compareStrategies` reads `inputs.investedEarlyDollar` (the entered monthly dollar = investedPct% × the current mode's net check) and invests THAT dollar in every scenario, capped at each scenario's own check ("whole check" when smaller). Implemented by re-running each scenario's `computeProjection` with a per-scenario `investedPct = min(dollar, check)/check` (investedPct doesn't affect `earlyMonthlyNet`, so the first projection sizes the fraction). Required lifting the early-invest entry-unit state (`investedPctEarlyMode`) from `InputsPanel` up to `App` (it's session-only, not URL-persisted — the stored value stays a percentage). The wait-invest unit stays local (the comparison uses only the `early` lines). Cards show "investing $X/mo" per scenario in this mode. Percentage mode is unchanged (`investedEarlyDollar` null → one fixed fraction everywhere).
 
 ### Candidate features (from the survey research)
 Researched but not built. In rough priority order based on the original analysis:

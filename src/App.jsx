@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { C } from "./constants/colors.js";
 import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
 import { useOptimalClaimAge } from "./hooks/useOptimalClaimAge.js";
+import { useStrategyCompare } from "./hooks/useStrategyCompare.js";
 import { useFormState } from "./hooks/useFormState.js";
 import { useUrlSync } from "./hooks/useUrlSync.js";
 import { useTheme } from "./hooks/useTheme.js";
@@ -25,6 +26,7 @@ import ChartCard from "./components/ChartCard.jsx";
 import PotTable from "./components/PotTable.jsx";
 import Footnotes from "./components/Footnotes.jsx";
 import SensitivityTornado from "./components/SensitivityTornado.jsx";
+import StrategyCompare from "./components/StrategyCompare.jsx";
 import HealthcarePanel from "./components/HealthcarePanel.jsx";
 import OptimalClaimAge from "./components/OptimalClaimAge.jsx";
 import AboutPage from "./components/AboutPage.jsx";
@@ -45,6 +47,15 @@ export default function App() {
 
   // Light/dark theme. Display preference, not URL-persisted (see useTheme).
   const { theme, toggleTheme } = useTheme();
+
+  // Entry-unit preference for the "Invest % of early-claim checks" slider
+  // ("%" or "$"). Lifted out of InputsPanel because the strategy-comparison
+  // panel needs to know it: in "$" mode the user means a fixed dollar amount,
+  // which the comparison invests in every scenario (capped per check) rather
+  // than a fixed fraction. Session-only UI state — not URL-persisted, since
+  // the underlying stored value is always the percentage (a shared link still
+  // round-trips identically). See InputsPanel's UnitToggle.
+  const [investedPctEarlyMode, setInvestedPctEarlyMode] = useState("%");
 
   // Hydrate initial state from URL query params (set by ShareLinkButton when
   // someone shared this link). Falls back to defaults for any missing field.
@@ -191,6 +202,18 @@ export default function App() {
   // between the small chip under the claim-age slider (in InputsPanel)
   // and the full OptimalClaimAge panel below the chart.
   const optimal = useOptimalClaimAge(inputs);
+
+  // Runs all three claiming strategies (survivor early / own->survivor switch /
+  // own only) on the same inputs for the head-to-head comparison panel. Only
+  // surfaced in the survivor-context modes (survivor / switch) — see below.
+  //
+  // When the early-invest slider is in "$" mode, pass the entered monthly
+  // dollar amount (= the displayed value: investedPct% of the current mode's
+  // net check) so the comparison invests that dollar in every scenario instead
+  // of a fixed fraction. null in "%" mode keeps the fixed-fraction behavior.
+  const investedEarlyDollar =
+    investedPctEarlyMode === "$" ? earlyMonthlyNet * (investedPct / 100) : null;
+  const compare = useStrategyCompare({ ...inputs, investedEarlyDollar });
 
   const primaryBenefitLabel =
     mode === "retirement" ? "Your benefit at 67" : "Survivor benefit at 67";
@@ -363,6 +386,8 @@ export default function App() {
               setLocality={setLocality}
               investedPct={investedPct}
               setInvestedPct={setInvestedPct}
+              investedPctEarlyMode={investedPctEarlyMode}
+              setInvestedPctEarlyMode={setInvestedPctEarlyMode}
               investedPctWait={investedPctWait}
               setInvestedPctWait={setInvestedPctWait}
               coveredElsewhere={coveredElsewhere}
@@ -464,6 +489,19 @@ export default function App() {
             finalEarly={finalEarly}
             advantage={advantage}
           />
+
+          {/* The head-to-head strategy comparison — the surviving-spouse
+              question "own->survivor vs claiming survivor early?". Only shown
+              in the survivor-context modes; retirement mode is for
+              non-survivors and has no survivor benefit to compare against. */}
+          {(mode === "survivor" || mode === "switch") && (
+            <StrategyCompare
+              compare={compare}
+              mode={mode}
+              onSelectStrategy={switchMode}
+              lifeExpectancy={lifeExpectancy}
+            />
+          )}
 
           <PotTable
             claimAge={claimAge}
