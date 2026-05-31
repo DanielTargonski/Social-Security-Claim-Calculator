@@ -863,6 +863,73 @@ describe("computeProjection — healthcare cost integration (OBBBA / NYC)", () =
       expect([off.breakEvenAge, on.breakEvenAge]).toBeDefined();
     }
   });
+
+  it("prices ages 65-66 inside the pre-FRA window as Medicare, not ACA", () => {
+    // cliffArgs claims at 62 and crosses the ACA cliff pre-65. But at 65 the
+    // claimant moves to Medicare; with income below IRMAA tier 1 the 65-to-FRA
+    // Medicare delta is $0 (base Part B cancels between scenarios). Those two
+    // years must NOT carry the big ACA premium delta.
+    const r = computeProjection(cliffArgs);
+    expect(r.healthcareDeltaAnnualPre).toBeGreaterThan(8000); // pre-65 ACA cliff
+    expect(r.healthcareDeltaAnnualPre65to67).toBe(0); // 65-to-FRA Medicare
+    expect(r.healthcareDeltaAnnualPre65to67).toBeLessThan(
+      r.healthcareDeltaAnnualPre
+    );
+  });
+
+  it("applies the ACA delta only to the pre-65 years of the pre-FRA window", () => {
+    // returnRate=0 makes the chart a pure sum, so cumulative drag (off minus on)
+    // grows only while the ACA delta is being applied. The pre-FRA window
+    // (62->67) must accrue drag across 62-65 (ACA) and then go FLAT across
+    // 65-67 (Medicare, $0 delta here) — NOT keep accruing as if 65-66 were ACA.
+    // Wage is kept under the 2026 earnings-test limit ($24,480) so nothing is
+    // withheld; otherwise the lumpy pattern would apply the delta only to
+    // non-withheld months and muddy the age attribution.
+    const cfg = {
+      ...baseInputs,
+      mode: "retirement",
+      fraBenefit: 4000,
+      claimAge: 62,
+      returnRate: 0,
+      investStopAge: 67,
+      lifeExpectancy: 85,
+      grossIncome: 23000,
+      postFRAGrossIncome: 0,
+      unsubsidizedSilverAnnual: 9679,
+    };
+    const off = computeProjection({ ...cfg, coveredElsewhere: true });
+    const on = computeProjection({ ...cfg, coveredElsewhere: false });
+
+    expect(on.earningsTestWithholding).toBe(0); // no lumpy withholding
+    expect(on.healthcareDeltaAnnualPre).toBeGreaterThan(0); // a real ACA delta
+    expect(on.healthcareDeltaAnnualPre65to67).toBe(0); // Medicare 65-67
+
+    const dragAt = (age) => {
+      const o = off.chartData.find((d) => d.age >= age - 1e-9).early;
+      const n = on.chartData.find((d) => d.age >= age - 1e-9).early;
+      return o - n;
+    };
+    const drag62to65 = dragAt(65) - dragAt(62);
+    const drag65to67 = dragAt(67) - dragAt(65);
+
+    // Pre-65 accrues a substantial ACA drag (~3 years' worth)...
+    expect(drag62to65).toBeGreaterThan(on.healthcareDeltaAnnualPre * 2);
+    // ...and the 65-to-FRA window adds essentially nothing (Medicare).
+    expect(Math.abs(drag65to67)).toBeLessThan(on.healthcareDeltaAnnualPre * 0.5);
+    // Whole-life drag stays well under pricing all 5 pre-FRA years as ACA.
+    const total = off.finalEarly - on.finalEarly;
+    expect(total).toBeLessThan(on.healthcareDeltaAnnualPre * 4);
+  });
+
+  it("claim at 65+ prices the whole pre-FRA window as Medicare (no ACA leak)", () => {
+    // No pre-65 months exist, so the pre-65 and 65-to-FRA deltas must coincide
+    // (both Medicare on the same MAGI).
+    const r = computeProjection({ ...cliffArgs, claimAge: 65 });
+    expect(r.healthcareDeltaAnnualPre65to67).toBeCloseTo(
+      r.healthcareDeltaAnnualPre,
+      6
+    );
+  });
 });
 
 describe("computeProjection — OBBBA senior bonus deduction", () => {
