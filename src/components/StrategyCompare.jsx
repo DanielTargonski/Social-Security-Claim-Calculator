@@ -202,6 +202,52 @@ export default function StrategyCompare({
       (switchEndsAhead ? " — past it, the switch comes out ahead." : ".");
   }
 
+  // Endpoint value labels: pin each plotted line's final total ("$798K") right
+  // at its end — the live-until age — so the chart states the answer the cards
+  // do without a hover. The two lines converge at long life, so the
+  // higher-value label rides slightly above its point and the lower one drops
+  // below; they stay legible even when the totals are nearly equal.
+  const lastIdx = merged.length - 1;
+  const lastRow = merged[lastIdx] || {};
+  const survivorOnTop =
+    (lastRow.survivorEarly ?? 0) >= (lastRow.switchEarly ?? 0);
+  const survivorDy = survivorOnTop ? -5 : 14;
+  const switchDy = survivorOnTop ? 14 : -5;
+
+  // Custom dot that draws ONLY at the last data point: a small anchor dot plus
+  // the line's final dollar total, set just to its right. Returns null for
+  // every other point so the rest of the line stays dot-free.
+  const renderEndpointDot = (dataKey, color, dy) => (props) => {
+    const { cx, cy, index } = props;
+    if (index !== lastIdx || cx == null || cy == null) return null;
+    const value = lastRow[dataKey];
+    if (value == null) return null;
+    return (
+      <g key={`end-${dataKey}`} style={{ pointerEvents: "none" }}>
+        <circle
+          cx={cx}
+          cy={cy}
+          r={3.5}
+          fill={color}
+          stroke={C.paper}
+          strokeWidth={1.5}
+        />
+        <text
+          x={cx + 8}
+          y={cy}
+          dy={dy}
+          textAnchor="start"
+          fill={color}
+          fontSize={12}
+          fontWeight={700}
+          fontFamily="JetBrains Mono"
+        >
+          {fmtBig(value)}
+        </text>
+      </g>
+    );
+  };
+
   return (
     <div id="strategy-compare" className="card mt-5 p-6 md:p-7" style={{ scrollMarginTop: "1rem" }}>
       <div className="mb-5">
@@ -375,7 +421,7 @@ export default function StrategyCompare({
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={merged}
-            margin={{ top: 18, right: 25, bottom: 22, left: 10 }}
+            margin={{ top: 18, right: 58, bottom: 22, left: 10 }}
           >
             <CartesianGrid
               stroke={C.border}
@@ -473,7 +519,7 @@ export default function StrategyCompare({
               dataKey="survivorEarly"
               stroke={C.early}
               strokeWidth={2.5}
-              dot={false}
+              dot={renderEndpointDot("survivorEarly", C.early, survivorDy)}
               isAnimationActive={true}
               animationDuration={600}
             />
@@ -482,7 +528,7 @@ export default function StrategyCompare({
               dataKey="switchEarly"
               stroke={C.wait}
               strokeWidth={2.5}
-              dot={false}
+              dot={renderEndpointDot("switchEarly", C.wait, switchDy)}
               isAnimationActive={true}
               animationDuration={600}
             />
