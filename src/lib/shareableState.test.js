@@ -180,7 +180,10 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "coveredElsewhere",
         "fraBenefit",
         "grossIncome",
+        "investOwn",
         "investStopAge",
+        "investSurvivor",
+        "investSwitch",
         "investedPct",
         "investedPctWait",
         "lifeExpectancy",
@@ -194,5 +197,31 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "unsubsidizedSilverAnnual",
       ].sort()
     );
+  });
+});
+
+describe("shareableState — per-strategy comparison invest overrides", () => {
+  it("defaults all three override fields to the -1 sentinel", () => {
+    expect(DEFAULT_STATE.investSurvivor).toBe(-1);
+    expect(DEFAULT_STATE.investSwitch).toBe(-1);
+    expect(DEFAULT_STATE.investOwn).toBe(-1);
+  });
+
+  it("round-trips a set of per-strategy override amounts", () => {
+    const withOverrides = {
+      ...DEFAULT_STATE,
+      investSurvivor: 500,
+      investSwitch: 250,
+      investOwn: -1,
+    };
+    const round = parseStateFromParams(serializeStateToParams(withOverrides));
+    expect(round.investSurvivor).toBe(500);
+    expect(round.investSwitch).toBe(250);
+    expect(round.investOwn).toBe(-1);
+  });
+
+  it("clamps a hand-crafted below-sentinel value up to -1", () => {
+    const out = parseStateFromParams(new URLSearchParams("cisv=-99"));
+    expect(out.investSurvivor).toBe(-1);
   });
 });

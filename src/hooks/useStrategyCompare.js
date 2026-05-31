@@ -25,9 +25,13 @@ export function useStrategyCompare(inputs) {
       inputs.investedPctWait,
       inputs.coveredElsewhere,
       inputs.unsubsidizedSilverAnnual,
-      // Dollar-mode early invest (null in percentage mode). Drives the
+      // Global dollar-mode early invest (null in percentage mode). Drives the
       // per-scenario fraction, so it must re-trigger the comparison.
       inputs.investedEarlyDollar,
+      // Per-strategy invested-dollar overrides (comparison-only). New object
+      // identity whenever the user edits a strategy's amount, so the reference
+      // is a sound dep — recompute when any override changes.
+      inputs.investedEarlyDollarByStrategy,
     ]
   );
 }
