@@ -12,6 +12,14 @@
 
 import { FRA } from "./ssRules.js";
 
+// Medicare eligibility starts the month the claimant turns 65. The pre-FRA
+// invested window (claimAge -> FRA) therefore straddles two healthcare-cost
+// regimes for anyone claiming before 65: ACA premiums up to 65, Medicare /
+// IRMAA from 65 on. The early-claim net check is healthcare-adjusted
+// differently on each side of this boundary (see benefitMath.computeProjection),
+// so buildChartData switches the pre-FRA contribution rate here.
+const MEDICARE_AGE = 65;
+
 // Pure helper. Given the user's claim age and chosen invest-stop age,
 // return the boundaries of each phase in years and months.
 export function computePhaseBoundaries({ claimAge, investStopAge }) {
@@ -181,6 +189,12 @@ export function buildChartData({
   lifeExpectancy,
   returnRate,
   earlyMonthlyNet,
+  // Pre-FRA net check for ages >= 65 (Medicare-eligible). Differs from
+  // earlyMonthlyNet only by the healthcare-cost adjustment: pre-65 carries the
+  // ACA premium delta, 65-to-FRA carries the Medicare/IRMAA delta. Defaults to
+  // earlyMonthlyNet so callers that don't model the 65 transition (and every
+  // existing test) keep the previous single-rate pre-FRA behavior.
+  earlyMonthlyNet65Plus = earlyMonthlyNet,
   earlyPostFRAMonthlyNet,
   // The post-FRA "retired" rates default to the working rates so older
   // callers (and tests) that don't pass them get the previous behavior.
@@ -244,10 +258,16 @@ export function buildChartData({
         0,
         Math.round(m - (claimAge - simBase) * 12)
       );
+      // Pre-FRA, the contribution rate splits at Medicare eligibility (65):
+      // before 65 the check carries the ACA-premium healthcare delta, from 65
+      // on it carries the Medicare/IRMAA delta. The lumpy earnings-test
+      // withholding pattern rides on top of whichever rate applies.
+      const preFRABaseNet =
+        ageAtMonthEnd < MEDICARE_AGE ? earlyMonthlyNet : earlyMonthlyNet65Plus;
       const preFRAContrib = lumpyContribAtMonth(
         monthsSinceClaim - 1,
         lumpy,
-        earlyMonthlyNet
+        preFRABaseNet
       );
       const checkThisMonth =
         ageAtMonthEnd <= FRA
