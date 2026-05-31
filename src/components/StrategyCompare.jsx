@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -21,6 +22,102 @@ const STRAT_COLOR = {
   own: C.inkFaint,
 };
 
+// One editable per-strategy invested-dollar field in the control block above
+// the comparison. Click the amount to type an exact monthly dollar figure for
+// THIS strategy alone; the comparison re-races immediately. The displayed
+// `monthly` already reflects any override (and the whole-check cap), so the
+// field always shows what this strategy actually invests.
+function StrategyInvestField({
+  stratKey,
+  label,
+  color,
+  monthly,
+  overridden,
+  atCap,
+  onChange,
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const startEdit = () => {
+    setDraft(String(Math.round(monthly)));
+    setEditing(true);
+  };
+  const commit = () => {
+    const v = parseFloat(draft);
+    if (!Number.isNaN(v)) onChange(stratKey, Math.max(0, v));
+    setEditing(false);
+  };
+
+  return (
+    <div className="card-flat p-3" style={{ borderLeft: `3px solid ${color}` }}>
+      <div
+        className="text-xs uppercase truncate"
+        style={{ color, letterSpacing: "0.08em", fontWeight: 700 }}
+      >
+        {label}
+      </div>
+      {editing ? (
+        <input
+          type="number"
+          autoFocus
+          className="num"
+          value={draft}
+          min={0}
+          step={50}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            else if (e.key === "Escape") setEditing(false);
+          }}
+          style={{
+            color: C.ink,
+            fontWeight: 600,
+            backgroundColor: C.surface,
+            border: `1px solid ${C.accent}`,
+            borderRadius: "var(--radius-sm)",
+            padding: "2px 8px",
+            width: "100%",
+            marginTop: "4px",
+            textAlign: "left",
+            fontSize: "1.1rem",
+            outline: "none",
+          }}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={startEdit}
+          className="num"
+          title={`Set the monthly amount invested in ${label}`}
+          style={{
+            color: C.ink,
+            fontWeight: 600,
+            background: "transparent",
+            border: "1px solid transparent",
+            padding: "2px 8px",
+            margin: "2px -8px 0",
+            cursor: "text",
+            fontSize: "1.1rem",
+            borderRadius: "var(--radius-sm)",
+            fontFamily: "inherit",
+            transition: "background 0.15s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = C.surface)}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >
+          {fmtMoney(monthly)}/mo
+        </button>
+      )}
+      <div className="text-xs num mt-1" style={{ color: C.inkFaint }}>
+        {atCap ? "whole check" : overridden ? "custom" : "follows slider"}
+      </div>
+    </div>
+  );
+}
+
 // Head-to-head comparison of the three claiming strategies a surviving spouse
 // can choose between — survivor early, own->survivor switch, and own-only —
 // all on the SAME inputs. Answers the question the three separate modes
@@ -37,9 +134,25 @@ export default function StrategyCompare({
   mode,
   onSelectStrategy,
   lifeExpectancy,
+  // Set a per-strategy invested monthly dollar (key, dollars), and clear all
+  // overrides back to the shared slider. Default to no-ops so the panel still
+  // renders standalone (e.g. in tests) without the App wiring.
+  onInvestChange = () => {},
+  onInvestReset = () => {},
 }) {
   const { strategies, byKey, merged, verdict } = compare;
-  const { primaryWinner, primaryMargin, crossover, switchEndsAhead } = verdict;
+  const {
+    primaryWinner,
+    primaryMargin,
+    crossover,
+    switchEndsAhead,
+    breakEvenReturn,
+    crossoverSurvivalProb,
+    conditioningAge,
+  } = verdict;
+
+  // Any strategy carrying a per-strategy override → offer a reset to the slider.
+  const anyInvestOverride = strategies.some((s) => s.investedOverridden);
 
   const winnerLabel =
     primaryWinner === "switch" ? "Own → Survivor" : "Claiming survivor early";
@@ -59,6 +172,36 @@ export default function StrategyCompare({
     ? "Own → Survivor leads at every age in this range."
     : "Claiming survivor early leads at every age in this range — the switch never catches up here.";
 
+  // The two levers that move the verdict, surfaced under the headline so the
+  // user can see HOW sensitive the answer is, not just which way it points.
+  const winnerWord = (key) =>
+    key === "switch" ? "Own → Survivor" : "claiming survivor early";
+
+  // Return lever: the real-return rate at which the verdict flips.
+  const be = breakEvenReturn;
+  const returnLeverNote =
+    be.rate == null
+      ? `Across every real return from 0% to 12%, ${winnerWord(
+          be.lowWinner
+        )} wins.`
+      : `Below ~${be.rate}% real return, ${winnerWord(
+          be.lowWinner
+        )} wins; above it, ${winnerWord(be.highWinner)} pulls ahead${
+          be.rate > 10 ? " (past the slider's 10% max)" : ""
+        }.`;
+
+  // Longevity lever: odds of living from the decision age to the crossover.
+  // Only meaningful when the lines actually cross.
+  let longevityLeverNote = null;
+  if (crossover != null && crossoverSurvivalProb != null) {
+    const pct = Math.round(crossoverSurvivalProb * 100);
+    longevityLeverNote =
+      `About ${pct}% chance of living from ${fmtAge(
+        conditioningAge
+      )} to the ${fmtAge(crossover)} crossover (SSA period life table)` +
+      (switchEndsAhead ? " — past it, the switch comes out ahead." : ".");
+  }
+
   return (
     <div id="strategy-compare" className="card mt-5 p-6 md:p-7" style={{ scrollMarginTop: "1rem" }}>
       <div className="mb-5">
@@ -71,6 +214,69 @@ export default function StrategyCompare({
           pot plus checks collected. Tap a strategy to open it in the full
           calculator above.
         </p>
+      </div>
+
+      {/* Per-strategy invest controls. The single early-invest slider sets one
+          figure for every scenario at once; this is where the user can dial a
+          DIFFERENT monthly amount into each strategy and race those — e.g.
+          $500/mo on survivor-early vs $250/mo on own->survivor. */}
+      <div className="card-flat p-4 md:p-5 mb-5">
+        <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+          <div>
+            <div
+              className="text-xs uppercase"
+              style={{
+                color: C.inkFaint,
+                letterSpacing: "0.12em",
+                fontWeight: 600,
+              }}
+            >
+              Invested monthly · per strategy
+            </div>
+            <p
+              className="text-xs mt-1 max-w-md"
+              style={{ color: C.inkSoft }}
+            >
+              Set a different amount in each — independent here, unlike the main
+              slider. Capped at each strategy's own check.
+            </p>
+          </div>
+          {anyInvestOverride && (
+            <button
+              type="button"
+              onClick={onInvestReset}
+              className="num"
+              title="Clear per-strategy amounts and follow the main slider again"
+              style={{
+                color: C.accent,
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                fontSize: "11px",
+                fontWeight: 500,
+                fontFamily: "inherit",
+                whiteSpace: "nowrap",
+              }}
+            >
+              ↺ reset to slider
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {strategies.map((s) => (
+            <StrategyInvestField
+              key={s.key}
+              stratKey={s.key}
+              label={s.label}
+              color={STRAT_COLOR[s.key]}
+              monthly={s.investedMonthly}
+              overridden={s.investedOverridden}
+              atCap={s.investedAtCheckCap}
+              onChange={onInvestChange}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Verdict banner — directly answers the question. */}
@@ -107,6 +313,61 @@ export default function StrategyCompare({
         <p className="text-xs mt-2" style={{ color: C.inkSoft }}>
           {crossoverNote}
         </p>
+
+        {/* The two levers that move the answer: how good returns must be, and
+            how long you must live. Framed so the user sees the sensitivity. */}
+        <div
+          className="text-xs mt-3 pt-3"
+          style={{ borderTop: `1px solid ${C.border}`, color: C.inkSoft }}
+        >
+          <div className="flex gap-2" style={{ alignItems: "baseline" }}>
+            <span
+              style={{
+                color: C.inkFaint,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                minWidth: "4.5rem",
+              }}
+            >
+              RETURNS
+            </span>
+            <span>{returnLeverNote}</span>
+          </div>
+          {longevityLeverNote && (
+            <div
+              className="flex gap-2 mt-1"
+              style={{ alignItems: "baseline" }}
+            >
+              <span
+                style={{
+                  color: C.inkFaint,
+                  fontWeight: 600,
+                  letterSpacing: "0.06em",
+                  minWidth: "4.5rem",
+                }}
+              >
+                LONGEVITY
+              </span>
+              <span>{longevityLeverNote}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Legend for the head-to-head chart (own-only isn't plotted here — it's
+          a supplementary card below, not part of this two-way race). */}
+      <div
+        className="flex gap-4 text-xs num flex-wrap mb-2"
+        style={{ justifyContent: "flex-end" }}
+      >
+        <div className="flex items-center gap-2">
+          <div style={{ width: "18px", height: "2px", backgroundColor: C.early }} />
+          <span style={{ color: C.ink }}>Survivor early</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div style={{ width: "18px", height: "2px", backgroundColor: C.wait }} />
+          <span style={{ color: C.ink }}>Own → Survivor</span>
+        </div>
       </div>
 
       {/* Head-to-head chart: the two survivor-context lines + crossover. */}
@@ -309,19 +570,19 @@ export default function StrategyCompare({
                 </div>
               </div>
 
-              {/* Dollar-mode invest: show the dollar actually invested in this
-                  scenario (the entered amount, or the whole check when it's
-                  smaller) so the user sees the same dollar applied to both
-                  calcs. Hidden in percentage mode. */}
-              {s.investedEarlyDollarApplied != null && (
+              {/* Echo the dollar this scenario invests whenever a dollar figure
+                  is in play (a per-strategy override, or the slider's "$"
+                  mode), capped at the whole check. Hidden in plain percentage
+                  mode, where the invest amount is just a fraction of the card's
+                  "Now" check shown above. */}
+              {(s.investedOverridden || s.investedEarlyDollarApplied != null) && (
                 <div
                   className="text-xs num mt-2"
                   style={{ color: STRAT_COLOR[s.key], fontWeight: 500 }}
                 >
-                  investing {fmtMoney(s.investedEarlyDollarApplied)}/mo
-                  {s.investedEarlyDollarApplied >= s.earlyMonthlyNet - 0.5
-                    ? " · whole check"
-                    : ""}
+                  investing {fmtMoney(s.investedMonthly)}/mo
+                  {s.investedAtCheckCap ? " · whole check" : ""}
+                  {s.investedOverridden ? " · custom" : ""}
                 </div>
               )}
 

@@ -48,6 +48,16 @@ const SCHEMA = [
   // only ever models a single filer.
   { key: "coveredElsewhere",   url: "cov",   type: "bool", default: false },
   { key: "unsubsidizedSilverAnnual", url: "usil", type: "num", default: 9679, min: 0, max: 50000 },
+  // Per-strategy invested-monthly-dollar overrides for the strategy-comparison
+  // panel (survivor / switch / own). -1 is the sentinel for "no override —
+  // follow the shared invest slider"; any value >= 0 is the monthly dollar that
+  // strategy invests in the comparison (capped at its own check downstream).
+  // Persisted so a shared link reproduces a head-to-head the sender set up
+  // (e.g. $500/mo on survivor-early vs $250/mo on own->survivor). App maps
+  // these three scalars to/from the comparison's override map.
+  { key: "investSurvivor",     url: "cisv",  type: "num",  default: -1, min: -1, max: 50000 },
+  { key: "investSwitch",       url: "cisw",  type: "num",  default: -1, min: -1, max: 50000 },
+  { key: "investOwn",          url: "ciso",  type: "num",  default: -1, min: -1, max: 50000 },
 ];
 
 export const DEFAULT_STATE = Object.fromEntries(

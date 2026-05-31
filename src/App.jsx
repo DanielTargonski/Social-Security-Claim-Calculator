@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Analytics } from "@vercel/analytics/react";
 import { C } from "./constants/colors.js";
 import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
@@ -84,6 +84,9 @@ export default function App() {
     coveredElsewhere,
     unsubsidizedSilverAnnual,
     locality,
+    investSurvivor,
+    investSwitch,
+    investOwn,
   } = state;
   const {
     setMode,
@@ -103,7 +106,38 @@ export default function App() {
     setCoveredElsewhere,
     setUnsubsidizedSilverAnnual,
     setLocality,
+    setInvestSurvivor,
+    setInvestSwitch,
+    setInvestOwn,
   } = setters;
+
+  // Per-strategy invested-dollar overrides for the strategy-comparison panel,
+  // derived from the three persisted scalar fields (-1 = "follow the slider").
+  // The single early-invest slider can only set one figure for every scenario
+  // at once; these let the comparison race, say, $500/mo on survivor-early
+  // against $250/mo on own->survivor. Memoized so the object identity is stable
+  // until one of the fields changes — useStrategyCompare keys off it. Now part
+  // of the form-state schema (not session-only) so a shared link reproduces the
+  // head-to-head; it still only steers the comparison, never the main chart.
+  const compareInvest = useMemo(() => {
+    const m = {};
+    if (investSurvivor >= 0) m.survivor = investSurvivor;
+    if (investSwitch >= 0) m.switch = investSwitch;
+    if (investOwn >= 0) m.own = investOwn;
+    return m;
+  }, [investSurvivor, investSwitch, investOwn]);
+  const investSetterByKey = {
+    survivor: setInvestSurvivor,
+    switch: setInvestSwitch,
+    own: setInvestOwn,
+  };
+  const handleCompareInvestChange = (key, dollar) =>
+    investSetterByKey[key]?.(dollar);
+  const handleCompareInvestReset = () => {
+    setInvestSurvivor(-1);
+    setInvestSwitch(-1);
+    setInvestOwn(-1);
+  };
 
   // Mirror state into the URL on every change. Stored raw investStopAge
   // intentionally, not the clamped effective value, so a shared link
@@ -213,7 +247,11 @@ export default function App() {
   // of a fixed fraction. null in "%" mode keeps the fixed-fraction behavior.
   const investedEarlyDollar =
     investedPctEarlyMode === "$" ? earlyMonthlyNet * (investedPct / 100) : null;
-  const compare = useStrategyCompare({ ...inputs, investedEarlyDollar });
+  const compare = useStrategyCompare({
+    ...inputs,
+    investedEarlyDollar,
+    investedEarlyDollarByStrategy: compareInvest,
+  });
 
   const primaryBenefitLabel =
     mode === "retirement" ? "Your benefit at 67" : "Survivor benefit at 67";
@@ -500,6 +538,8 @@ export default function App() {
               mode={mode}
               onSelectStrategy={switchMode}
               lifeExpectancy={lifeExpectancy}
+              onInvestChange={handleCompareInvestChange}
+              onInvestReset={handleCompareInvestReset}
             />
           )}
 

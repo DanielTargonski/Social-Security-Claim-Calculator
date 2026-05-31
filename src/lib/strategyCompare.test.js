@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   compareStrategies,
+  findBreakEvenReturn,
   findSeriesCrossover,
   mergeEarlySeries,
   STRATEGY_DEFS,
@@ -279,6 +280,166 @@ describe("compareStrategies — dollar-mode early invest", () => {
     for (const key of ["survivor", "switch", "own"]) {
       expect(byKey[key].investedEarlyDollarApplied).toBeNull();
     }
+  });
+});
+
+describe("compareStrategies — per-strategy invest overrides", () => {
+  const survivorCheck = 2500 * survivorFactor(62); // ~1991/mo
+  const ownCheck = 1500 * retirementFactor(62); // ~1050/mo
+
+  it("invests a DIFFERENT dollar in each strategy when overridden", () => {
+    // The whole point: $500/mo on survivor-early, $250/mo on own->survivor.
+    const { byKey } = compareStrategies({
+      ...baseInputs,
+      investedEarlyDollarByStrategy: { survivor: 500, switch: 250 },
+    });
+    expect(byKey.survivor.investedMonthly).toBeCloseTo(500, 0);
+    expect(byKey.switch.investedMonthly).toBeCloseTo(250, 0);
+    expect(byKey.survivor.investedOverridden).toBe(true);
+    expect(byKey.switch.investedOverridden).toBe(true);
+  });
+
+  it("a non-overridden strategy still follows the shared setting", () => {
+    // survivor & switch overridden; own falls back to the 100% percentage —
+    // i.e. its whole check.
+    const { byKey } = compareStrategies({
+      ...baseInputs,
+      investedPct: 100,
+      investedEarlyDollarByStrategy: { survivor: 500, switch: 250 },
+    });
+    expect(byKey.own.investedOverridden).toBe(false);
+    expect(byKey.own.investedMonthly).toBeCloseTo(ownCheck, 0);
+  });
+
+  it("an override caps at that strategy's own check", () => {
+    const { byKey } = compareStrategies({
+      ...baseInputs,
+      investedEarlyDollarByStrategy: { own: 5000 },
+    });
+    expect(byKey.own.investedMonthly).toBeCloseTo(ownCheck, 0);
+    expect(byKey.own.investedAtCheckCap).toBe(true);
+  });
+
+  it("an override takes precedence over the global dollar mode", () => {
+    // Global $1,000 everywhere, but survivor overridden to $300.
+    const { byKey } = compareStrategies({
+      ...baseInputs,
+      investedEarlyDollar: 1000,
+      investedEarlyDollarByStrategy: { survivor: 300 },
+    });
+    expect(byKey.survivor.investedMonthly).toBeCloseTo(300, 0);
+    // The others keep the global $1,000.
+    expect(byKey.switch.investedMonthly).toBeCloseTo(1000, 0);
+    expect(byKey.own.investedMonthly).toBeCloseTo(1000, 0);
+  });
+
+  it("reports investedMonthly in plain percentage mode too (== pct of check)", () => {
+    const { byKey } = compareStrategies({ ...baseInputs, investedPct: 50 });
+    expect(byKey.survivor.investedMonthly).toBeCloseTo(survivorCheck * 0.5, 0);
+    expect(byKey.own.investedMonthly).toBeCloseTo(ownCheck * 0.5, 0);
+    // No dollar figure drove it → not flagged as overridden, dollar-applied null.
+    expect(byKey.survivor.investedOverridden).toBe(false);
+    expect(byKey.survivor.investedEarlyDollarApplied).toBeNull();
+  });
+
+  it("a bigger override grows that strategy's pot, leaving others untouched", () => {
+    const base = compareStrategies({
+      ...baseInputs,
+      returnRate: 7,
+      investStopAge: 67,
+      investedEarlyDollarByStrategy: { survivor: 200, switch: 200 },
+    });
+    const more = compareStrategies({
+      ...baseInputs,
+      returnRate: 7,
+      investStopAge: 67,
+      investedEarlyDollarByStrategy: { survivor: 800, switch: 200 },
+    });
+    const potAt = (s, age) => s.chartData.find((d) => d.age >= age)?.pot ?? 0;
+    expect(potAt(more.byKey.survivor, 67)).toBeGreaterThan(
+      potAt(base.byKey.survivor, 67)
+    );
+    // The switch wasn't touched → identical pot.
+    expect(potAt(more.byKey.switch, 67)).toBeCloseTo(
+      potAt(base.byKey.switch, 67),
+      0
+    );
+  });
+
+  it("an override of 0 invests nothing for that strategy", () => {
+    const { byKey } = compareStrategies({
+      ...baseInputs,
+      investedEarlyDollarByStrategy: { survivor: 0 },
+    });
+    expect(byKey.survivor.investedMonthly).toBe(0);
+    expect(byKey.survivor.investedOverridden).toBe(true);
+  });
+});
+
+describe("findBreakEvenReturn", () => {
+  it("finds a flip rate for a long life: switch below it, survivor above", () => {
+    // At a long life the switch wins when returns are flat (the bigger post-67
+    // benefit eventually outweighs survivor-early's head start), but high
+    // returns favor investing the larger early survivor check. So there's a
+    // flip in between, with the switch winning at low returns.
+    const be = findBreakEvenReturn({ ...baseInputs, lifeExpectancy: 95 });
+    expect(be.rate).toBeGreaterThan(0);
+    expect(be.rate).toBeLessThan(12);
+    expect(be.lowWinner).toBe("switch");
+    expect(be.highWinner).toBe("survivor");
+  });
+
+  it("reports no flip (survivor wins throughout) for a short life", () => {
+    // Die soon after FRA: survivor-early's larger early checks win at every
+    // return, so there's no crossing in 0..12%.
+    const be = findBreakEvenReturn({ ...baseInputs, lifeExpectancy: 72 });
+    expect(be.rate).toBeNull();
+    expect(be.lowWinner).toBe("survivor");
+    expect(be.highWinner).toBe("survivor");
+  });
+
+  it("the flip rate is consistent with compareStrategies at that rate", () => {
+    // At the flip rate the two strategies' lifetime totals should be ~equal.
+    const be = findBreakEvenReturn({ ...baseInputs, lifeExpectancy: 95 });
+    const { byKey } = compareStrategies({
+      ...baseInputs,
+      lifeExpectancy: 95,
+      returnRate: be.rate,
+    });
+    const gap = Math.abs(byKey.switch.lifetimeTotal - byKey.survivor.lifetimeTotal);
+    // Within a small band — interpolation between 0.5%-spaced samples isn't
+    // exact, but the totals are within a fraction of a percent of each other.
+    expect(gap / byKey.survivor.lifetimeTotal).toBeLessThan(0.02);
+  });
+
+  it("is exposed on the verdict", () => {
+    const { verdict } = compareStrategies({ ...baseInputs, lifeExpectancy: 95 });
+    expect(verdict.breakEvenReturn).toBeDefined();
+    expect(verdict.breakEvenReturn.lowWinner).toBe("switch");
+  });
+});
+
+describe("compareStrategies — mortality weighting", () => {
+  it("reports the probability of reaching the crossover, conditioned on the claim age", () => {
+    // Flat returns + long life → the switch overtakes at a finite crossover.
+    const { verdict } = compareStrategies({
+      ...baseInputs,
+      returnRate: 0,
+      lifeExpectancy: 95,
+    });
+    // There's a crossover, so a survival probability is reported.
+    expect(verdict.crossover).toBeGreaterThan(67);
+    expect(verdict.crossoverSurvivalProb).toBeGreaterThan(0);
+    expect(verdict.crossoverSurvivalProb).toBeLessThan(1);
+    // Conditioned on the survivor strategy's claim age (the decision point).
+    expect(verdict.conditioningAge).toBe(62);
+  });
+
+  it("leaves the survival probability null when the lines never cross", () => {
+    // Short life → survivor-early leads the whole way, no crossover.
+    const { verdict } = compareStrategies({ ...baseInputs, lifeExpectancy: 72 });
+    expect(verdict.crossover).toBeNull();
+    expect(verdict.crossoverSurvivalProb).toBeNull();
   });
 });
 

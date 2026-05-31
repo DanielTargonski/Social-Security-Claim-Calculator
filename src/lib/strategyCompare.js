@@ -20,6 +20,7 @@
 
 import { computeProjection } from "./benefitMath.js";
 import { clampClaimAgeToBounds } from "./modeConfig.js";
+import { survivalProbability } from "./lifeTable.js";
 
 export const STRATEGY_DEFS = [
   {
@@ -118,64 +119,162 @@ export function mergeEarlySeries(aData, bData, aKey, bKey) {
 //   byKey       same, indexed by key
 //   merged      [{ age, survivorEarly, switchEarly }] head-to-head series
 //   verdict     { primaryWinner, primaryMargin, crossover, switchEndsAhead,
+//                 breakEvenReturn, crossoverSurvivalProb, conditioningAge,
 //                 overallWinner, overallRunnerUp, overallMargin }
-export function compareStrategies(inputs) {
-  // Dollar-mode early invest: when the user enters the early-invest amount as a
-  // fixed DOLLAR figure (the slider's "$" toggle) rather than a percentage,
-  // `investedEarlyDollar` carries that monthly dollar amount. Each strategy's
-  // early check differs (survivor's reduced survivor check vs own's reduced own
-  // check), so a single fixed PERCENTAGE invests a different number of dollars
-  // in each — which surprises a user who typed one dollar figure. In dollar
-  // mode we instead invest that same dollar amount in every scenario, capped at
-  // each scenario's own check ("if the benefits are big enough"). null/absent =
-  // percentage mode (unchanged: one fixed `investedPct` fraction everywhere).
-  const investedEarlyDollar = inputs.investedEarlyDollar;
-  const dollarMode = investedEarlyDollar != null && investedEarlyDollar > 0;
+// Run one strategy's projection on the given inputs, resolving how much it
+// invests. How much each scenario invests is decided per strategy, in this
+// order of precedence:
+//
+//   1. PER-STRATEGY OVERRIDE (`investedEarlyDollarByStrategy[key]`) — a
+//      monthly dollar the user set for THAT strategy alone, independent of the
+//      others. This is the decoupling the global slider can't express: the
+//      slider forces ONE figure across every scenario, so a user who wants to
+//      invest $500/mo on survivor-early but only $250/mo on own->survivor
+//      (different bets, not the same dollar) had no way to say so. The
+//      comparison honors each override on its own.
+//   2. GLOBAL DOLLAR (`investedEarlyDollar`) — the slider's "$" mode: one
+//      dollar invested in every scenario (capped per check). Used for any
+//      strategy without its own override.
+//   3. PERCENTAGE (`investedPct`) — the slider's "%" mode: invest that fraction
+//      of each scenario's OWN check (so different dollars per scenario).
+//
+// Every resolved amount is capped at the scenario's own check — you can't
+// invest more than you receive ("whole check" when the request exceeds it).
+//
+// Returns the projection plus the derived invest figures the UI needs. Shared
+// by compareStrategies (builds the full strategy objects) and the break-even
+// sweep below (needs only `projection.finalEarly` per rate), so the sweep
+// resolves invest amounts exactly like the live comparison.
+function projectStrategy(def, inputs) {
+  const claimAge = clampClaimAgeToBounds(def.mode, inputs.claimAge);
+  const fraBenefit = inputs[def.fraSource];
+  const investStopAge = clampInvestStopAge({
+    investStopAge: inputs.investStopAge,
+    claimAge,
+    lifeExpectancy: inputs.lifeExpectancy,
+  });
+  const projInputs = {
+    ...inputs,
+    mode: def.mode,
+    claimAge,
+    fraBenefit,
+    investStopAge,
+  };
+  let projection = computeProjection(projInputs);
 
-  const strategies = STRATEGY_DEFS.map((def) => {
-    const claimAge = clampClaimAgeToBounds(def.mode, inputs.claimAge);
-    const fraBenefit = inputs[def.fraSource];
-    const investStopAge = clampInvestStopAge({
-      investStopAge: inputs.investStopAge,
-      claimAge,
-      lifeExpectancy: inputs.lifeExpectancy,
-    });
-    const projInputs = {
-      ...inputs,
-      mode: def.mode,
-      claimAge,
-      fraBenefit,
-      investStopAge,
-    };
-    let projection = computeProjection(projInputs);
+  // `investedPct` doesn't affect `earlyMonthlyNet`, so the first projection
+  // already gives us this scenario's check to size any dollar request against.
+  // Resolve the monthly dollar this scenario invests (see precedence above),
+  // cap it at the check, then re-run only when a dollar figure drove the amount
+  // — in pure percentage mode the first projection already used `investedPct`,
+  // so a re-run would be a no-op.
+  const check = projection.earlyMonthlyNet;
+  const overrides = inputs.investedEarlyDollarByStrategy || {};
+  const override = overrides[def.key];
+  const hasOverride = override != null && override >= 0;
+  const globalDollar = inputs.investedEarlyDollar;
+  const globalDollarMode = globalDollar != null && globalDollar > 0;
 
-    // In dollar mode, re-derive this scenario's invested fraction from the
-    // entered dollar amount and ITS OWN check. `investedPct` doesn't affect
-    // `earlyMonthlyNet`, so the first projection already gives us the check to
-    // size the fraction against; re-run with the per-scenario fraction. Capped
-    // at the check (can't invest more than you receive) → 100% when the check
-    // is smaller than the dollar amount.
-    let investedEarlyDollarApplied = null;
-    if (dollarMode) {
-      const check = projection.earlyMonthlyNet;
-      if (check > 0) {
-        investedEarlyDollarApplied = Math.min(investedEarlyDollar, check);
-        const pct = (investedEarlyDollarApplied / check) * 100;
-        projection = computeProjection({ ...projInputs, investedPct: pct });
-      }
+  let requestedDollar;
+  let dollarDriven;
+  if (hasOverride) {
+    requestedDollar = override;
+    dollarDriven = true;
+  } else if (globalDollarMode) {
+    requestedDollar = globalDollar;
+    dollarDriven = true;
+  } else {
+    requestedDollar = (inputs.investedPct / 100) * check;
+    dollarDriven = false;
+  }
+
+  const investedMonthly =
+    check > 0 ? Math.min(Math.max(requestedDollar, 0), check) : 0;
+  // Did the request exceed the check (so it clamped to the whole check)? The
+  // 0.5 slack keeps a request that equals the check from reading as capped.
+  const investedAtCheckCap = check > 0 && requestedDollar > check + 0.5;
+
+  if (dollarDriven && check > 0) {
+    const pct = (investedMonthly / check) * 100;
+    projection = computeProjection({ ...projInputs, investedPct: pct });
+  }
+
+  return {
+    claimAge,
+    fraBenefit,
+    projection,
+    investedMonthly,
+    investedAtCheckCap,
+    hasOverride,
+    // Back-compat: non-null whenever a dollar figure (override or global "$"
+    // mode) drove the amount; null in pure percentage mode.
+    investedEarlyDollarApplied: dollarDriven ? investedMonthly : null,
+  };
+}
+
+// The real-return rate at which the PRIMARY verdict flips — own->survivor
+// switch vs claiming survivor early. The crossover age answers "how long must
+// you live?"; this answers the other half of the thesis, "how good must your
+// returns be?". Sweeps 0% upward and finds where the two strategies' lifetime
+// totals cross, using the SAME per-strategy invest resolution as the live
+// comparison so the threshold is consistent with the displayed numbers.
+//
+// Returns { rate, lowWinner, highWinner }: `rate` is the flip point (one
+// decimal) or null when one strategy leads across the whole 0..max range (then
+// lowWinner === highWinner). `lowWinner` wins below the flip, `highWinner`
+// above. Winner keys are "switch" / "survivor".
+export function findBreakEvenReturn(inputs, { max = 12, step = 0.5 } = {}) {
+  const diffAt = (rate) => {
+    const swTotal = projectStrategy(STRATEGY_DEFS[1], { ...inputs, returnRate: rate })
+      .projection.finalEarly;
+    const suTotal = projectStrategy(STRATEGY_DEFS[0], { ...inputs, returnRate: rate })
+      .projection.finalEarly;
+    return swTotal - suTotal; // > 0 → switch ahead
+  };
+  const winnerOf = (d) => (d >= 0 ? "switch" : "survivor");
+
+  let prevRate = 0;
+  let prevDiff = diffAt(0);
+  const lowWinner = winnerOf(prevDiff);
+  const steps = Math.round(max / step);
+
+  for (let i = 1; i <= steps; i++) {
+    const rate = i * step;
+    const d = diffAt(rate);
+    // Exact zero landing on the previous sample (rare), or a sign change
+    // between consecutive samples → interpolate the flip rate.
+    if (prevDiff !== 0 && prevDiff * d < 0) {
+      const t = prevDiff / (prevDiff - d);
+      const flip = prevRate + t * (rate - prevRate);
+      return {
+        rate: Math.round(flip * 10) / 10,
+        lowWinner,
+        highWinner: winnerOf(d),
+      };
     }
+    prevRate = rate;
+    prevDiff = d;
+  }
+  // No crossing in range: one side leads at every swept return.
+  return { rate: null, lowWinner, highWinner: lowWinner };
+}
 
+export function compareStrategies(inputs) {
+  const strategies = STRATEGY_DEFS.map((def) => {
+    const r = projectStrategy(def, inputs);
+    const { projection } = r;
     return {
       key: def.key,
       mode: def.mode,
       label: def.label,
       blurb: def.blurb,
-      claimAge,
+      claimAge: r.claimAge,
       // The claim age the user actually set, recorded only when this strategy
       // had to clamp away from it (so the UI can annotate "evaluated at 62,
       // its earliest" instead of silently showing a different age).
-      clampedFromClaimAge: claimAge !== inputs.claimAge ? inputs.claimAge : null,
-      fraBenefit,
+      clampedFromClaimAge:
+        r.claimAge !== inputs.claimAge ? inputs.claimAge : null,
+      fraBenefit: r.fraBenefit,
       // Total dollars in hand at lifeExpectancy (invested pot + cash collected)
       // under this strategy's early-and-invest path. The single comparable
       // wealth number across strategies.
@@ -189,10 +288,19 @@ export function compareStrategies(inputs) {
       // this is the full survivor benefit; for survivor/own it's the recouped
       // reduced benefit.
       postFRAMonthlyNet: projection.earlyPostFRAMonthlyNetRetired,
-      // Dollar mode only: the per-month dollar this scenario actually invests
-      // (the entered amount, or the whole check if it's smaller). null in
-      // percentage mode. UI surfaces it so the user sees the dollar honored.
-      investedEarlyDollarApplied,
+      // The per-month dollar this scenario actually invests (post-cap), in
+      // EVERY mode — percentage, global "$", or per-strategy override. This is
+      // what the comparison's per-strategy invest control displays and edits.
+      investedMonthly: r.investedMonthly,
+      // True when the requested amount exceeded this scenario's check and so
+      // clamped to the whole check.
+      investedAtCheckCap: r.investedAtCheckCap,
+      // True when this scenario's amount came from a per-strategy override
+      // (vs. the shared slider). Lets the UI flag a "custom" amount.
+      investedOverridden: r.hasOverride,
+      // Back-compat: the invested dollar when a dollar figure drove it (global
+      // "$" mode or an override); null in pure percentage mode.
+      investedEarlyDollarApplied: r.investedEarlyDollarApplied,
       chartData: projection.chartData,
     };
   });
@@ -212,6 +320,18 @@ export function compareStrategies(inputs) {
   const crossover = findSeriesCrossover(merged, "switchEarly", "survivorEarly");
   const switchVsSurvivor = sw.lifetimeTotal - survivor.lifetimeTotal;
 
+  // The return-rate lever: where the primary verdict flips as returns vary.
+  const breakEvenReturn = findBreakEvenReturn(inputs);
+
+  // The longevity lever: how likely the claimant is to live from the moment of
+  // the decision (the survivor-early claim age — the earliest action point in
+  // this head-to-head) to the crossover age where the switch overtakes. Turns
+  // the crossover from "live to exactly X" into an expected-value read. Null
+  // when the lines never cross (one strategy leads at every age).
+  const conditioningAge = survivor.claimAge;
+  const crossoverSurvivalProb =
+    crossover != null ? survivalProbability(conditioningAge, crossover) : null;
+
   // Overall ranking across all three by lifetime total at lifeExpectancy.
   const ranked = [...strategies].sort(
     (a, b) => b.lifetimeTotal - a.lifetimeTotal
@@ -225,6 +345,15 @@ export function compareStrategies(inputs) {
     // Age where the switch line overtakes the survivor-early line (null when
     // they never cross in range — one leads the whole way).
     crossover,
+    // The return rate that flips the primary verdict (the "how good must
+    // returns be?" lever): { rate, lowWinner, highWinner }. See
+    // findBreakEvenReturn.
+    breakEvenReturn,
+    // Probability of living from the decision age to the crossover (SSA period
+    // life table), and the age that probability is conditioned on. Null when
+    // there's no crossover.
+    crossoverSurvivalProb,
+    conditioningAge,
     // Best of all three (includes own-only).
     overallWinner: ranked[0].key,
     overallRunnerUp: ranked[1].key,
