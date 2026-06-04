@@ -7,6 +7,7 @@ import {
   resolveBenefits,
   FRA,
   EARNINGS_LIMIT_2026,
+  EARNINGS_LIMIT_2026_FRA_YEAR,
 } from "./ssRules.js";
 
 const closeTo = (a, b, tol = 0.001) => Math.abs(a - b) < tol;
@@ -113,6 +114,30 @@ describe("computeEarningsTest — withholding cases", () => {
       annualEarlyGross: 30000,
     });
     expect(w).toBe(8000);
+  });
+  it("uses the higher $65,160 exempt amount and $1-per-$3 rule in the year of FRA", () => {
+    expect(
+      computeEarningsTest({
+        claimAge: 66,
+        grossIncome: EARNINGS_LIMIT_2026_FRA_YEAR,
+        annualEarlyGross: 30000,
+      })
+    ).toBe(0);
+
+    const w = computeEarningsTest({
+      claimAge: 66,
+      grossIncome: EARNINGS_LIMIT_2026_FRA_YEAR + 9000,
+      annualEarlyGross: 30000,
+    });
+    expect(w).toBe(3000);
+  });
+  it("still uses the lower exempt amount before the year of FRA", () => {
+    const w = computeEarningsTest({
+      claimAge: 65 + 11 / 12,
+      grossIncome: EARNINGS_LIMIT_2026 + 9000,
+      annualEarlyGross: 30000,
+    });
+    expect(w).toBe(4500);
   });
   it("caps withholding at the full annual benefit", () => {
     const w = computeEarningsTest({
@@ -240,6 +265,21 @@ describe("computeRecoupedFactor — math", () => {
     expect(r).toBeGreaterThan(survivorFactor(64 + 7.5 / 12));
   });
 
+  it("recoup credits the year-of-FRA withholding separately from lower-limit years", () => {
+    const earlyMonthlyGross = 2000;
+    const r = computeRecoupedFactor({
+      mode: "retirement",
+      claimAge: 64,
+      earlyMonthlyGross,
+      earningsTestWithholding: 5000, // 3 credited months in each lower-limit year
+      fraYearEarningsTestWithholding: 0, // income below the higher FRA-year limit
+    });
+    // Age 64 up to 66 has two lower-limit years; the final pre-FRA year has
+    // no withholding here because income is below the higher FRA-year limit.
+    // 3 credited months/year × 2 years = 6 months credited total.
+    expect(closeTo(r, retirementFactor(64.5), 0.0001)).toBe(true);
+  });
+
   it("survivor: per-year crediting caps at 12 months and the factor at 1.0", () => {
     // Withholding equal to a full year of benefits → 12 credited months/yr.
     // claimAge 60 → 7 yearsPreFRA → 84 months → effective age 67 → factor 1.0.
@@ -313,6 +353,10 @@ describe("2026 official-source pinning (SSA)", () => {
 
   it("2026 earnings test limit = $24,480 (SSA COLA announcement, Oct 2025)", () => {
     expect(EARNINGS_LIMIT_2026).toBe(24480);
+  });
+
+  it("2026 year-of-FRA earnings test limit = $65,160", () => {
+    expect(EARNINGS_LIMIT_2026_FRA_YEAR).toBe(65160);
   });
 
   it("retirementFactor matches the canonical SSA published examples (FRA 67)", () => {

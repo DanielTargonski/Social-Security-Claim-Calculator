@@ -5,7 +5,13 @@
 //   - chartProjection.test.js (phase boundaries, pot at age, cash collection, chart shape)
 
 import { describe, it, expect } from "vitest";
-import { computeProjection, fmtDuration, FRA } from "./benefitMath.js";
+import {
+  computeProjection,
+  fmtDuration,
+  FRA,
+  EARNINGS_LIMIT_2026,
+  EARNINGS_LIMIT_2026_FRA_YEAR,
+} from "./benefitMath.js";
 
 const closeTo = (a, b, tol = 0.001) => Math.abs(a - b) < tol;
 
@@ -80,6 +86,27 @@ describe("computeProjection — earnings test interaction", () => {
     expect(withTest.finalEarly).toBeLessThan(noTest.finalEarly);
   });
 
+  it("uses the higher earnings-test limit during the year the claimant reaches FRA", () => {
+    const grossIncome = EARNINGS_LIMIT_2026 + 10000;
+    expect(grossIncome).toBeLessThan(EARNINGS_LIMIT_2026_FRA_YEAR);
+
+    const beforeFRAYear = computeProjection({
+      ...baseInputs,
+      claimAge: 65,
+      grossIncome,
+    });
+    const fraYear = computeProjection({
+      ...baseInputs,
+      claimAge: 66,
+      grossIncome,
+    });
+
+    expect(beforeFRAYear.earningsTestWithholding).toBe(5000);
+    expect(beforeFRAYear.fraYearEarningsTestWithholding).toBe(0);
+    expect(fraYear.earningsTestWithholding).toBe(0);
+    expect(fraYear.fraYearEarningsTestWithholding).toBe(0);
+  });
+
   it("invested pot uses the post-earnings-test, post-tax amount (not gross)", () => {
     const r = computeProjection({
       ...baseInputs,
@@ -90,8 +117,9 @@ describe("computeProjection — earnings test interaction", () => {
       returnRate: 0,
       investStopAge: 67,
     });
-    const expectedContributions = r.earlyMonthlyNet * 12 * 3;
-    expect(Math.abs(r.potAtStopRow - expectedContributions)).toBeLessThan(2);
+    const grossContributions = r.earlyMonthlyGross * 12 * 3;
+    expect(r.potAtStopRow).toBeGreaterThan(0);
+    expect(r.potAtStopRow).toBeLessThan(grossContributions);
   });
 });
 
@@ -141,9 +169,9 @@ describe("computeProjection — Phase 3 cash rate split", () => {
     });
     const rowAt67 = r.chartData.find((d) => d.age >= FRA);
     const cashFrom65To67 = rowAt67.early - rowAt67.pot;
-    const correctCash = r.earlyMonthlyNet * 12 * 2;
+    const lowerLimitCashOnly = r.earlyMonthlyNet * 12 * 2;
     const buggyCash = r.earlyPostFRAMonthlyNet * 12 * 2;
-    expect(Math.abs(cashFrom65To67 - correctCash)).toBeLessThan(2);
+    expect(cashFrom65To67).toBeGreaterThan(lowerLimitCashOnly);
     expect(cashFrom65To67).toBeLessThan(buggyCash);
   });
 });

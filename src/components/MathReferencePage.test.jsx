@@ -36,6 +36,7 @@ describe("MathReferencePage — render", () => {
     render(<MathReferencePage />);
     // Earnings test
     expect(screen.getAllByText(/\$24,480/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/\$65,160/).length).toBeGreaterThan(0);
     // Federal-tax SS tier thresholds
     expect(screen.getAllByText(/\$25,000/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/\$34,000/).length).toBeGreaterThan(0);

@@ -18,11 +18,12 @@ export default function Footnotes() {
           The earnings test
         </div>
         For 2026, anyone under FRA the entire year loses $1 of benefits for
-        every $2 earned over $24,480. In the year of FRA the limit loosens to
-        $65,160 with $1 lost per $3 over. Withheld benefits aren't lost forever
-        — the SSA recalculates the claimant's benefit upward at FRA to recoup
-        what was held back (this calculator models that recoup explicitly). The
-        catch in switch mode is that the recoup only applies to the
+        every $2 earned over $24,480. In the year the claimant reaches FRA, the
+        limit loosens to $65,160 with $1 lost per $3 over, counting only months
+        before FRA. Withheld benefits aren't lost forever — the SSA recalculates
+        the claimant's benefit upward at FRA to recoup what was held back (this
+        calculator models that recoup explicitly). The catch in switch mode is
+        that the recoup only applies to the
         own-retirement benefit, and once the claimant switches to survivor at
         67, the bumped-up own benefit becomes irrelevant.
       </div>
@@ -36,9 +37,10 @@ export default function Footnotes() {
         New York State and NYC do not tax Social Security benefits at all. The
         only tax that touches the claimant's checks is federal. Up to 85% of
         benefits are federally taxable depending on combined income (single
-        filer thresholds are $25K and $34K). The calculator simplifies by
-        applying the marginal rate to 85% of the benefit. Wage income is
-        separately taxed at federal, NY State, and NYC rates — pick a locality
+        filer thresholds are $25K and $34K). The calculator applies that tiered
+        federal formula in auto-tax mode; manual-tax mode assumes 85% taxable at
+        the rate the user enters. Wage income is separately taxed at federal, NY
+        State, and NYC rates — pick a locality
         in Income &amp; Tax to fold that into the take-home figures. Wage tax is
         display-only: it falls equally on both the claim-early and wait-to-67
         paths (the wages are identical), so it cancels in the break-even and

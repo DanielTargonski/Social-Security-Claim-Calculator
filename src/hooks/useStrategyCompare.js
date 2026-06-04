@@ -6,32 +6,70 @@ import { compareStrategies } from "../lib/strategyCompare.js";
 // something that actually moves the numbers changes. Mirrors the dependency
 // list style used by useBenefitProjection / SensitivityTornado.
 export function useStrategyCompare(inputs) {
+  const {
+    fraBenefit,
+    ownBenefit,
+    claimAge,
+    returnRate,
+    investStopAge,
+    lifeExpectancy,
+    grossIncome,
+    postFRAGrossIncome,
+    postFRAWorkYears,
+    autoTax,
+    manualFedRate,
+    investedPct,
+    investedPctWait,
+    coveredElsewhere,
+    unsubsidizedSilverAnnual,
+    investedEarlyDollar,
+    investedEarlyDollarByStrategy,
+  } = inputs;
+
   return useMemo(
-    () => compareStrategies(inputs),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () =>
+      compareStrategies({
+        fraBenefit,
+        ownBenefit,
+        claimAge,
+        returnRate,
+        investStopAge,
+        lifeExpectancy,
+        grossIncome,
+        postFRAGrossIncome,
+        postFRAWorkYears,
+        autoTax,
+        manualFedRate,
+        investedPct,
+        investedPctWait,
+        coveredElsewhere,
+        unsubsidizedSilverAnnual,
+        investedEarlyDollar,
+        investedEarlyDollarByStrategy,
+      }),
     [
-      inputs.fraBenefit,
-      inputs.ownBenefit,
-      inputs.claimAge,
-      inputs.returnRate,
-      inputs.investStopAge,
-      inputs.lifeExpectancy,
-      inputs.grossIncome,
-      inputs.postFRAGrossIncome,
-      inputs.postFRAWorkYears,
-      inputs.autoTax,
-      inputs.manualFedRate,
-      inputs.investedPct,
-      inputs.investedPctWait,
-      inputs.coveredElsewhere,
-      inputs.unsubsidizedSilverAnnual,
+      fraBenefit,
+      ownBenefit,
+      claimAge,
+      returnRate,
+      investStopAge,
+      lifeExpectancy,
+      grossIncome,
+      postFRAGrossIncome,
+      postFRAWorkYears,
+      autoTax,
+      manualFedRate,
+      investedPct,
+      investedPctWait,
+      coveredElsewhere,
+      unsubsidizedSilverAnnual,
       // Global dollar-mode early invest (null in percentage mode). Drives the
       // per-scenario fraction, so it must re-trigger the comparison.
-      inputs.investedEarlyDollar,
+      investedEarlyDollar,
       // Per-strategy invested-dollar overrides (comparison-only). New object
       // identity whenever the user edits a strategy's amount, so the reference
       // is a sound dep — recompute when any override changes.
-      inputs.investedEarlyDollarByStrategy,
+      investedEarlyDollarByStrategy,
     ]
   );
 }

@@ -5,6 +5,7 @@
 import {
   FRA,
   EARNINGS_LIMIT_2026,
+  EARNINGS_LIMIT_2026_FRA_YEAR,
   retirementFactor,
   survivorFactor,
   computeEarningsTest,
@@ -38,6 +39,7 @@ import {
 export {
   FRA,
   EARNINGS_LIMIT_2026,
+  EARNINGS_LIMIT_2026_FRA_YEAR,
   retirementFactor,
   survivorFactor,
   computeEarningsTest,
@@ -124,6 +126,11 @@ export function computeProjection({
     grossIncome,
     annualEarlyGross,
   });
+  const fraYearEarningsTestWithholding = computeEarningsTest({
+    claimAge: FRA - 1,
+    grossIncome,
+    annualEarlyGross,
+  });
   const earlyMonthlyAfterET = (annualEarlyGross - earningsTestWithholding) / 12;
 
   // FRA recoup of withheld months — applies to retirement/survivor modes only
@@ -132,6 +139,7 @@ export function computeProjection({
     claimAge,
     earlyMonthlyGross,
     earningsTestWithholding,
+    fraYearEarningsTestWithholding,
   });
   const earlyPostFRAMonthlyGross =
     recoupedFactor !== null
@@ -354,21 +362,32 @@ export function computeProjection({
   // Only computed when there's actual withholding to distribute. Zero or
   // null collapses to constant monthly contributions.
   const fullMonthlyPreTaxGross = earlyMonthlyGross;
-  const monthsWithheldFull = fullMonthlyPreTaxGross > 0
-    ? Math.floor(earningsTestWithholding / fullMonthlyPreTaxGross)
-    : 0;
-  const residualWithheld = earningsTestWithholding - monthsWithheldFull * fullMonthlyPreTaxGross;
-  const partialMonthlyPreTaxGross = Math.max(
-    0,
-    fullMonthlyPreTaxGross - residualWithheld
-  );
-  const lumpy = earningsTestWithholding > 0
-    ? {
-        monthsWithheldFull,
-        partialMonthlyNet:
-          partialMonthlyPreTaxGross * (1 - earlyTaxPreFRA.ssEffectiveTaxRate),
-      }
-    : null;
+  const makeLumpySchedule = (annualWithholding) => {
+    if (annualWithholding <= 0 || fullMonthlyPreTaxGross <= 0) return null;
+    const monthsWithheldFull = Math.floor(
+      annualWithholding / fullMonthlyPreTaxGross
+    );
+    const residualWithheld =
+      annualWithholding - monthsWithheldFull * fullMonthlyPreTaxGross;
+    const partialMonthlyPreTaxGross = Math.max(
+      0,
+      fullMonthlyPreTaxGross - residualWithheld
+    );
+    return {
+      monthsWithheldFull,
+      partialMonthlyNet:
+        partialMonthlyPreTaxGross * (1 - earlyTaxPreFRA.ssEffectiveTaxRate),
+    };
+  };
+  const lowerLimitLumpy = makeLumpySchedule(earningsTestWithholding);
+  const fraYearLumpy = makeLumpySchedule(fraYearEarningsTestWithholding);
+  const lumpy =
+    lowerLimitLumpy || fraYearLumpy
+      ? {
+          lower: lowerLimitLumpy,
+          fraYear: fraYearLumpy,
+        }
+      : null;
   // Note: when lumpy is active, the chart's pre-FRA contributions use
   // fullMonthlyNet for non-withheld months and partialMonthlyNet for the
   // transition month. fullMonthlyNet here equals earlyMonthlyGross *
@@ -713,6 +732,7 @@ export function computeProjection({
     recoupedFactor,
     annualEarlyGross,
     earningsTestWithholding,
+    fraYearEarningsTestWithholding,
     combinedIncome,
     taxableSSPct,
     fedMarginalRate,
