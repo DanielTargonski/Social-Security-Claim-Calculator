@@ -18,8 +18,8 @@ import { C } from "../constants/colors.js";
 // Sourcing convention: every section ends with one or more inline citations
 // linked to the canonical document (a CFR page, a POMS section, an IRS
 // publication, or a CMS / HHS fact sheet). Where the calculator deliberately
-// simplifies the real rule — flat 9.96% ACA contribution rate, $24,480
-// earnings-test limit without the year-of-FRA exception — the simplification
+// simplifies the real rule — flat 9.96% ACA contribution rate, age-based
+// approximation of the year-of-FRA earnings-test window — the simplification
 // is called out next to the formula, not buried in a footnote.
 export default function MathReferencePage() {
   return (
@@ -83,8 +83,8 @@ function PageHeader() {
         document, and every formula here traces back to an official source —
         an SSA regulation, an IRS publication, a CMS fact sheet, or an HHS
         guideline. Where the calculator deliberately simplifies a real rule
-        (e.g. the year-of-FRA earnings test exception, the graduated ACA
-        contribution scale), the simplification is called out next to the
+        (e.g. the exact birth-month timing of the year-of-FRA earnings test,
+        the graduated ACA contribution scale), the simplification is called out next to the
         formula so users can decide whether the gap matters for their
         scenario. All dollar figures are 2026 single-filer unless noted.
       </p>
@@ -276,26 +276,30 @@ function EarningsTestSection() {
     <section className="mb-12">
       <div className="section-divider mb-5">Earnings test (2026)</div>
       <p className="text-sm leading-relaxed mb-3" style={{ color: C.ink }}>
-        A claimant under FRA who collects Social Security while working
-        loses $1 of benefits for every $2 of wage income above an annual
-        exempt amount. Stops applying entirely the month they reach FRA.
+        A claimant under FRA who collects Social Security while working can
+        have benefits withheld when wage income exceeds the annual exempt
+        amount. The rule loosens in the calendar year they reach FRA, then
+        stops applying entirely the month they reach FRA.
       </p>
       <Formula>
-{`if claimAge < FRA and grossIncome > $24,480:
-    withholding = min(0.5 × (grossIncome − $24,480), annualBenefit)`}
+{`if claimAge < 66 and grossIncome > $24,480:
+    withholding = min((grossIncome − $24,480) / 2, annualBenefit)
+
+if final pre-FRA year (66 ≤ claimAge < 67) and grossIncome > $65,160:
+    withholding = min((grossIncome − $65,160) / 3, annualBenefit)
+
+if claimAge ≥ 67:
+    withholding = 0`}
       </Formula>
       <p
         className="text-sm leading-relaxed mb-3"
         style={{ color: C.inkSoft }}
       >
-        <strong style={{ color: C.ink }}>Simplification:</strong> In the
-        calendar year the claimant reaches FRA, the real rule loosens to a
-        higher limit ($65,160 in 2026) with a $1-per-$3 ratio applied only
-        to earnings before the FRA month. The calculator collapses this
-        into a single $24,480 / $1-per-$2 rule across all pre-FRA years.
-        The simplification mildly overstates withholding in the year of FRA
-        for high-earning claimants but is invisible for the typical
-        retire-at-62 + part-time-work scenario.
+        <strong style={{ color: C.ink }}>Timing note:</strong> SSA applies the
+        $65,160 / $1-per-$3 rule by calendar year and counts only earnings
+        before the FRA month. The calculator has ages, not birth month and
+        current month, so it models that final pre-FRA window as after the 66th
+        birthday and before the 67th birthday. FRA itself still starts at 67.
       </p>
       <Cite>
         <Ref href="https://www.ssa.gov/benefits/retirement/planner/whileworking.html">
@@ -442,11 +446,11 @@ function FederalBracketsSection() {
         income before bracket lookup.
       </p>
       <Cite>
-        <Ref href="https://www.irs.gov/pub/irs-drop/rp-25-19.pdf">
-          IRS Rev. Proc. 2025-19
+        <Ref href="https://www.irs.gov/newsroom/irs-releases-tax-inflation-adjustments-for-tax-year-2026-including-amendments-from-the-one-big-beautiful-bill/">
+          IRS 2026 inflation adjustments
         </Ref>{" "}
         — 2026 inflation-adjusted bracket thresholds and standard
-        deduction amounts.
+        deduction amounts (Rev. Proc. 2025-32).
       </Cite>
     </section>
   );
@@ -721,9 +725,11 @@ function SimplificationsSection() {
         style={{ color: C.ink, listStyle: "disc" }}
       >
         <li>
-          <strong>Year-of-FRA earnings test exception</strong> ($65,160
-          limit, $1-per-$3 ratio applied only to pre-FRA-month earnings) —
-          collapsed into the single $24,480 / $1-per-$2 rule.
+          <strong>Exact birth-month earnings-test timing</strong> — the
+          calculator applies the real 2026 year-of-FRA limit and $1-per-$3
+          ratio, but approximates that calendar window as the final pre-FRA
+          year before age 67 because it does not ask for birth month or current
+          month.
         </li>
         <li>
           <strong>WEP / GPO / family maximum / RIB-LIM</strong> — not
@@ -812,8 +818,8 @@ function SourcesSection() {
           <Ref href="https://www.ssa.gov/benefits/retirement/planner/whileworking.html">
             SSA — Receiving Benefits While Working
           </Ref>{" "}
-          — the 2026 earnings test ($24,480 limit, $1 withheld per $2
-          over) and the FRA recoup mechanism.
+          — the 2026 earnings test ($24,480 lower limit, $65,160 FRA-year
+          limit) and the FRA recoup mechanism.
         </li>
         <li>
           <Ref href="https://secure.ssa.gov/poms.nsf/lnx/0300615482">
@@ -837,10 +843,11 @@ function SourcesSection() {
           single filers.
         </li>
         <li>
-          <Ref href="https://www.irs.gov/pub/irs-drop/rp-25-19.pdf">
-            IRS Rev. Proc. 2025-19
+          <Ref href="https://www.irs.gov/newsroom/irs-releases-tax-inflation-adjustments-for-tax-year-2026-including-amendments-from-the-one-big-beautiful-bill/">
+            IRS 2026 inflation adjustments
           </Ref>{" "}
-          — 2026 inflation-adjusted federal brackets and standard deduction.
+          — 2026 inflation-adjusted federal brackets and standard deduction
+          (Rev. Proc. 2025-32).
         </li>
         <li>
           <Ref href="https://www.irs.gov/pub/irs-drop/rp-25-25.pdf">

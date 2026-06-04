@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 // Reusable segmented control with a measured sliding indicator. A single
 // absolutely-positioned "thumb" animates to sit behind the active option, so
@@ -11,14 +11,10 @@ import { useLayoutEffect, useRef, useState } from "react";
 export default function Segment({ options, value, onChange, className = "" }) {
   const containerRef = useRef(null);
   const btnRefs = useRef({});
-  // Latest selection, read by the resize/font listeners so their (first-render)
-  // closure never measures a stale active option.
-  const valueRef = useRef(value);
-  valueRef.current = value;
   const [thumb, setThumb] = useState(null);
 
-  const measure = () => {
-    const el = btnRefs.current[valueRef.current];
+  const measure = useCallback(() => {
+    const el = btnRefs.current[value];
     if (!el) return;
     setThumb({
       left: el.offsetLeft,
@@ -26,15 +22,14 @@ export default function Segment({ options, value, onChange, className = "" }) {
       width: el.offsetWidth,
       height: el.offsetHeight,
     });
-  };
+  }, [value]);
 
   // Position the thumb synchronously before paint whenever the selection (or
   // the option set) changes — already in place on first render (no flash),
   // animated on later changes.
   useLayoutEffect(() => {
     measure();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, options]);
+  }, [measure, options]);
 
   // Re-measure when the viewport resizes, the container resizes, or web fonts
   // finish loading (Inter swapping in shifts label widths).
@@ -52,8 +47,7 @@ export default function Segment({ options, value, onChange, className = "" }) {
       window.removeEventListener("resize", measure);
       if (ro) ro.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [measure]);
 
   return (
     <div

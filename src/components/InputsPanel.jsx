@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   EARNINGS_LIMIT_2026,
+  EARNINGS_LIMIT_2026_FRA_YEAR,
   fmtMoney,
   fmtAge,
   fmtBig,
@@ -276,6 +277,10 @@ export default function InputsPanel({
     investedPctEarlyMode === "$" ? dollarModeProps(earlyMonthlyNet) : null;
   const waitDollarProps =
     investedPctWaitMode === "$" ? dollarModeProps(fraMonthlyNet) : null;
+  const earningsTestLimit =
+    claimAge >= 66 && claimAge < 67
+      ? EARNINGS_LIMIT_2026_FRA_YEAR
+      : EARNINGS_LIMIT_2026;
 
   return (
     <div className="card lg:col-span-3 p-6 md:p-7">
@@ -496,8 +501,10 @@ export default function InputsPanel({
           hint={
             earningsTestWithholding > 0
               ? `−${fmtMoney(earningsTestWithholding)}/yr SS withheld`
-              : grossIncome > EARNINGS_LIMIT_2026
+              : claimAge >= 67
               ? "no test (post-FRA)"
+              : grossIncome > earningsTestLimit
+              ? "withholding capped"
               : "no earnings test"
           }
         />

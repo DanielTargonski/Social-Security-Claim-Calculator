@@ -157,6 +157,11 @@ function lumpyContribAtMonth(monthIndex, lumpy, fullMonthlyNet) {
   return fullMonthlyNet;
 }
 
+function lumpyScheduleForAge(lumpy, ageAtMonthEnd) {
+  if (!lumpy || !("lower" in lumpy || "fraYear" in lumpy)) return lumpy;
+  return ageAtMonthEnd >= FRA - 1 ? lumpy.fraYear : lumpy.lower;
+}
+
 // Build the full chartData array used by the recharts <LineChart>.
 // One row per quarter-year between min(claimAge, FRA) and lifeExpectancy.
 //   age, early, pot, wait, waitPot, waitInvested
@@ -266,7 +271,7 @@ export function buildChartData({
         ageAtMonthEnd < MEDICARE_AGE ? earlyMonthlyNet : earlyMonthlyNet65Plus;
       const preFRAContrib = lumpyContribAtMonth(
         monthsSinceClaim - 1,
-        lumpy,
+        lumpyScheduleForAge(lumpy, ageAtMonthEnd),
         preFRABaseNet
       );
       const checkThisMonth =

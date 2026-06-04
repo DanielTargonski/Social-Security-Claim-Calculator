@@ -137,18 +137,53 @@ function getOutputLabelForMode(mode, lifeExpectancy) {
 }
 
 export default function SensitivityTornado({ inputs }) {
+  const {
+    mode,
+    fraBenefit,
+    ownBenefit,
+    claimAge,
+    returnRate,
+    investStopAge,
+    lifeExpectancy,
+    grossIncome,
+    postFRAGrossIncome,
+    postFRAWorkYears,
+    autoTax,
+    manualFedRate,
+    investedPct,
+    coveredElsewhere,
+    unsubsidizedSilverAnnual,
+  } = inputs;
+
   const data = useMemo(() => {
-    const baseline = computeProjection(inputs);
-    const baselineOutput = getOutputForMode(baseline, inputs.mode);
-    const variables = makeVariables(inputs).filter((v) =>
-      v.showInModes.includes(inputs.mode)
+    const memoInputs = {
+      mode,
+      fraBenefit,
+      ownBenefit,
+      claimAge,
+      returnRate,
+      investStopAge,
+      lifeExpectancy,
+      grossIncome,
+      postFRAGrossIncome,
+      postFRAWorkYears,
+      autoTax,
+      manualFedRate,
+      investedPct,
+      coveredElsewhere,
+      unsubsidizedSilverAnnual,
+    };
+    const baseline = computeProjection(memoInputs);
+    const baselineOutput = getOutputForMode(baseline, mode);
+    const variables = makeVariables(memoInputs).filter((v) =>
+      v.showInModes.includes(mode)
     );
 
     const rows = [];
     for (const v of variables) {
-      const currentValue = inputs[v.key] ?? v.defaultValue;
-      const lowInputs = perturb(inputs, v, -v.delta);
-      const highInputs = perturb(inputs, v, +v.delta);
+      const currentValue = memoInputs[v.key] ?? v.defaultValue;
+      const lowInputs = perturb(memoInputs, v, -v.delta);
+      const highInputs = perturb(memoInputs, v, +v.delta);
       const lowValue = lowInputs[v.key];
       const highValue = highInputs[v.key];
 
@@ -158,11 +193,11 @@ export default function SensitivityTornado({ inputs }) {
       const lowOutput =
         lowValue === currentValue
           ? baselineOutput
-          : getOutputForMode(computeProjection(lowInputs), inputs.mode);
+          : getOutputForMode(computeProjection(lowInputs), mode);
       const highOutput =
         highValue === currentValue
           ? baselineOutput
-          : getOutputForMode(computeProjection(highInputs), inputs.mode);
+          : getOutputForMode(computeProjection(highInputs), mode);
 
       const minOutput = Math.min(lowOutput, highOutput);
       const maxOutput = Math.max(lowOutput, highOutput);
@@ -195,26 +230,28 @@ export default function SensitivityTornado({ inputs }) {
 
     return { baseline, baselineOutput, rows, globalMax };
   }, [
-    inputs.mode,
-    inputs.fraBenefit,
-    inputs.ownBenefit,
-    inputs.claimAge,
-    inputs.returnRate,
-    inputs.investStopAge,
-    inputs.lifeExpectancy,
-    inputs.grossIncome,
-    inputs.postFRAGrossIncome,
-    inputs.postFRAWorkYears,
-    inputs.autoTax,
-    inputs.manualFedRate,
-    inputs.investedPct,
+    mode,
+    fraBenefit,
+    ownBenefit,
+    claimAge,
+    returnRate,
+    investStopAge,
+    lifeExpectancy,
+    grossIncome,
+    postFRAGrossIncome,
+    postFRAWorkYears,
+    autoTax,
+    manualFedRate,
+    investedPct,
+    coveredElsewhere,
+    unsubsidizedSilverAnnual,
   ]);
 
   const { baselineOutput, rows, globalMax } = data;
 
   if (!rows.length) return null;
 
-  const outputLabel = getOutputLabelForMode(inputs.mode, inputs.lifeExpectancy);
+  const outputLabel = getOutputLabelForMode(mode, lifeExpectancy);
 
   return (
     <div className="card mt-5 p-6 md:p-7">

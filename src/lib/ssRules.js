@@ -3,6 +3,7 @@
 
 export const FRA = 67;
 export const EARNINGS_LIMIT_2026 = 24480;
+export const EARNINGS_LIMIT_2026_FRA_YEAR = 65160;
 
 // Reduction for claiming own retirement before FRA, credit for delaying past FRA.
 // SSA's two-tier reduction: 5/9 of 1% per month for the first 36 months early,
@@ -31,17 +32,23 @@ export function survivorFactor(age) {
   return 1 - monthsEarly * (0.285 / 84);
 }
 
-// 2026 earnings test: pre-FRA, $1 of SS withheld for every $2 of wage income
-// over the limit, capped at the full annual benefit. Returns 0 when the test
-// doesn't apply or the income is at/below the limit.
+// 2026 earnings test. SSA has two pre-FRA exempt amounts:
+//   - years before the year the claimant reaches FRA: $24,480, $1 withheld
+//     for every $2 over the limit
+//   - the year the claimant reaches FRA: $65,160, $1 withheld for every $3
+//     over the limit, counting only months before FRA
 //
-// Caveat: this calculator simplifies to a single $24,480 / $2 ratio. SSA
-// actually uses a higher limit ($65,160 in 2026) with a $1-per-$3 ratio in
-// the year the claimant reaches FRA. That nuance is intentionally omitted.
+// The calculator is age-based rather than calendar/birth-month based, so it
+// treats the final pre-FRA year (after the 66th birthday and before the 67th)
+// as the year-of-FRA window. FRA itself still begins at 67.
 export function computeEarningsTest({ claimAge, grossIncome, annualEarlyGross }) {
-  if (claimAge >= FRA || grossIncome <= EARNINGS_LIMIT_2026) return 0;
-  const excess = grossIncome - EARNINGS_LIMIT_2026;
-  return Math.min(excess / 2, annualEarlyGross);
+  if (claimAge >= FRA || annualEarlyGross <= 0) return 0;
+  const isFRAYear = claimAge >= FRA - 1;
+  const limit = isFRAYear ? EARNINGS_LIMIT_2026_FRA_YEAR : EARNINGS_LIMIT_2026;
+  const divisor = isFRAYear ? 3 : 2;
+  if (grossIncome <= limit) return 0;
+  const excess = grossIncome - limit;
+  return Math.min(excess / divisor, annualEarlyGross);
 }
 
 // Earnings-test recoup at FRA — SSA's "Adjustment of the Reduction Factor"
@@ -62,10 +69,10 @@ export function computeEarningsTest({ claimAge, grossIncome, annualEarlyGross })
 // drops the partial month and under-credits the recoup — understating the
 // post-FRA benefit whenever the withholding isn't an exact multiple of the
 // monthly check.
-//   creditedMonthsPerYear = ceil(earningsTestWithholding / earlyMonthlyGross), ≤ 12
-//   monthsWithheld        = creditedMonthsPerYear × yearsPreFRA
-//   effectiveClaimAge     = claimAge + monthsWithheld / 12
-//   recoupedFactor        = mode-appropriate factor at the effective claim age
+//   creditedMonths(year) = ceil(annualWithholding / earlyMonthlyGross), <= 12
+//   monthsWithheld       = lower-limit credits + FRA-year credits
+//   effectiveClaimAge    = claimAge + monthsWithheld / 12
+//   recoupedFactor       = mode-appropriate factor at the effective claim age
 // Returns null when no recoup applies (already at/past FRA, no withholding,
 // or switch mode where the claimant abandons own retirement at FRA anyway).
 export function computeRecoupedFactor({
@@ -73,18 +80,20 @@ export function computeRecoupedFactor({
   claimAge,
   earlyMonthlyGross,
   earningsTestWithholding,
+  fraYearEarningsTestWithholding = earningsTestWithholding,
 }) {
   if (mode === "switch") return null;
   if (claimAge >= FRA) return null;
-  if (earningsTestWithholding <= 0) return null;
+  if (earningsTestWithholding <= 0 && fraYearEarningsTestWithholding <= 0) return null;
   if (earlyMonthlyGross <= 0) return null;
 
-  const yearsPreFRA = FRA - claimAge;
-  const creditedMonthsPerYear = Math.min(
-    Math.ceil(earningsTestWithholding / earlyMonthlyGross),
-    12
-  );
-  const monthsWithheld = creditedMonthsPerYear * yearsPreFRA;
+  const creditedMonthsFor = (annualWithholding) =>
+    Math.min(Math.ceil(annualWithholding / earlyMonthlyGross), 12);
+  const lowerLimitYears = Math.max(0, Math.min(FRA - 1, FRA) - claimAge);
+  const fraYearYears = Math.max(0, FRA - Math.max(claimAge, FRA - 1));
+  const monthsWithheld =
+    creditedMonthsFor(earningsTestWithholding) * lowerLimitYears +
+    creditedMonthsFor(fraYearEarningsTestWithholding) * fraYearYears;
   const effectiveClaimAge = claimAge + monthsWithheld / 12;
 
   if (mode === "retirement") return retirementFactor(effectiveClaimAge);
