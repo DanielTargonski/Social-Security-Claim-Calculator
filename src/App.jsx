@@ -70,6 +70,8 @@ export default function App() {
     mode,
     fraBenefit,
     ownBenefit,
+    birthMonth,
+    birthYear,
     claimAge,
     returnRate,
     investStopAge,
@@ -92,6 +94,8 @@ export default function App() {
     setMode,
     setFraBenefit,
     setOwnBenefit,
+    setBirthMonth,
+    setBirthYear,
     setClaimAge,
     setReturnRate,
     setInvestStopAge,
@@ -173,6 +177,8 @@ export default function App() {
     mode,
     fraBenefit,
     ownBenefit,
+    birthMonth,
+    birthYear,
     claimAge,
     returnRate,
     investStopAge: effectiveInvestStopAge,
@@ -195,6 +201,11 @@ export default function App() {
     fraMonthlyGross,
     earlyPostFRAMonthlyGross,
     recoupedFactor,
+    fraTiming,
+    fraYearStartAge,
+    fraMonth,
+    fraYear,
+    fraYearMonthsBeforeFRA,
     annualEarlyGross,
     earningsTestWithholding,
     combinedIncome,
@@ -403,6 +414,10 @@ export default function App() {
               setFraBenefit={setFraBenefit}
               ownBenefit={ownBenefit}
               setOwnBenefit={setOwnBenefit}
+              birthMonth={birthMonth}
+              setBirthMonth={setBirthMonth}
+              birthYear={birthYear}
+              setBirthYear={setBirthYear}
               claimAge={claimAge}
               setClaimAge={setClaimAge}
               returnRate={returnRate}
@@ -436,6 +451,11 @@ export default function App() {
               earlyMonthlyNet={earlyMonthlyNet}
               fraMonthlyNet={fraMonthlyNet}
               earningsTestWithholding={earningsTestWithholding}
+              fraTiming={fraTiming}
+              fraYearStartAge={fraYearStartAge}
+              fraMonth={fraMonth}
+              fraYear={fraYear}
+              fraYearMonthsBeforeFRA={fraYearMonthsBeforeFRA}
               fedMarginalRate={fedMarginalRate}
               optimal={optimal}
             />

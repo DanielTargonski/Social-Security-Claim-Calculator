@@ -159,7 +159,8 @@ function lumpyContribAtMonth(monthIndex, lumpy, fullMonthlyNet) {
 
 function lumpyScheduleForAge(lumpy, ageAtMonthEnd) {
   if (!lumpy || !("lower" in lumpy || "fraYear" in lumpy)) return lumpy;
-  return ageAtMonthEnd >= FRA - 1 ? lumpy.fraYear : lumpy.lower;
+  const fraYearStartAge = lumpy.fraYearStartAge ?? FRA - 1;
+  return ageAtMonthEnd >= fraYearStartAge ? lumpy.fraYear : lumpy.lower;
 }
 
 // Build the full chartData array used by the recharts <LineChart>.

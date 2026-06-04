@@ -18,12 +18,13 @@ export default function Footnotes() {
           The earnings test
         </div>
         For 2026, anyone under FRA the entire year loses $1 of benefits for
-        every $2 earned over $24,480. In the year the claimant reaches FRA, the
-        limit loosens to $65,160 with $1 lost per $3 over, counting only months
-        before FRA. Withheld benefits aren't lost forever — the SSA recalculates
-        the claimant's benefit upward at FRA to recoup what was held back (this
-        calculator models that recoup explicitly). The catch in switch mode is
-        that the recoup only applies to the
+        every $2 earned over $24,480. In the calendar year the claimant reaches
+        FRA, the limit loosens to $65,160 with $1 lost per $3 over, counting
+        only earnings before the birth-month FRA month. Withheld benefits
+        aren't lost forever — the SSA recalculates the claimant's benefit
+        upward at FRA to recoup what was held back (this calculator models that
+        recoup explicitly). The catch in switch mode is that the recoup only
+        applies to the
         own-retirement benefit, and once the claimant switches to survivor at
         67, the bumped-up own benefit becomes irrelevant.
       </div>

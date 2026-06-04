@@ -6,8 +6,11 @@ import {
   FRA,
   EARNINGS_LIMIT_2026,
   EARNINGS_LIMIT_2026_FRA_YEAR,
+  DEFAULT_BIRTH_MONTH,
+  DEFAULT_BIRTH_YEAR,
   retirementFactor,
   survivorFactor,
+  resolveFRATiming,
   computeEarningsTest,
   computeRecoupedFactor,
   resolveBenefits,
@@ -40,8 +43,11 @@ export {
   FRA,
   EARNINGS_LIMIT_2026,
   EARNINGS_LIMIT_2026_FRA_YEAR,
+  DEFAULT_BIRTH_MONTH,
+  DEFAULT_BIRTH_YEAR,
   retirementFactor,
   survivorFactor,
+  resolveFRATiming,
   computeEarningsTest,
   computeRecoupedFactor,
   resolveBenefits,
@@ -72,6 +78,8 @@ export function computeProjection({
   mode,
   fraBenefit,
   ownBenefit,
+  birthMonth,
+  birthYear,
   claimAge,
   returnRate,
   investStopAge,
@@ -113,6 +121,7 @@ export function computeProjection({
   // passes the user's selection (which defaults to "nyc").
   locality = "none",
 }) {
+  const fraTiming = resolveFRATiming({ birthMonth, birthYear });
   const {
     earlyFactor,
     earlyMonthlyGross,
@@ -125,11 +134,16 @@ export function computeProjection({
     claimAge,
     grossIncome,
     annualEarlyGross,
+    birthMonth,
+    birthYear,
   });
+  const fraYearClaimAge = Math.max(claimAge, fraTiming.fraYearStartAge);
   const fraYearEarningsTestWithholding = computeEarningsTest({
-    claimAge: FRA - 1,
+    claimAge: fraYearClaimAge,
     grossIncome,
     annualEarlyGross,
+    birthMonth,
+    birthYear,
   });
   const earlyMonthlyAfterET = (annualEarlyGross - earningsTestWithholding) / 12;
 
@@ -140,6 +154,8 @@ export function computeProjection({
     earlyMonthlyGross,
     earningsTestWithholding,
     fraYearEarningsTestWithholding,
+    fraYearStartAge: fraTiming.fraYearStartAge,
+    exactFRATiming: fraTiming.exact,
   });
   const earlyPostFRAMonthlyGross =
     recoupedFactor !== null
@@ -386,6 +402,7 @@ export function computeProjection({
       ? {
           lower: lowerLimitLumpy,
           fraYear: fraYearLumpy,
+          fraYearStartAge: fraTiming.fraYearStartAge,
         }
       : null;
   // Note: when lumpy is active, the chart's pre-FRA contributions use
@@ -730,6 +747,11 @@ export function computeProjection({
     fraMonthlyGross,
     earlyPostFRAMonthlyGross,
     recoupedFactor,
+    fraTiming,
+    fraYearStartAge: fraTiming.fraYearStartAge,
+    fraMonth: fraTiming.fraMonth,
+    fraYear: fraTiming.fraYear,
+    fraYearMonthsBeforeFRA: fraTiming.monthsBeforeFRAInYear,
     annualEarlyGross,
     earningsTestWithholding,
     fraYearEarningsTestWithholding,

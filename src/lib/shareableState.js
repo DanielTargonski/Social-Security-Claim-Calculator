@@ -28,6 +28,11 @@ const SCHEMA = [
   { key: "mode",               url: "mode",  type: "enum", options: ["retirement", "survivor", "switch"], default: "retirement" },
   { key: "fraBenefit",         url: "fra",   type: "num",  default: 2500, min: 500, max: 5000 },
   { key: "ownBenefit",         url: "own",   type: "num",  default: 1500, min: 300, max: 4000 },
+  // Birth month/year pin the calendar month the claimant reaches FRA. The
+  // model assumes fixed FRA=67, so birth years are clamped to 1960+ where
+  // worker FRA is 67 under SSA's current table.
+  { key: "birthMonth",         url: "bm",    type: "num",  default: 6,    min: 1,    max: 12 },
+  { key: "birthYear",          url: "by",    type: "num",  default: 1964, min: 1960, max: 1980 },
   { key: "claimAge",           url: "age",   type: "num",  default: 62 }, // mode-aware clamp below
   { key: "returnRate",         url: "ret",   type: "num",  default: 7,    min: 0,    max: 10 },
   { key: "investStopAge",      url: "stop",  type: "num",  default: 67,   min: 60,   max: 85 },

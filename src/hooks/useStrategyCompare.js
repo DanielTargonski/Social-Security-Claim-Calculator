@@ -9,6 +9,8 @@ export function useStrategyCompare(inputs) {
   const {
     fraBenefit,
     ownBenefit,
+    birthMonth,
+    birthYear,
     claimAge,
     returnRate,
     investStopAge,
@@ -31,6 +33,8 @@ export function useStrategyCompare(inputs) {
       compareStrategies({
         fraBenefit,
         ownBenefit,
+        birthMonth,
+        birthYear,
         claimAge,
         returnRate,
         investStopAge,
@@ -50,6 +54,8 @@ export function useStrategyCompare(inputs) {
     [
       fraBenefit,
       ownBenefit,
+      birthMonth,
+      birthYear,
       claimAge,
       returnRate,
       investStopAge,
