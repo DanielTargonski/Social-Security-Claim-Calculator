@@ -4,6 +4,58 @@
 export const FRA = 67;
 export const EARNINGS_LIMIT_2026 = 24480;
 export const EARNINGS_LIMIT_2026_FRA_YEAR = 65160;
+export const DEFAULT_BIRTH_MONTH = 6;
+export const DEFAULT_BIRTH_YEAR = 1964;
+
+function clampWholeNumber(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+// Exact calendar timing for the fixed-FRA=67 model. The calculator collects
+// birth month/year, not day, so "the month the claimant reaches FRA" is the
+// birth month at age 67. SSA's birthday-on-the-1st previous-month rule is
+// still out of scope until/unless the UI asks for birth day.
+export function computeFRATiming({
+  birthMonth = DEFAULT_BIRTH_MONTH,
+  birthYear = DEFAULT_BIRTH_YEAR,
+} = {}) {
+  const month = clampWholeNumber(birthMonth, 1, 12, DEFAULT_BIRTH_MONTH);
+  const year = clampWholeNumber(birthYear, 1900, 2100, DEFAULT_BIRTH_YEAR);
+  const monthsBeforeFRAInYear = month - 1;
+  return {
+    birthMonth: month,
+    birthYear: year,
+    fraAge: FRA,
+    fraMonth: month,
+    fraYear: year + FRA,
+    monthsBeforeFRAInYear,
+    fraYearStartAge: FRA - monthsBeforeFRAInYear / 12,
+    exact: true,
+  };
+}
+
+// Back-compat for older math callers/tests that do not pass birthdate. This is
+// the previous age-only approximation: treat a full final pre-FRA year as the
+// higher-limit year.
+function legacyFRATiming() {
+  return {
+    birthMonth: null,
+    birthYear: null,
+    fraAge: FRA,
+    fraMonth: null,
+    fraYear: null,
+    monthsBeforeFRAInYear: 12,
+    fraYearStartAge: FRA - 1,
+    exact: false,
+  };
+}
+
+export function resolveFRATiming({ birthMonth, birthYear } = {}) {
+  if (birthMonth == null && birthYear == null) return legacyFRATiming();
+  return computeFRATiming({ birthMonth, birthYear });
+}
 
 // Reduction for claiming own retirement before FRA, credit for delaying past FRA.
 // SSA's two-tier reduction: 5/9 of 1% per month for the first 36 months early,
@@ -38,17 +90,44 @@ export function survivorFactor(age) {
 //   - the year the claimant reaches FRA: $65,160, $1 withheld for every $3
 //     over the limit, counting only months before FRA
 //
-// The calculator is age-based rather than calendar/birth-month based, so it
-// treats the final pre-FRA year (after the 66th birthday and before the 67th)
-// as the year-of-FRA window. FRA itself still begins at 67.
-export function computeEarningsTest({ claimAge, grossIncome, annualEarlyGross }) {
+// When birth month/year are supplied, the year-of-FRA window is exact to the
+// month: from January of the FRA calendar year through the month before the
+// claimant reaches FRA. Because the UI collects annual wage income, earnings
+// in that short year are prorated as evenly earned wages. The higher annual
+// exempt amount is NOT prorated — CFR 404.430 applies the full amount to those
+// pre-FRA months even when there are fewer than 12.
+export function computeEarningsTest({
+  claimAge,
+  grossIncome,
+  annualEarlyGross,
+  birthMonth,
+  birthYear,
+}) {
   if (claimAge >= FRA || annualEarlyGross <= 0) return 0;
-  const isFRAYear = claimAge >= FRA - 1;
+  const timing = resolveFRATiming({ birthMonth, birthYear });
+  const isFRAYear = claimAge >= timing.fraYearStartAge;
   const limit = isFRAYear ? EARNINGS_LIMIT_2026_FRA_YEAR : EARNINGS_LIMIT_2026;
   const divisor = isFRAYear ? 3 : 2;
-  if (grossIncome <= limit) return 0;
-  const excess = grossIncome - limit;
-  return Math.min(excess / divisor, annualEarlyGross);
+  const grossIncomeForTest =
+    isFRAYear && timing.exact
+      ? grossIncome * (timing.monthsBeforeFRAInYear / 12)
+      : grossIncome;
+  if (grossIncomeForTest <= limit) return 0;
+  const monthlyBenefit = annualEarlyGross / 12;
+  const benefitCap =
+    isFRAYear && timing.exact
+      ? monthlyBenefit *
+        Math.max(
+          0,
+          Math.min(
+            timing.monthsBeforeFRAInYear,
+            Math.round((FRA - Math.max(claimAge, timing.fraYearStartAge)) * 12)
+          )
+        )
+      : annualEarlyGross;
+  if (benefitCap <= 0) return 0;
+  const excess = grossIncomeForTest - limit;
+  return Math.min(excess / divisor, benefitCap);
 }
 
 // Earnings-test recoup at FRA — SSA's "Adjustment of the Reduction Factor"
@@ -81,6 +160,8 @@ export function computeRecoupedFactor({
   earlyMonthlyGross,
   earningsTestWithholding,
   fraYearEarningsTestWithholding = earningsTestWithholding,
+  fraYearStartAge = FRA - 1,
+  exactFRATiming = false,
 }) {
   if (mode === "switch") return null;
   if (claimAge >= FRA) return null;
@@ -89,11 +170,22 @@ export function computeRecoupedFactor({
 
   const creditedMonthsFor = (annualWithholding) =>
     Math.min(Math.ceil(annualWithholding / earlyMonthlyGross), 12);
-  const lowerLimitYears = Math.max(0, Math.min(FRA - 1, FRA) - claimAge);
-  const fraYearYears = Math.max(0, FRA - Math.max(claimAge, FRA - 1));
+  const lowerLimitYears = Math.max(0, Math.min(fraYearStartAge, FRA) - claimAge);
+  const fraYearYears = Math.max(0, FRA - Math.max(claimAge, fraYearStartAge));
+  const lowerLimitMonthsWithheld =
+    creditedMonthsFor(earningsTestWithholding) * lowerLimitYears;
+  // In exact birth-month mode the FRA-year withholding is already the one
+  // short calendar window (January through the month before FRA), not an
+  // annual amount to repeat over a fractional year. Count the touched checks
+  // directly, capped to the number of payable pre-FRA months in that window.
+  const fraYearMonthsWithheld = exactFRATiming
+    ? Math.min(
+        creditedMonthsFor(fraYearEarningsTestWithholding),
+        Math.round(fraYearYears * 12)
+      )
+    : creditedMonthsFor(fraYearEarningsTestWithholding) * fraYearYears;
   const monthsWithheld =
-    creditedMonthsFor(earningsTestWithholding) * lowerLimitYears +
-    creditedMonthsFor(fraYearEarningsTestWithholding) * fraYearYears;
+    lowerLimitMonthsWithheld + fraYearMonthsWithheld;
   const effectiveClaimAge = claimAge + monthsWithheld / 12;
 
   if (mode === "retirement") return retirementFactor(effectiveClaimAge);

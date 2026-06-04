@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   retirementFactor,
   survivorFactor,
+  computeFRATiming,
   computeEarningsTest,
   computeRecoupedFactor,
   resolveBenefits,
@@ -139,6 +140,39 @@ describe("computeEarningsTest — withholding cases", () => {
     });
     expect(w).toBe(4500);
   });
+  it("uses birth month to prorate FRA-year earnings before the FRA month", () => {
+    const w = computeEarningsTest({
+      claimAge: 66 + 7 / 12, // June-born claimant, inside Jan-May FRA-year window
+      birthMonth: 6,
+      birthYear: 1964,
+      grossIncome: 180000,
+      annualEarlyGross: 30000,
+    });
+    // June FRA month => only Jan-May earnings count: $180K * 5/12 = $75K.
+    // ($75,000 - $65,160) / 3 = $3,280.
+    expect(w).toBeCloseTo(3280, 6);
+  });
+  it("has no FRA-year withholding when the claimant reaches FRA in January", () => {
+    const w = computeEarningsTest({
+      claimAge: 66 + 11 / 12,
+      birthMonth: 1,
+      birthYear: 1964,
+      grossIncome: 500000,
+      annualEarlyGross: 30000,
+    });
+    // The year the claimant reaches FRA has zero pre-FRA months when FRA is
+    // reached in January; the prior calendar year still uses the lower rule.
+    expect(w).toBe(30000);
+    expect(
+      computeEarningsTest({
+        claimAge: 67,
+        birthMonth: 1,
+        birthYear: 1964,
+        grossIncome: 500000,
+        annualEarlyGross: 30000,
+      })
+    ).toBe(0);
+  });
   it("caps withholding at the full annual benefit", () => {
     const w = computeEarningsTest({
       claimAge: 62,
@@ -151,6 +185,23 @@ describe("computeEarningsTest — withholding cases", () => {
     expect(
       computeEarningsTest({ claimAge: 62, grossIncome: 0, annualEarlyGross: 30000 })
     ).toBe(0);
+  });
+});
+
+describe("computeFRATiming — exact birth month/year", () => {
+  it("derives the FRA month/year and year-of-FRA start age", () => {
+    const t = computeFRATiming({ birthMonth: 9, birthYear: 1964 });
+    expect(t.fraMonth).toBe(9);
+    expect(t.fraYear).toBe(2031);
+    expect(t.monthsBeforeFRAInYear).toBe(8);
+    expect(t.fraYearStartAge).toBeCloseTo(67 - 8 / 12, 6);
+  });
+
+  it("January birth month creates no pre-FRA months in the FRA calendar year", () => {
+    const t = computeFRATiming({ birthMonth: 1, birthYear: 1964 });
+    expect(t.fraMonth).toBe(1);
+    expect(t.monthsBeforeFRAInYear).toBe(0);
+    expect(t.fraYearStartAge).toBe(67);
   });
 });
 
@@ -278,6 +329,38 @@ describe("computeRecoupedFactor — math", () => {
     // no withholding here because income is below the higher FRA-year limit.
     // 3 credited months/year × 2 years = 6 months credited total.
     expect(closeTo(r, retirementFactor(64.5), 0.0001)).toBe(true);
+  });
+
+  it("recoup uses the exact birth-month FRA-year boundary when supplied", () => {
+    const earlyMonthlyGross = 2000;
+    const r = computeRecoupedFactor({
+      mode: "retirement",
+      claimAge: 64,
+      earlyMonthlyGross,
+      earningsTestWithholding: 5000,
+      fraYearEarningsTestWithholding: 0,
+      fraYearStartAge: 67 - 5 / 12, // June FRA: lower-limit years run to Jan of FRA year
+    });
+    // $5,000 touches 3 checks/year. Age 64 -> 66 yr 7 mo is 31 months, so
+    // lower-limit years = 31/12 and credited months = 3 * 31/12 = 7.75.
+    expect(closeTo(r, retirementFactor(64 + 7.75 / 12), 0.0001)).toBe(true);
+  });
+
+  it("recoup credits exact FRA-year withholding as touched checks, not a fractional repeat", () => {
+    const earlyMonthlyGross = 2000;
+    const r = computeRecoupedFactor({
+      mode: "retirement",
+      claimAge: 64,
+      earlyMonthlyGross,
+      earningsTestWithholding: 5000, // 3 credited months/year in lower-limit years
+      fraYearEarningsTestWithholding: 3280, // touches 2 checks in the short FRA year
+      fraYearStartAge: 67 - 5 / 12,
+      exactFRATiming: true,
+    });
+    // Lower-limit span: age 64 -> 66 yr 7 mo = 31/12 years, so 3 * 31/12
+    // = 7.75 months. June FRA-year withholding touches 2 more checks in
+    // Jan-May. Total ARF credit = 9.75 months.
+    expect(closeTo(r, retirementFactor(64 + 9.75 / 12), 0.0001)).toBe(true);
   });
 
   it("survivor: per-year crediting caps at 12 months and the factor at 1.0", () => {

@@ -107,6 +107,54 @@ describe("computeProjection — earnings test interaction", () => {
     expect(fraYear.fraYearEarningsTestWithholding).toBe(0);
   });
 
+  it("uses birth month to place the higher-limit FRA-year window exactly", () => {
+    const beforeFRACalendarYear = computeProjection({
+      ...baseInputs,
+      birthMonth: 6,
+      birthYear: 1964,
+      claimAge: 66.5,
+      grossIncome: 180000,
+    });
+    const inFRACalendarYear = computeProjection({
+      ...baseInputs,
+      birthMonth: 6,
+      birthYear: 1964,
+      claimAge: 66 + 7 / 12,
+      grossIncome: 180000,
+    });
+
+    expect(beforeFRACalendarYear.fraYearStartAge).toBeCloseTo(66 + 7 / 12, 6);
+    expect(beforeFRACalendarYear.earningsTestWithholding).toBeGreaterThan(
+      inFRACalendarYear.earningsTestWithholding
+    );
+    expect(inFRACalendarYear.earningsTestWithholding).toBeCloseTo(3280, 1);
+    expect(inFRACalendarYear.fraYearMonthsBeforeFRA).toBe(5);
+    expect(inFRACalendarYear.fraMonth).toBe(6);
+    expect(inFRACalendarYear.fraYear).toBe(2031);
+  });
+
+  it("caps FRA-year withholding to payable months when claiming inside that short year", () => {
+    const inFRACalendarYear = computeProjection({
+      ...baseInputs,
+      birthMonth: 6,
+      birthYear: 1964,
+      claimAge: 66 + 9 / 12, // March 2031 for a June-born claimant
+      grossIncome: 500000,
+    });
+
+    // June FRA month; claiming in March leaves March-May as the only payable
+    // pre-FRA checks. A very high income can withhold those 3 checks, not the
+    // 5 Jan-May checks that would exist for someone already claiming in January.
+    expect(inFRACalendarYear.earningsTestWithholding).toBeCloseTo(
+      inFRACalendarYear.earlyMonthlyGross * 3,
+      6
+    );
+    expect(inFRACalendarYear.fraYearEarningsTestWithholding).toBeCloseTo(
+      inFRACalendarYear.earningsTestWithholding,
+      6
+    );
+  });
+
   it("invested pot uses the post-earnings-test, post-tax amount (not gross)", () => {
     const r = computeProjection({
       ...baseInputs,

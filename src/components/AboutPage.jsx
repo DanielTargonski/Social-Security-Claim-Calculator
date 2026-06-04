@@ -343,8 +343,8 @@ export default function AboutPage() {
               SSA — Receiving Benefits While Working
             </a>
             {" "}— the 2026 earnings test ($24,480 lower limit, $65,160
-            FRA-year limit) and the FRA recoup mechanism that recomputes the
-            benefit upward at full retirement age.
+            birth-month-timed FRA-year limit) and the FRA recoup mechanism
+            that recomputes the benefit upward at full retirement age.
           </li>
           <li>
             <a

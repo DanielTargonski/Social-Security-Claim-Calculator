@@ -18,8 +18,8 @@ import { C } from "../constants/colors.js";
 // Sourcing convention: every section ends with one or more inline citations
 // linked to the canonical document (a CFR page, a POMS section, an IRS
 // publication, or a CMS / HHS fact sheet). Where the calculator deliberately
-// simplifies the real rule — flat 9.96% ACA contribution rate, age-based
-// approximation of the year-of-FRA earnings-test window — the simplification
+// simplifies the real rule — flat 9.96% ACA contribution rate, no birth-day
+// handling for the January-1 / first-of-month SSA age rule — the simplification
 // is called out next to the formula, not buried in a footnote.
 export default function MathReferencePage() {
   return (
@@ -83,7 +83,7 @@ function PageHeader() {
         document, and every formula here traces back to an official source —
         an SSA regulation, an IRS publication, a CMS fact sheet, or an HHS
         guideline. Where the calculator deliberately simplifies a real rule
-        (e.g. the exact birth-month timing of the year-of-FRA earnings test,
+        (e.g. the birth-day treatment for people born on the first of a month,
         the graduated ACA contribution scale), the simplification is called out next to the
         formula so users can decide whether the gap matters for their
         scenario. All dollar figures are 2026 single-filer unless noted.
@@ -282,11 +282,17 @@ function EarningsTestSection() {
         stops applying entirely the month they reach FRA.
       </p>
       <Formula>
-{`if claimAge < 66 and grossIncome > $24,480:
+{`fraYearPreFRAMonths = birthMonth − 1
+fraYearStartAge      = 67 − fraYearPreFRAMonths / 12
+
+if claimAge < fraYearStartAge and grossIncome > $24,480:
     withholding = min((grossIncome − $24,480) / 2, annualBenefit)
 
-if final pre-FRA year (66 ≤ claimAge < 67) and grossIncome > $65,160:
-    withholding = min((grossIncome − $65,160) / 3, annualBenefit)
+if fraYearStartAge ≤ claimAge < 67:
+    earningsBeforeFRAMonth = grossIncome × fraYearPreFRAMonths / 12
+    benefitCap = monthlyBenefit × months from claim date to FRA month
+    if earningsBeforeFRAMonth > $65,160:
+        withholding = min((earningsBeforeFRAMonth − $65,160) / 3, benefitCap)
 
 if claimAge ≥ 67:
     withholding = 0`}
@@ -297,9 +303,10 @@ if claimAge ≥ 67:
       >
         <strong style={{ color: C.ink }}>Timing note:</strong> SSA applies the
         $65,160 / $1-per-$3 rule by calendar year and counts only earnings
-        before the FRA month. The calculator has ages, not birth month and
-        current month, so it models that final pre-FRA window as after the 66th
-        birthday and before the 67th birthday. FRA itself still starts at 67.
+        before the FRA month. The calculator now asks for birth month/year, so
+        a June-born claimant has five FRA-year months counted (Jan-May), while a
+        January-born claimant has none. Wage income is annual, so those
+        pre-FRA-month earnings are prorated evenly.
       </p>
       <Cite>
         <Ref href="https://www.ssa.gov/benefits/retirement/planner/whileworking.html">
@@ -725,11 +732,10 @@ function SimplificationsSection() {
         style={{ color: C.ink, listStyle: "disc" }}
       >
         <li>
-          <strong>Exact birth-month earnings-test timing</strong> — the
-          calculator applies the real 2026 year-of-FRA limit and $1-per-$3
-          ratio, but approximates that calendar window as the final pre-FRA
-          year before age 67 because it does not ask for birth month or current
-          month.
+          <strong>Birth day / first-of-month age rule</strong> — the calculator
+          asks for birth month and year, not day. SSA treats people born on the
+          first day of a month as if they attained age in the prior month; that
+          day-level adjustment is still out of scope.
         </li>
         <li>
           <strong>WEP / GPO / family maximum / RIB-LIM</strong> — not
@@ -820,6 +826,20 @@ function SourcesSection() {
           </Ref>{" "}
           — the 2026 earnings test ($24,480 lower limit, $65,160 FRA-year
           limit) and the FRA recoup mechanism.
+        </li>
+        <li>
+          <Ref href="https://www.ssa.gov/OACT/COLA/RTeffect.html">
+            SSA — Retirement Earnings Test Calculator
+          </Ref>{" "}
+          — date-of-birth-driven RET timing and the instruction to count only
+          earnings before the FRA month in the year the claimant reaches FRA.
+        </li>
+        <li>
+          <Ref href="https://www.ssa.gov/OP_Home/cfr20/404/404-0430.htm">
+            20 CFR § 404.430
+          </Ref>{" "}
+          — higher exempt amount applies to months in the FRA calendar year
+          before the month full retirement age is attained.
         </li>
         <li>
           <Ref href="https://secure.ssa.gov/poms.nsf/lnx/0300615482">

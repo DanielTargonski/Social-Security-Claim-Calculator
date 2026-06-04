@@ -498,6 +498,30 @@ describe("buildChartData — lumpy SSA withholding pattern", () => {
       potAt(oldSingleSchedule, 66.75)
     );
   });
+
+  it("uses an exact FRA-year start age when the lumpy schedule supplies one", () => {
+    const fullMonthly = 1500;
+    const harshRegularLimit = {
+      monthsWithheldFull: 12,
+      partialMonthlyNet: fullMonthly,
+    };
+    const splitSchedule = buildChartData({
+      ...baseLumpyChart,
+      claimAge: 65,
+      lifeExpectancy: 67,
+      returnRate: 0,
+      earlyMonthlyNet: fullMonthly,
+      lumpy: {
+        lower: harshRegularLimit,
+        fraYear: null,
+        fraYearStartAge: 66 + 7 / 12,
+      },
+    });
+
+    const potAt = (age) => splitSchedule.find((d) => d.age === age).pot;
+    expect(potAt(66.5)).toBe(0);
+    expect(potAt(66.75)).toBeGreaterThan(0);
+  });
 });
 
 describe("findBreakEvenAge", () => {

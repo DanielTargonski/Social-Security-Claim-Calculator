@@ -39,6 +39,8 @@ describe("useBenefitProjection", () => {
     ["mode", "survivor"],
     ["fraBenefit", 2800],
     ["ownBenefit", 1800],
+    ["birthMonth", 9],
+    ["birthYear", 1965],
     ["claimAge", 63],
     ["returnRate", 5],
     ["investStopAge", 70],

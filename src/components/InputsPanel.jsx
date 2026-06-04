@@ -12,6 +12,81 @@ import { C } from "../constants/colors.js";
 import SliderInput from "./SliderInput.jsx";
 import ShareLinkButton from "./ShareLinkButton.jsx";
 
+const MONTH_OPTIONS = [
+  ["1", "Jan"],
+  ["2", "Feb"],
+  ["3", "Mar"],
+  ["4", "Apr"],
+  ["5", "May"],
+  ["6", "Jun"],
+  ["7", "Jul"],
+  ["8", "Aug"],
+  ["9", "Sep"],
+  ["10", "Oct"],
+  ["11", "Nov"],
+  ["12", "Dec"],
+];
+
+const monthName = (month) =>
+  MONTH_OPTIONS[Math.min(11, Math.max(0, Math.round(month) - 1))][1];
+
+function monthYearAtAge({ birthMonth, birthYear, age }) {
+  const totalMonths = Math.round(age * 12);
+  const startMonthIndex = Math.round(birthMonth) - 1;
+  const absoluteMonth = startMonthIndex + totalMonths;
+  return {
+    month: (absoluteMonth % 12) + 1,
+    year: Math.round(birthYear) + Math.floor(absoluteMonth / 12),
+  };
+}
+
+function fmtMonthYear({ month, year }) {
+  return `${monthName(month)} ${year}`;
+}
+
+function NativeSelect({ label, value, onChange, options, hint }) {
+  return (
+    <div>
+      <div className="flex justify-between items-baseline mb-2 gap-3">
+        <label
+          className="text-xs tracking-widest uppercase"
+          style={{ color: C.inkSoft, letterSpacing: "0.12em" }}
+        >
+          {label}
+        </label>
+        <span className="num text-lg" style={{ color: C.ink, fontWeight: 500 }}>
+          {monthName(value)}
+        </span>
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(parseInt(e.target.value, 10))}
+        className="num"
+        style={{
+          width: "100%",
+          backgroundColor: C.surface,
+          color: C.ink,
+          border: `1px solid ${C.borderDark}`,
+          borderRadius: "var(--radius-sm)",
+          padding: "9px 10px",
+          outline: "none",
+        }}
+      >
+        {options.map(([optionValue, labelText]) => (
+          <option key={optionValue} value={optionValue}>
+            {labelText}
+          </option>
+        ))}
+      </select>
+      {hint && (
+        <div className="mt-1 text-xs num" style={{ color: C.inkFaint }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Tiny "% / $" pill toggle rendered in the accessory slot of the two invest
 // sliders. Underlying state stays as a percentage of the monthly net check
 // (so the value still makes sense if the monthly net later changes), but the
@@ -223,6 +298,10 @@ export default function InputsPanel({
   setFraBenefit,
   ownBenefit,
   setOwnBenefit,
+  birthMonth,
+  setBirthMonth,
+  birthYear,
+  setBirthYear,
   claimAge,
   setClaimAge,
   returnRate,
@@ -262,6 +341,10 @@ export default function InputsPanel({
   earlyMonthlyNet,
   fraMonthlyNet,
   earningsTestWithholding,
+  fraYearStartAge,
+  fraMonth,
+  fraYear,
+  fraYearMonthsBeforeFRA,
   fedMarginalRate,
   // Result of the optimal-claim-age sweep, computed at App level via
   // useOptimalClaimAge so the chip below the slider and the full panel
@@ -277,10 +360,17 @@ export default function InputsPanel({
     investedPctEarlyMode === "$" ? dollarModeProps(earlyMonthlyNet) : null;
   const waitDollarProps =
     investedPctWaitMode === "$" ? dollarModeProps(fraMonthlyNet) : null;
+  const inFRAYearWindow = claimAge >= fraYearStartAge && claimAge < 67;
   const earningsTestLimit =
-    claimAge >= 66 && claimAge < 67
+    inFRAYearWindow
       ? EARNINGS_LIMIT_2026_FRA_YEAR
       : EARNINGS_LIMIT_2026;
+  const claimStart = monthYearAtAge({ birthMonth, birthYear, age: claimAge });
+  const fraDate = { month: fraMonth, year: fraYear };
+  const fraWindowHint =
+    fraYearMonthsBeforeFRA > 0
+      ? `higher test applies Jan-${monthName(fraMonth - 1)} ${fraYear}`
+      : "no pre-FRA months in the FRA calendar year";
 
   return (
     <div className="card lg:col-span-3 p-6 md:p-7">
@@ -328,6 +418,24 @@ export default function InputsPanel({
             }
           />
         )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <NativeSelect
+            label="Birth month"
+            value={birthMonth}
+            onChange={setBirthMonth}
+            options={MONTH_OPTIONS}
+            hint={`FRA: ${fmtMonthYear(fraDate)} · ${fraWindowHint}`}
+          />
+          <SliderInput
+            label="Birth year"
+            value={birthYear}
+            onChange={setBirthYear}
+            min={1960}
+            max={1980}
+            step={1}
+            format={(v) => String(Math.round(v))}
+          />
+        </div>
         <SliderInput
           label={
             mode === "switch"
@@ -340,7 +448,7 @@ export default function InputsPanel({
           max={latest}
           step={1 / 12}
           format={fmtAge}
-          hint={`${(earlyFactor * 100).toFixed(1).replace(/\.0$/, "")}% of full`}
+          hint={`${(earlyFactor * 100).toFixed(1).replace(/\.0$/, "")}% of full · claim starts ${fmtMonthYear(claimStart)}`}
           accessory={
             optimal ? (
               <OptimalClaimAgeChip optimal={optimal} onApply={setClaimAge} />
@@ -503,8 +611,8 @@ export default function InputsPanel({
               ? `−${fmtMoney(earningsTestWithholding)}/yr SS withheld`
               : claimAge >= 67
               ? "no test (post-FRA)"
-              : grossIncome > earningsTestLimit
-              ? "withholding capped"
+              : inFRAYearWindow && grossIncome > earningsTestLimit
+              ? "no withholding after pre-FRA-month proration"
               : "no earnings test"
           }
         />

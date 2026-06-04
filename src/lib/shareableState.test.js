@@ -10,6 +10,8 @@ const sample = {
   mode: "switch",
   fraBenefit: 2300,
   ownBenefit: 945,
+  birthMonth: 9,
+  birthYear: 1964,
   claimAge: 64.5,
   returnRate: 5.5,
   investStopAge: 70,
@@ -62,6 +64,8 @@ describe("shareableState — round-trip", () => {
       "mode",
       "fra",
       "own",
+      "bm",
+      "by",
       "age",
       "ret",
       "stop",
@@ -127,11 +131,13 @@ describe("shareableState — clamping out-of-range values", () => {
     // would silently render nonsense (e.g. negative net checks from
     // mrate=999, or 100% survivor factor from age=70 in survivor mode).
     const params = new URLSearchParams(
-      "fra=99999&own=0&ret=50&stop=10&life=200&inc=-5000&incp=9999999&mrate=999&inv=200"
+      "fra=99999&own=0&bm=99&by=1900&ret=50&stop=10&life=200&inc=-5000&incp=9999999&mrate=999&inv=200"
     );
     const out = parseStateFromParams(params);
     expect(out.fraBenefit).toBe(5000);
     expect(out.ownBenefit).toBe(300);
+    expect(out.birthMonth).toBe(12);
+    expect(out.birthYear).toBe(1960);
     expect(out.returnRate).toBe(10);
     expect(out.investStopAge).toBe(60);
     expect(out.lifeExpectancy).toBe(100);
@@ -176,6 +182,8 @@ describe("shareableState — DEFAULT_STATE shape", () => {
     expect(Object.keys(DEFAULT_STATE).sort()).toEqual(
       [
         "autoTax",
+        "birthMonth",
+        "birthYear",
         "claimAge",
         "coveredElsewhere",
         "fraBenefit",
