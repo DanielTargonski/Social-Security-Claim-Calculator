@@ -11,6 +11,7 @@ import {
 import { FRA, fmtMoney, fmtBig, fmtAge, fmtAxisTick } from "../lib/benefitMath.js";
 import { useClickToEditNumber } from "../hooks/useClickToEditNumber.js";
 import { makeEndpointDot } from "./EndpointDot.jsx";
+import ReturnRateSlider from "./ReturnRateSlider.jsx";
 import { C } from "../constants/colors.js";
 
 // Per-strategy chart/accent color. Mirrors the main chart's learned language:
@@ -130,6 +131,12 @@ export default function StrategyCompare({
   // renders standalone (e.g. in tests) without the App wiring.
   onInvestChange = () => {},
   onInvestReset = () => {},
+  // The shared real-return rate + its setter, so the user can tune the single
+  // biggest lever on this verdict right here instead of scrolling back up to
+  // the inputs. Null → the in-card slider is omitted (keeps the panel
+  // renderable standalone, e.g. in tests, without the App wiring).
+  returnRate = null,
+  onReturnRateChange = () => {},
   // Cross-wage strategy robustness (from compareStrategiesAcrossWages). Null →
   // the "across wages" lever is omitted (keeps the panel renderable standalone).
   wageRobustness = null,
@@ -349,6 +356,22 @@ export default function StrategyCompare({
           ))}
         </div>
       </div>
+
+      {/* Real-return knob. This verdict turns on the return rate more than any
+          other input — the break-even-return lever below literally reports
+          where it flips — so let the user drag it right here and watch the
+          winner move, rather than scrolling back to the inputs panel. Same
+          control, same shared state. */}
+      {returnRate != null && (
+        <div className="card-flat p-4 md:p-5 mb-5">
+          <p className="text-xs mb-3 max-w-md" style={{ color: C.inkSoft }}>
+            The real return every strategy's invested checks compound at — the
+            single biggest lever on this verdict. Drag it and watch the winner
+            move.
+          </p>
+          <ReturnRateSlider value={returnRate} onChange={onReturnRateChange} />
+        </div>
+      )}
 
       {/* Verdict banner — directly answers the question. */}
       <div
@@ -721,7 +744,8 @@ export default function StrategyCompare({
         Own-only (claim your own benefit and never take survivor) is shown for
         context — it only wins when your own benefit is the larger of the two.
         The answer is sensitive to the return rate, life expectancy, and how
-        long you keep investing; nudge those above and watch the verdict move.
+        long you keep investing; nudge the return rate above — or any of them up
+        in the inputs — and watch the verdict move.
       </p>
     </div>
   );

@@ -45,6 +45,7 @@ function renderPanel(overrides = {}, scenarioWages = [40000, 24480, 0], props = 
   const compare = compareWages(inputs, wageScenarios);
   const onAltChange = props.onAltChange ?? vi.fn();
   const onReset = props.onReset ?? vi.fn();
+  const onReturnRateChange = props.onReturnRateChange ?? vi.fn();
   render(
     <WageCompare
       compare={compare}
@@ -56,9 +57,11 @@ function renderPanel(overrides = {}, scenarioWages = [40000, 24480, 0], props = 
       dirty={props.dirty ?? false}
       onAltChange={onAltChange}
       onReset={onReset}
+      returnRate={props.returnRate ?? null}
+      onReturnRateChange={onReturnRateChange}
     />
   );
-  return { compare, onAltChange, onReset };
+  return { compare, onAltChange, onReset, onReturnRateChange };
 }
 
 describe("WageCompare — render", () => {
@@ -185,6 +188,45 @@ describe("WageCompare — marginal work warning", () => {
       [20000, 10000, 0]
     );
     expect(screen.queryByText(/marginal work/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("WageCompare — return-rate control", () => {
+  it("omits the in-card return-rate slider when no rate is supplied", () => {
+    renderPanel();
+    expect(
+      screen.queryByText(/Annual real return invested/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the return-rate slider showing the supplied rate", () => {
+    renderPanel({}, [40000, 24480, 0], { returnRate: 5 });
+    expect(
+      screen.getByText(/Annual real return invested/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText("5.0%")).toBeInTheDocument();
+  });
+
+  it("still renders the slider at 0% (guard is != null, not truthiness)", () => {
+    // 0 is a legal rate (the slider's min). Pin that the != null guard keeps
+    // the control visible at flat returns. Assert on the unique label, not
+    // "0.0%" (also the slider's min end-label).
+    renderPanel({}, [40000, 24480, 0], { returnRate: 0 });
+    expect(
+      screen.getByText(/Annual real return invested/i)
+    ).toBeInTheDocument();
+  });
+
+  it("editing the rate calls onReturnRateChange with the typed value", async () => {
+    const user = userEvent.setup();
+    const onReturnRateChange = vi.fn();
+    renderPanel({}, [40000, 24480, 0], { returnRate: 5, onReturnRateChange });
+    await user.click(screen.getByText("5.0%"));
+    const input = screen.getByRole("spinbutton");
+    await user.clear(input);
+    await user.type(input, "8");
+    await user.keyboard("{Enter}");
+    expect(onReturnRateChange).toHaveBeenCalledWith(8);
   });
 });
 

@@ -18,6 +18,7 @@ import {
 } from "../lib/benefitMath.js";
 import { useClickToEditNumber } from "../hooks/useClickToEditNumber.js";
 import { makeEndpointDot } from "./EndpointDot.jsx";
+import ReturnRateSlider from "./ReturnRateSlider.jsx";
 import { C } from "../constants/colors.js";
 
 // Line/accent color per scenario, by position. The current wage (always first)
@@ -213,6 +214,11 @@ export default function WageCompare({
   // to no-ops so the panel renders standalone (tests) without App wiring.
   onAltChange = () => {},
   onReset = () => {},
+  // The shared real-return rate + its setter. The SS side of every wage here is
+  // invested at this rate, so let the user retune it in-place. Null → the
+  // in-card slider is omitted (keeps the panel renderable standalone).
+  returnRate = null,
+  onReturnRateChange = () => {},
 }) {
   const { scenarios, byKey, merged, verdict } = compare;
   const lifeLabel = fmtAge(lifeExpectancy);
@@ -287,6 +293,21 @@ export default function WageCompare({
           healthcare premiums. Click an alternative's amount to change it.
         </p>
       </div>
+
+      {/* Real-return knob. The Social Security side of every wage scenario is
+          invested at this rate, so it shifts each total together — drag it here
+          to see how the wage verdict holds up at a different return assumption,
+          without scrolling back to the inputs. Same control, same shared
+          state. */}
+      {returnRate != null && (
+        <div className="card-flat p-4 md:p-5 mb-5">
+          <p className="text-xs mb-3 max-w-xl" style={{ color: C.inkSoft }}>
+            The real return the Social Security checks are invested at — the same
+            rate across every wage here. Drag it to see how the verdict shifts.
+          </p>
+          <ReturnRateSlider value={returnRate} onChange={onReturnRateChange} />
+        </div>
+      )}
 
       {/* Verdict banner. */}
       <div

@@ -37,6 +37,7 @@ function renderCompare(overrides = {}, props = {}) {
   const onSelectStrategy = props.onSelectStrategy ?? vi.fn();
   const onInvestChange = props.onInvestChange ?? vi.fn();
   const onInvestReset = props.onInvestReset ?? vi.fn();
+  const onReturnRateChange = props.onReturnRateChange ?? vi.fn();
   render(
     <StrategyCompare
       compare={compare}
@@ -45,10 +46,12 @@ function renderCompare(overrides = {}, props = {}) {
       lifeExpectancy={inputs.lifeExpectancy}
       onInvestChange={onInvestChange}
       onInvestReset={onInvestReset}
+      returnRate={props.returnRate ?? null}
+      onReturnRateChange={onReturnRateChange}
       wageRobustness={props.wageRobustness ?? null}
     />
   );
-  return { compare, onSelectStrategy, onInvestChange, onInvestReset };
+  return { compare, onSelectStrategy, onInvestChange, onInvestReset, onReturnRateChange };
 }
 
 // The card for a strategy carries a unique title ("Open <label> in the
@@ -283,6 +286,47 @@ describe("StrategyCompare — by-wage robustness lever", () => {
     );
     expect(screen.getByText("BY WAGE")).toBeInTheDocument();
     expect(screen.getByText(/flips with your pre-67 wage/i)).toBeInTheDocument();
+  });
+});
+
+describe("StrategyCompare — return-rate control", () => {
+  it("omits the in-card return-rate slider when no rate is supplied", () => {
+    renderCompare();
+    expect(
+      screen.queryByText(/Annual real return invested/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the return-rate slider showing the supplied rate", () => {
+    renderCompare({}, { returnRate: 7 });
+    expect(
+      screen.getByText(/Annual real return invested/i)
+    ).toBeInTheDocument();
+    // The value display button shows the formatted rate.
+    expect(screen.getByText("7.0%")).toBeInTheDocument();
+  });
+
+  it("still renders the slider at 0% (guard is != null, not truthiness)", () => {
+    // 0 is a legal rate (the slider's min). The control must render so a future
+    // refactor to a truthiness guard can't silently hide it at flat returns.
+    // Assert on the unique label, not "0.0%" (which is also the slider's min
+    // end-label).
+    renderCompare({ returnRate: 0 }, { returnRate: 0 });
+    expect(
+      screen.getByText(/Annual real return invested/i)
+    ).toBeInTheDocument();
+  });
+
+  it("editing the rate calls onReturnRateChange with the typed value", async () => {
+    const user = userEvent.setup();
+    const onReturnRateChange = vi.fn();
+    renderCompare({}, { returnRate: 7, onReturnRateChange });
+    await user.click(screen.getByText("7.0%"));
+    const input = screen.getByRole("spinbutton");
+    await user.clear(input);
+    await user.type(input, "4");
+    await user.keyboard("{Enter}");
+    expect(onReturnRateChange).toHaveBeenCalledWith(4);
   });
 });
 
