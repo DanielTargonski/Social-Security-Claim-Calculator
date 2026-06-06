@@ -374,7 +374,7 @@ export default function InputsPanel({
       : "no pre-FRA months in the FRA calendar year";
 
   return (
-    <div className="card lg:col-span-3 p-6 md:p-7">
+    <div id="inputs-panel" className="card jump-target lg:col-span-3 p-6 md:p-7">
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h3 className="display text-xl" style={{ color: C.ink }}>
           <em>Inputs</em>

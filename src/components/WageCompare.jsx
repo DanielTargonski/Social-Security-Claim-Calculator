@@ -295,8 +295,7 @@ export default function WageCompare({
   return (
     <div
       id="wage-compare"
-      className="card mt-5 p-6 md:p-7"
-      style={{ scrollMarginTop: "1rem" }}
+      className="card jump-target mt-5 p-6 md:p-7"
     >
       <div className="mb-5">
         <h3 className="display text-xl" style={{ color: C.ink }}>

@@ -334,7 +334,8 @@ export default function SummaryCards({
   return (
     <div className="lg:col-span-2 grid grid-cols-2 lg:grid-cols-1 gap-3 lg:sticky lg:top-4 lg:self-start">
       <div
-        className="card p-5"
+        id="summary-claim-check"
+        className="card jump-target p-5"
         style={{ borderLeft: `3px solid ${C.early}` }}
       >
         <div
@@ -440,7 +441,8 @@ export default function SummaryCards({
       </div>
 
       <div
-        className="card p-5"
+        id="summary-fra-check"
+        className="card jump-target p-5"
         style={{ borderLeft: `3px solid ${C.wait}` }}
       >
         <div
@@ -499,7 +501,8 @@ export default function SummaryCards({
 
       {worksPastFRA && (
         <div
-          className="card p-5 col-span-2 lg:col-span-1"
+          id="summary-post-fra-work"
+          className="card jump-target p-5 col-span-2 lg:col-span-1"
           style={{ borderLeft: `3px solid ${C.wait}` }}
         >
           <div
@@ -599,7 +602,8 @@ export default function SummaryCards({
       )}
 
       <div
-        className="card p-5 col-span-2 lg:col-span-1 flex flex-col"
+        id="summary-result"
+        className="card jump-target p-5 col-span-2 lg:col-span-1 flex flex-col"
         style={{ color: C.ink, borderLeft: `3px solid ${verdictAccent}` }}
       >
         {mode === "switch" ? (
@@ -801,7 +805,8 @@ export default function SummaryCards({
           framing in two places. Hidden when "covered elsewhere" is on. */}
       {!coveredElsewhere && (
         <div
-          className="card p-5 col-span-2 lg:col-span-1"
+          id="summary-healthcare"
+          className="card jump-target p-5 col-span-2 lg:col-span-1"
           style={{ borderLeft: `3px solid ${acaBandColor}` }}
         >
           <div

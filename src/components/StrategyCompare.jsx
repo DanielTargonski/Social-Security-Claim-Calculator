@@ -281,7 +281,7 @@ export default function StrategyCompare({
   const renderEndpointDot = makeEndpointDot({ lastIdx, lastRow });
 
   return (
-    <div id="strategy-compare" className="card mt-5 p-6 md:p-7" style={{ scrollMarginTop: "1rem" }}>
+    <div id="strategy-compare" className="card jump-target mt-5 p-6 md:p-7">
       <div className="mb-5">
         <h3 className="display text-xl" style={{ color: C.ink }}>
           <em>Survivor early vs Own → Survivor</em>

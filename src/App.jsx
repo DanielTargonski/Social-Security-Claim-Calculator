@@ -36,6 +36,7 @@ import AboutPage from "./components/AboutPage.jsx";
 import MathReferencePage from "./components/MathReferencePage.jsx";
 import TabNav from "./components/TabNav.jsx";
 import ThemeToggle from "./components/ThemeToggle.jsx";
+import JumpNav from "./components/JumpNav.jsx";
 
 // Top-level orchestrator. Owns all UI state and the projection hook; passes
 // derived values down to presentation components. Each visual section lives
@@ -339,6 +340,44 @@ export default function App() {
     mode === "retirement" ? "Your benefit at 67" : "Survivor benefit at 67";
 
   const taxesActive = grossIncome > 0 || fedMarginalRate > 0;
+  const showsPostFRAWorkSummary =
+    postFRAWorkYears >= 1 / 24 && postFRAGrossIncome > 0;
+  const jumpNavItems = useMemo(() => {
+    const items = [
+      { id: "inputs-panel", label: "Sliders" },
+      { id: "summary-claim-check", label: "Claim check" },
+      { id: "summary-fra-check", label: "At 67" },
+    ];
+
+    if (showsPostFRAWorkSummary) {
+      items.push({ id: "summary-post-fra-work", label: "Work after 67" });
+    }
+
+    items.push({
+      id: "summary-result",
+      label: mode === "switch" ? "Pot result" : "Crossover",
+    });
+
+    if (!coveredElsewhere) {
+      items.push({ id: "summary-healthcare", label: "Healthcare card" });
+    }
+
+    items.push({ id: "lifetime-chart", label: "Chart" });
+
+    if (mode === "survivor" || mode === "switch") {
+      items.push({ id: "strategy-compare", label: "Strategies" });
+    }
+
+    items.push(
+      { id: "wage-compare", label: "Wages" },
+      { id: "pot-table", label: "Pot table" },
+      { id: "healthcare-picture", label: "Healthcare" },
+      { id: "optimal-claim-age", label: "Optimum" },
+      { id: "sensitivity", label: "Sensitivity" }
+    );
+
+    return items;
+  }, [coveredElsewhere, mode, showsPostFRAWorkSummary]);
 
   // Healthcare cost surfaces two rows in the metadata strip: the ACA
   // premium that applies during pre-65 years, and the Medicare cost that
@@ -475,6 +514,8 @@ export default function App() {
 
           <ModeSwitcher mode={mode} onChange={switchMode} />
 
+          <JumpNav items={jumpNavItems} />
+
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-5">
             <InputsPanel
               mode={mode}
@@ -604,20 +645,22 @@ export default function App() {
             claimAge={claimAge}
           />
 
-          <ChartCard
-            claimAge={claimAge}
-            investStopAge={effectiveInvestStopAge}
-            lifeExpectancy={lifeExpectancy}
-            returnRate={returnRate}
-            taxesActive={taxesActive}
-            chartData={chartData}
-            breakEvenAge={breakEvenAge}
-            waitInvestedBreakEvenAge={waitInvestedBreakEvenAge}
-            potAtStopRow={potAtStopRow}
-            finalPot={finalPot}
-            finalEarly={finalEarly}
-            advantage={advantage}
-          />
+          <section id="lifetime-chart" className="jump-target">
+            <ChartCard
+              claimAge={claimAge}
+              investStopAge={effectiveInvestStopAge}
+              lifeExpectancy={lifeExpectancy}
+              returnRate={returnRate}
+              taxesActive={taxesActive}
+              chartData={chartData}
+              breakEvenAge={breakEvenAge}
+              waitInvestedBreakEvenAge={waitInvestedBreakEvenAge}
+              potAtStopRow={potAtStopRow}
+              finalPot={finalPot}
+              finalEarly={finalEarly}
+              advantage={advantage}
+            />
+          </section>
 
           {/* The head-to-head strategy comparison — the surviving-spouse
               question "own->survivor vs claiming survivor early?". Only shown
@@ -658,32 +701,40 @@ export default function App() {
             onInvestedPctChange={handleWageInvestedPctChange}
           />
 
-          <PotTable
-            claimAge={claimAge}
-            lifeExpectancy={lifeExpectancy}
-            returnRate={returnRate}
-            investStopAge={effectiveInvestStopAge}
-            chartData={chartData}
-          />
+          <section id="pot-table" className="jump-target">
+            <PotTable
+              claimAge={claimAge}
+              lifeExpectancy={lifeExpectancy}
+              returnRate={returnRate}
+              investStopAge={effectiveInvestStopAge}
+              chartData={chartData}
+            />
+          </section>
 
-          <HealthcarePanel
-            claimAge={claimAge}
-            coveredElsewhere={coveredElsewhere}
-            magiACAPre65={magiACAPre65}
-            magiIRMAA65Plus={magiIRMAA65Plus}
-            mspIncome65Plus={mspIncome65Plus}
-            acaAnnualCost={acaAnnualCost}
-            medicareAnnualCost={medicareAnnualCost}
-            healthcareNextCliff={healthcareNextCliff}
-          />
+          <section id="healthcare-picture" className="jump-target">
+            <HealthcarePanel
+              claimAge={claimAge}
+              coveredElsewhere={coveredElsewhere}
+              magiACAPre65={magiACAPre65}
+              magiIRMAA65Plus={magiIRMAA65Plus}
+              mspIncome65Plus={mspIncome65Plus}
+              acaAnnualCost={acaAnnualCost}
+              medicareAnnualCost={medicareAnnualCost}
+              healthcareNextCliff={healthcareNextCliff}
+            />
+          </section>
 
-          <OptimalClaimAge
-            inputs={inputs}
-            optimal={optimal}
-            setClaimAge={setClaimAge}
-          />
+          <section id="optimal-claim-age" className="jump-target">
+            <OptimalClaimAge
+              inputs={inputs}
+              optimal={optimal}
+              setClaimAge={setClaimAge}
+            />
+          </section>
 
-          <SensitivityTornado inputs={inputs} />
+          <section id="sensitivity" className="jump-target">
+            <SensitivityTornado inputs={inputs} />
+          </section>
 
           <Footnotes />
           </>
