@@ -40,7 +40,7 @@ import {
 import {
   computeMagiACA,
   computeMagiIRMAA,
-  computeAnnualHealthcareCost,
+  armHealthcareByRegime,
   nextCliffAbove,
 } from "./healthcareCost.js";
 import {
@@ -88,56 +88,28 @@ export function earlyHealthcareForWage({
   // so MAGI only sees the post-earnings-test amount).
   const ssBasisPostET = annualEarlyGross - earningsTestWithholding;
 
-  // ACA window (pre-65). SS is in MAGI only when claiming before 65.
-  const magiACA = computeMagiACA({
-    grossIncome,
-    ssAnnualGross: claimAge < MEDICARE_AGE ? ssBasisPostET : 0,
-  });
-  const acaAnnual = computeAnnualHealthcareCost({
-    age: 62,
-    magiACA,
-    magiIRMAA: 0,
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
-    coveredElsewhere,
-  });
-
-  // Medicare 65 → FRA. Still on the pre-FRA reduced benefit and pre-67 wage.
-  const taxableSSPctPre = computeTaxableSSPct({
-    ssBasisAnnual: ssBasisPostET,
-    grossIncome,
-  });
-  const magiIRMAA65 = computeMagiIRMAA({
-    grossIncome,
-    ssAnnualGross: ssBasisPostET,
-    taxableSSPct: taxableSSPctPre,
-  });
-  const medicare65Annual = computeAnnualHealthcareCost({
-    age: 65,
-    magiACA: 0,
-    magiIRMAA: magiIRMAA65,
-    mspIncome: grossIncome + ssBasisPostET,
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
-    coveredElsewhere,
-  });
-
-  // Medicare FRA → life. Recouped benefit + post-67 wage.
-  const taxableSSPctPost = computeTaxableSSPct({
-    ssBasisAnnual: recoupedAnnualGross,
-    grossIncome: postFRAGrossIncome,
-  });
-  const magiIRMAAPost = computeMagiIRMAA({
-    grossIncome: postFRAGrossIncome,
-    ssAnnualGross: recoupedAnnualGross,
-    taxableSSPct: taxableSSPctPost,
-  });
-  const medicarePostAnnual = computeAnnualHealthcareCost({
-    age: 67,
-    magiACA: 0,
-    magiIRMAA: magiIRMAAPost,
-    mspIncome: postFRAGrossIncome + recoupedAnnualGross,
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
-    coveredElsewhere,
-  });
+  // The three-regime absolute cost for the early arm, via the shared helper
+  // (the same one computeProjection uses for its early-vs-wait delta). preAnnual
+  // is the claim-age cost (ACA below 65); for a sub-65 claimer that's the ACA
+  // premium driving the claimAge→65 window.
+  const { preAnnual: acaAnnual, medicare65Annual, medicarePostAnnual } =
+    armHealthcareByRegime({
+      preFRAAge: claimAge,
+      grossIncomePreFRA: grossIncome,
+      grossIncomePostFRA: postFRAGrossIncome,
+      ssBasisPreFRA: ssBasisPostET,
+      ssBasisPostFRA: recoupedAnnualGross,
+      taxableSSPctPreFRA: computeTaxableSSPct({
+        ssBasisAnnual: ssBasisPostET,
+        grossIncome,
+      }),
+      taxableSSPctPostFRA: computeTaxableSSPct({
+        ssBasisAnnual: recoupedAnnualGross,
+        grossIncome: postFRAGrossIncome,
+      }),
+      unsubsidizedSilverAnnual,
+      coveredElsewhere,
+    });
 
   const acaYears = Math.max(0, Math.min(MEDICARE_AGE, lifeExpectancy) - claimAge);
   const medicare65Years = Math.max(
