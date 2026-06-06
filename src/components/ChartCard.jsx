@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { FRA, fmtMoney, fmtBig, fmtAge } from "../lib/benefitMath.js";
+import { FRA, fmtMoney, fmtBig, fmtAge, fmtAxisTick } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 import Var from "./Var.jsx";
 
@@ -144,11 +144,7 @@ export default function ChartCard({
                 fontFamily: "JetBrains Mono",
                 fill: C.inkSoft,
               }}
-              tickFormatter={(v) =>
-                v >= 1_000_000
-                  ? "$" + (v / 1_000_000).toFixed(1) + "M"
-                  : "$" + (v / 1000).toFixed(0) + "K"
-              }
+              tickFormatter={fmtAxisTick}
             />
             <Tooltip
               cursor={{ stroke: C.borderDark, strokeDasharray: "3 3" }}

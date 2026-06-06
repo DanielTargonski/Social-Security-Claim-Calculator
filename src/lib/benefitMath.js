@@ -835,6 +835,16 @@ export const fmtBig = (v) => {
   return "$" + Math.round(v);
 };
 
+// Compact dollar tick for a chart's YAxis: "$1.2M" at/above a million, else
+// "$120K". Shared by every comparison chart's `tickFormatter` (ChartCard,
+// StrategyCompare, WageCompare) so the axis label format lives in one place.
+// Distinct from fmtBig: one decimal at the M scale (axis ticks read cleaner
+// than the 2-decimal fmtBig used for inline totals).
+export const fmtAxisTick = (v) =>
+  v >= 1_000_000
+    ? "$" + (v / 1_000_000).toFixed(1) + "M"
+    : "$" + (v / 1000).toFixed(0) + "K";
+
 // Display age in years and months — matches how SSA actually prices benefits
 // (every month early/delayed is its own discrete factor). The 1e-9 fudge
 // guards against float-precision creep from a 1/12-stepped slider, where
