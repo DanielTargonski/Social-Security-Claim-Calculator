@@ -8,8 +8,16 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { FRA, fmtMoney, fmtBig, fmtAge, fmtIncome } from "../lib/benefitMath.js";
+import {
+  FRA,
+  fmtMoney,
+  fmtBig,
+  fmtAge,
+  fmtIncome,
+  fmtAxisTick,
+} from "../lib/benefitMath.js";
 import { useClickToEditNumber } from "../hooks/useClickToEditNumber.js";
+import { makeEndpointDot } from "./EndpointDot.jsx";
 import { C } from "../constants/colors.js";
 
 // Line/accent color per scenario, by position. The current wage (always first)
@@ -256,36 +264,7 @@ export default function WageCompare({
     dyByKey[k] = i === 0 ? -8 : i === 1 ? 7 : 21;
   });
 
-  const renderEndpointDot = (dataKey, color, dy) => (props) => {
-    const { cx, cy, index } = props;
-    if (index !== lastIdx || cx == null || cy == null) return null;
-    const value = lastRow[dataKey];
-    if (value == null) return null;
-    return (
-      <g key={`end-${dataKey}`} style={{ pointerEvents: "none" }}>
-        <circle
-          cx={cx}
-          cy={cy}
-          r={3.5}
-          fill={color}
-          stroke={C.paper}
-          strokeWidth={1.5}
-        />
-        <text
-          x={cx + 8}
-          y={cy}
-          dy={dy}
-          textAnchor="start"
-          fill={color}
-          fontSize={12}
-          fontWeight={700}
-          fontFamily="JetBrains Mono"
-        >
-          {fmtBig(value)}
-        </text>
-      </g>
-    );
-  };
+  const renderEndpointDot = makeEndpointDot({ lastIdx, lastRow });
 
   const earningsTestApplies = claimAge < FRA;
 
@@ -462,11 +441,7 @@ export default function WageCompare({
             <YAxis
               stroke={C.inkSoft}
               tick={{ fontSize: 11, fontFamily: "JetBrains Mono", fill: C.inkSoft }}
-              tickFormatter={(v) =>
-                v >= 1_000_000
-                  ? "$" + (v / 1_000_000).toFixed(1) + "M"
-                  : "$" + (v / 1000).toFixed(0) + "K"
-              }
+              tickFormatter={fmtAxisTick}
             />
             <Tooltip
               cursor={{ stroke: C.borderDark, strokeDasharray: "3 3" }}

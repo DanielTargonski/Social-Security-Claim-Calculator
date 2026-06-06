@@ -8,8 +8,9 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { FRA, fmtMoney, fmtBig, fmtAge } from "../lib/benefitMath.js";
+import { FRA, fmtMoney, fmtBig, fmtAge, fmtAxisTick } from "../lib/benefitMath.js";
 import { useClickToEditNumber } from "../hooks/useClickToEditNumber.js";
+import { makeEndpointDot } from "./EndpointDot.jsx";
 import { C } from "../constants/colors.js";
 
 // Per-strategy chart/accent color. Mirrors the main chart's learned language:
@@ -268,39 +269,9 @@ export default function StrategyCompare({
   const survivorDy = survivorOnTop ? -5 : 14;
   const switchDy = survivorOnTop ? 14 : -5;
 
-  // Custom dot that draws ONLY at the last data point: a small anchor dot plus
-  // the line's final dollar total, set just to its right. Returns null for
-  // every other point so the rest of the line stays dot-free.
-  const renderEndpointDot = (dataKey, color, dy) => (props) => {
-    const { cx, cy, index } = props;
-    if (index !== lastIdx || cx == null || cy == null) return null;
-    const value = lastRow[dataKey];
-    if (value == null) return null;
-    return (
-      <g key={`end-${dataKey}`} style={{ pointerEvents: "none" }}>
-        <circle
-          cx={cx}
-          cy={cy}
-          r={3.5}
-          fill={color}
-          stroke={C.paper}
-          strokeWidth={1.5}
-        />
-        <text
-          x={cx + 8}
-          y={cy}
-          dy={dy}
-          textAnchor="start"
-          fill={color}
-          fontSize={12}
-          fontWeight={700}
-          fontFamily="JetBrains Mono"
-        >
-          {fmtBig(value)}
-        </text>
-      </g>
-    );
-  };
+  // Endpoint dots (shared with WageCompare): an anchor dot + the line's final
+  // dollar total pinned at its end. dy staggers converging labels.
+  const renderEndpointDot = makeEndpointDot({ lastIdx, lastRow });
 
   return (
     <div id="strategy-compare" className="card mt-5 p-6 md:p-7" style={{ scrollMarginTop: "1rem" }}>
@@ -560,11 +531,7 @@ export default function StrategyCompare({
                 fontFamily: "JetBrains Mono",
                 fill: C.inkSoft,
               }}
-              tickFormatter={(v) =>
-                v >= 1_000_000
-                  ? "$" + (v / 1_000_000).toFixed(1) + "M"
-                  : "$" + (v / 1000).toFixed(0) + "K"
-              }
+              tickFormatter={fmtAxisTick}
             />
             <Tooltip
               cursor={{ stroke: C.borderDark, strokeDasharray: "3 3" }}
