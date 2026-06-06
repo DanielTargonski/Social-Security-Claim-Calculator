@@ -244,6 +244,80 @@ export function computeAnnualHealthcareCost({
   return computeMedicareAnnualCost({ magi: magiIRMAA, mspIncome, householdSize });
 }
 
+// Absolute annual healthcare cost for ONE claiming arm, in the three regimes the
+// calculator models, from that arm's income picture:
+//
+//   preAnnual         priced at `preFRAAge` — the window-start cost. ACA when
+//                     claiming before 65, Medicare/IRMAA when claiming at 65+.
+//   medicare65Annual  the 65→FRA slice of the pre-FRA window — always Medicare,
+//                     same pre-FRA income as `preAnnual` (the cliff at 65 flips
+//                     a pre-65 claimer off the ACA premium onto Medicare).
+//   medicarePostAnnual  FRA onward — Medicare on the post-FRA benefit + wage.
+//
+// Pass `ssBasisPreFRA = 0` (and `taxableSSPctPreFRA = 0`) for an arm that isn't
+// collecting before FRA — that's the "wait" arm, whose pre-FRA MAGI is just the
+// wage. `ssBasis*` are the GROSS benefits actually received in each window; the
+// `taxableSSPct*` convert them to the taxable portion IRMAA MAGI counts.
+//
+// Medicare premium + IRMAA are age-invariant above 65 (see
+// computeMedicareAnnualCost — no age term), so the 65→FRA and FRA+ regimes are
+// both priced at age 65 here; the exact age only matters for the <65 ACA gate.
+//
+// This is the single source of truth for the three-regime, two-MAGI assembly
+// that benefitMath.computeProjection (early vs wait, to form the cost delta the
+// chart bakes in) and wageCompare.earlyHealthcareForWage (the early arm's
+// absolute cost) both need — previously duplicated in both.
+export function armHealthcareByRegime({
+  preFRAAge,
+  grossIncomePreFRA,
+  grossIncomePostFRA,
+  ssBasisPreFRA,
+  ssBasisPostFRA,
+  taxableSSPctPreFRA,
+  taxableSSPctPostFRA,
+  unsubsidizedSilverAnnual = NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
+  coveredElsewhere = false,
+}) {
+  const magiIRMAAPre = computeMagiIRMAA({
+    grossIncome: grossIncomePreFRA,
+    ssAnnualGross: ssBasisPreFRA,
+    taxableSSPct: taxableSSPctPreFRA,
+  });
+  const mspIncomePre = grossIncomePreFRA + ssBasisPreFRA;
+  const preAnnual = computeAnnualHealthcareCost({
+    age: preFRAAge,
+    magiACA: computeMagiACA({
+      grossIncome: grossIncomePreFRA,
+      ssAnnualGross: ssBasisPreFRA,
+    }),
+    magiIRMAA: magiIRMAAPre,
+    mspIncome: mspIncomePre,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const medicare65Annual = computeAnnualHealthcareCost({
+    age: 65,
+    magiACA: 0, // unused at 65+
+    magiIRMAA: magiIRMAAPre,
+    mspIncome: mspIncomePre,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  const medicarePostAnnual = computeAnnualHealthcareCost({
+    age: 65, // any 65+ age; Medicare cost is age-invariant above 65
+    magiACA: 0,
+    magiIRMAA: computeMagiIRMAA({
+      grossIncome: grossIncomePostFRA,
+      ssAnnualGross: ssBasisPostFRA,
+      taxableSSPct: taxableSSPctPostFRA,
+    }),
+    mspIncome: grossIncomePostFRA + ssBasisPostFRA,
+    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+    coveredElsewhere,
+  });
+  return { preAnnual, medicare65Annual, medicarePostAnnual };
+}
+
 // Distance to the next cliff above the current MAGI, plus the cost of
 // crossing it. Used by the metadata strip to surface "you are $X from the
 // 400% FPL cliff, which costs $Y/yr" warnings. Returns null when there is

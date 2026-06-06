@@ -16,6 +16,7 @@ import {
   getIRMAATier,
   computeMedicareAnnualCost,
   computeAnnualHealthcareCost,
+  armHealthcareByRegime,
   nextCliffAbove,
 } from "./healthcareCost.js";
 
@@ -579,5 +580,63 @@ describe("2026 official-source pinning (regenerate when sources update)", () => 
       const recomputed = (tier.partBSurcharge + tier.partDSurcharge) * 12;
       expect(tier.annualExtra).toBeCloseTo(recomputed, 1);
     }
+  });
+});
+
+describe("armHealthcareByRegime — three-regime, two-MAGI assembly", () => {
+  // Early-arm shape: claims at 62 with $40K wage + $24K gross SS pre-FRA, then a
+  // $30K recouped benefit (no post-FRA wage). taxableSSPct passed explicitly so
+  // the assertions don't depend on the SS-taxation tiering.
+  const base = {
+    preFRAAge: 62,
+    grossIncomePreFRA: 40000,
+    grossIncomePostFRA: 0,
+    ssBasisPreFRA: 24000,
+    ssBasisPostFRA: 30000,
+    taxableSSPctPreFRA: 0.85,
+    taxableSSPctPostFRA: 0.85,
+  };
+
+  it("prices the pre regime as ACA when claiming before 65", () => {
+    // MAGI ACA = 40000 + 24000 = 64000, over the 400% FPL cliff (62600) -> the
+    // full unsubsidized premium.
+    expect(armHealthcareByRegime(base).preAnnual).toBe(
+      NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT
+    );
+  });
+
+  it("prices the 65->FRA and post-FRA regimes as Medicare base when IRMAA MAGI is low", () => {
+    const r = armHealthcareByRegime(base);
+    // IRMAA MAGI pre = 40000 + 24000*0.85 = 60400 (tier 0); MSP income 64000 is
+    // above the 135% ceiling -> standard Part B, no surcharge, no MSP zero-out.
+    expect(closeTo(r.medicare65Annual, PART_B_BASE_ANNUAL_2026)).toBe(true);
+    // Post: IRMAA MAGI = 30000*0.85 = 25500 (tier 0); MSP income 30000 above ceiling.
+    expect(closeTo(r.medicarePostAnnual, PART_B_BASE_ANNUAL_2026)).toBe(true);
+  });
+
+  it("prices the pre regime as Medicare (not the ACA cliff premium) when claiming at 65+", () => {
+    const r = armHealthcareByRegime({ ...base, preFRAAge: 66 });
+    expect(closeTo(r.preAnnual, PART_B_BASE_ANNUAL_2026)).toBe(true);
+    expect(r.preAnnual).not.toBe(NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT);
+  });
+
+  it("a wait arm (no pre-FRA SS) prices the pre regime on wage-only MAGI", () => {
+    // ssBasisPreFRA 0 -> MAGI ACA = wage 40000, between 200% ($31,300) and 400%
+    // ($62,600) FPL -> subsidized: capped at 9.96% of MAGI.
+    const r = armHealthcareByRegime({
+      ...base,
+      ssBasisPreFRA: 0,
+      taxableSSPctPreFRA: 0,
+    });
+    expect(r.preAnnual).toBeLessThan(NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT);
+    expect(closeTo(r.preAnnual, 40000 * ACA_PTC_CONTRIBUTION_CAP)).toBe(true);
+  });
+
+  it("coveredElsewhere zeroes every regime", () => {
+    expect(armHealthcareByRegime({ ...base, coveredElsewhere: true })).toEqual({
+      preAnnual: 0,
+      medicare65Annual: 0,
+      medicarePostAnnual: 0,
+    });
   });
 });

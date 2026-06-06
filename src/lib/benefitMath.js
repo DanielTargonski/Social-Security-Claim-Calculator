@@ -32,9 +32,7 @@ import {
   findCrossoverAge,
 } from "./chartProjection.js";
 import {
-  computeMagiACA,
-  computeMagiIRMAA,
-  computeAnnualHealthcareCost,
+  armHealthcareByRegime,
   NYC_UNSUBSIDIZED_SILVER_ANNUAL_DEFAULT,
 } from "./healthcareCost.js";
 
@@ -422,107 +420,45 @@ export function computeProjection({
   // scenario monthly nets by delta/12. Yields a chart where the break-even
   // age and lifetime advantage reflect the OBBBA cliff exposure.
   //
-  // Pre-FRA: early scenario has SS in MAGI (drives ACA cost up if pre-65,
-  // IRMAA if claim age ≥ 65). Wait scenario has no SS yet.
-  const magiACAEarlyPre = computeMagiACA({
-    grossIncome,
-    ssAnnualGross: ssBasisAnnualEarlyPreFRA,
-  });
-  const magiIRMAAEarlyPre = computeMagiIRMAA({
-    grossIncome,
-    ssAnnualGross: ssBasisAnnualEarlyPreFRA,
-    taxableSSPct: earlyTaxPreFRA.taxableSSPct,
-  });
-  const magiACAWaitPre = computeMagiACA({ grossIncome, ssAnnualGross: 0 });
-  const magiIRMAAWaitPre = computeMagiIRMAA({
-    grossIncome,
-    ssAnnualGross: 0,
-    taxableSSPct: 0,
-  });
-  // Use claimAge as the representative pre-FRA age (the user's chosen entry
-  // point). For claimers past 65 this drives Medicare/IRMAA; for claimers
-  // 62–64 this drives ACA. The wait scenario sees the same age but with
-  // ssAnnualGross=0.
-  const healthcareEarlyAnnualPre = computeAnnualHealthcareCost({
-    age: claimAge,
-    magiACA: magiACAEarlyPre,
-    magiIRMAA: magiIRMAAEarlyPre,
-    // MSP (65+ only) tests against gross-SS income, not taxable-SS MAGI.
-    mspIncome: grossIncome + ssBasisAnnualEarlyPreFRA,
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+  // Both arms' three-regime healthcare assembled by the shared
+  // armHealthcareByRegime helper (the single source of truth, also used by the
+  // wage panel). EARLY collects from claimAge — it carries its reduced pre-FRA
+  // benefit in pre-FRA MAGI and the recouped benefit post-FRA. WAIT collects
+  // nothing before FRA (ssBasisPreFRA = 0 → pre-FRA MAGI is just the wage) and
+  // the full FRA benefit after. The pre regime prices at claimAge (ACA below 65,
+  // Medicare at 65+); the 65→FRA slice always prices as Medicare — so the pre-65
+  // ACA delta and the 65→FRA Medicare delta differ for a sub-65 claimer (the ACA
+  // cliff premium dwarfs Medicare + IRMAA) and coincide for a 65+ claimer.
+  const earlyHC = armHealthcareByRegime({
+    preFRAAge: claimAge,
+    grossIncomePreFRA: grossIncome,
+    grossIncomePostFRA: postFRAGrossIncome,
+    ssBasisPreFRA: ssBasisAnnualEarlyPreFRA,
+    ssBasisPostFRA: ssBasisAnnualEarlyPostFRA,
+    taxableSSPctPreFRA: earlyTaxPreFRA.taxableSSPct,
+    taxableSSPctPostFRA: earlyTaxPostFRA.taxableSSPct,
+    unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
-  const healthcareWaitAnnualPre = computeAnnualHealthcareCost({
-    age: claimAge,
-    magiACA: magiACAWaitPre,
-    magiIRMAA: magiIRMAAWaitPre,
-    mspIncome: grossIncome, // wait scenario has no SS yet pre-FRA
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
+  const waitHC = armHealthcareByRegime({
+    preFRAAge: claimAge,
+    grossIncomePreFRA: grossIncome,
+    grossIncomePostFRA: postFRAGrossIncome,
+    ssBasisPreFRA: 0, // wait scenario has no SS pre-FRA
+    ssBasisPostFRA: ssBasisAnnualWait,
+    taxableSSPctPreFRA: 0,
+    taxableSSPctPostFRA: waitTax.taxableSSPct,
+    unsubsidizedSilverAnnual,
     coveredElsewhere,
   });
-  const healthcareDeltaAnnualPre =
-    healthcareEarlyAnnualPre - healthcareWaitAnnualPre;
-  // The pre-FRA window straddles Medicare eligibility (65) for anyone claiming
-  // before 65: ages claimAge-65 are on the ACA (priced above at age=claimAge),
-  // but ages 65-FRA are on Medicare. Pricing those 65/66 years as ACA (the old
-  // single-snapshot behavior) materially overstated the early-claim healthcare
-  // drag, since the ACA cliff premium ($9,679/yr) dwarfs Medicare base + any
-  // IRMAA. Recompute the SAME pre-FRA income picture (early still on its
-  // reduced pre-FRA benefit; wait still has no SS yet) but force Medicare
-  // pricing with age=65. When claimAge >= 65 this collapses to the same value
-  // as healthcareDeltaAnnualPre (both are already Medicare), so the split is a
-  // no-op there.
-  const healthcareEarlyAnnualPre65to67 = computeAnnualHealthcareCost({
-    age: 65,
-    magiACA: 0, // unused at 65+
-    magiIRMAA: magiIRMAAEarlyPre,
-    mspIncome: grossIncome + ssBasisAnnualEarlyPreFRA,
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
-    coveredElsewhere,
-  });
-  const healthcareWaitAnnualPre65to67 = computeAnnualHealthcareCost({
-    age: 65,
-    magiACA: 0,
-    magiIRMAA: magiIRMAAWaitPre,
-    mspIncome: grossIncome, // wait scenario has no SS yet pre-FRA
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
-    coveredElsewhere,
-  });
+  // What shifts the break-even is the EXTRA cost early-claiming imposes vs
+  // waiting (healthcare paid in both arms cancels): the early-minus-wait delta,
+  // in each of the three regimes.
+  const healthcareDeltaAnnualPre = earlyHC.preAnnual - waitHC.preAnnual;
   const healthcareDeltaAnnualPre65to67 =
-    healthcareEarlyAnnualPre65to67 - healthcareWaitAnnualPre65to67;
-  // Post-FRA: both scenarios are on Medicare. Wait now has SS (full FRA
-  // benefit) in MAGI; early has the recouped post-FRA benefit. IRMAA tier
-  // crossings in this window can favor either scenario depending on which
-  // has the higher post-FRA SS.
-  const magiIRMAAEarlyPost = computeMagiIRMAA({
-    grossIncome: postFRAGrossIncome,
-    ssAnnualGross: ssBasisAnnualEarlyPostFRA,
-    taxableSSPct: earlyTaxPostFRA.taxableSSPct,
-  });
-  const magiIRMAAWaitPost = computeMagiIRMAA({
-    grossIncome: postFRAGrossIncome,
-    ssAnnualGross: ssBasisAnnualWait,
-    taxableSSPct: waitTax.taxableSSPct,
-  });
-  const healthcareEarlyAnnualPost = computeAnnualHealthcareCost({
-    age: FRA, // = 67, locked in 2026 model
-    magiACA: 0, // unused at 65+
-    magiIRMAA: magiIRMAAEarlyPost,
-    // MSP test: post-67 wage + GROSS recouped SS (not the taxable portion).
-    mspIncome: postFRAGrossIncome + ssBasisAnnualEarlyPostFRA,
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
-    coveredElsewhere,
-  });
-  const healthcareWaitAnnualPost = computeAnnualHealthcareCost({
-    age: FRA,
-    magiACA: 0,
-    magiIRMAA: magiIRMAAWaitPost,
-    mspIncome: postFRAGrossIncome + ssBasisAnnualWait,
-    unsubsidizedAnnual: unsubsidizedSilverAnnual,
-    coveredElsewhere,
-  });
+    earlyHC.medicare65Annual - waitHC.medicare65Annual;
   const healthcareDeltaAnnualPost =
-    healthcareEarlyAnnualPost - healthcareWaitAnnualPost;
+    earlyHC.medicarePostAnnual - waitHC.medicarePostAnnual;
   // Apply the deltas to the early-scenario monthly nets. Positive delta =
   // claiming early costs more in healthcare than waiting → reduce monthly
   // contribution. Negative delta (rare — happens when waiting pushes the
