@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -10,6 +9,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { FRA, fmtMoney, fmtBig, fmtAge } from "../lib/benefitMath.js";
+import { useClickToEditNumber } from "../hooks/useClickToEditNumber.js";
 import { C } from "../constants/colors.js";
 
 // Per-strategy chart/accent color. Mirrors the main chart's learned language:
@@ -36,18 +36,10 @@ function StrategyInvestField({
   atCap,
   onChange,
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const startEdit = () => {
-    setDraft(String(Math.round(monthly)));
-    setEditing(true);
-  };
-  const commit = () => {
-    const v = parseFloat(draft);
-    if (!Number.isNaN(v)) onChange(stratKey, Math.max(0, v));
-    setEditing(false);
-  };
+  const { editing, startEdit, inputProps } = useClickToEditNumber({
+    value: monthly,
+    onCommit: (v) => onChange(stratKey, v),
+  });
 
   return (
     <div className="card-flat p-3" style={{ borderLeft: `3px solid ${color}` }}>
@@ -59,19 +51,10 @@ function StrategyInvestField({
       </div>
       {editing ? (
         <input
-          type="number"
-          autoFocus
+          {...inputProps}
           className="num"
-          value={draft}
           min={0}
           step={50}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onFocus={(e) => e.target.select()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            else if (e.key === "Escape") setEditing(false);
-          }}
           style={{
             color: C.ink,
             fontWeight: 600,

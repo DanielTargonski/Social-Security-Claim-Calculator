@@ -342,3 +342,70 @@ describe("earlyHealthcareForWage — unit", () => {
     );
   });
 });
+
+describe("compareWages — invest resolution ($-mode / per-strategy override)", () => {
+  // Each wage scenario has its own early check, so a fixed dollar resolves to a
+  // different percentage per scenario — the wage panel must honor it like the
+  // rest of the app, not silently invest the percentage.
+  it("invests the global $ amount, lowering the SS pot vs investing the whole check", () => {
+    const ws = wages(40000, 24480, 0);
+    const pctMode = compareWages(
+      { ...baseInputs, returnRate: 7, investedPct: 100 },
+      ws
+    );
+    const dollarMode = compareWages(
+      { ...baseInputs, returnRate: 7, investedPct: 100, investedEarlyDollar: 200 },
+      ws
+    );
+    // At 7% with investing only $200/mo of a much larger check, the compounded
+    // pot (and so SS lifetime) is smaller than investing the whole check.
+    expect(dollarMode.byKey.s0.ssLifetime).toBeLessThan(
+      pctMode.byKey.s0.ssLifetime
+    );
+  });
+
+  it("is a no-op in pure % mode (no $ figure, no override)", () => {
+    const ws = wages(40000);
+    const withNull = compareWages(
+      { ...baseInputs, returnRate: 7, investedEarlyDollar: null },
+      ws
+    );
+    const withoutKey = compareWages({ ...baseInputs, returnRate: 7 }, ws);
+    expect(withNull.byKey.s0.ssLifetime).toBe(withoutKey.byKey.s0.ssLifetime);
+  });
+
+  it("honors a per-strategy override for the current mode's strategy", () => {
+    // survivor mode → the "survivor" override applies; a tiny override invests
+    // less than the whole check, lowering the SS lifetime at a positive return.
+    const ws = wages(40000);
+    const base = compareWages(
+      { ...baseInputs, returnRate: 7, investedPct: 100 },
+      ws
+    );
+    const overridden = compareWages(
+      {
+        ...baseInputs,
+        returnRate: 7,
+        investedPct: 100,
+        investedEarlyDollarByStrategy: { survivor: 150 },
+      },
+      ws
+    );
+    expect(overridden.byKey.s0.ssLifetime).toBeLessThan(base.byKey.s0.ssLifetime);
+  });
+
+  it("the override for a DIFFERENT mode's strategy is ignored", () => {
+    // In survivor mode, a 'switch' override must not change anything.
+    const ws = wages(40000);
+    const base = compareWages({ ...baseInputs, returnRate: 7 }, ws);
+    const otherOverride = compareWages(
+      {
+        ...baseInputs,
+        returnRate: 7,
+        investedEarlyDollarByStrategy: { switch: 100 },
+      },
+      ws
+    );
+    expect(otherOverride.byKey.s0.ssLifetime).toBe(base.byKey.s0.ssLifetime);
+  });
+});

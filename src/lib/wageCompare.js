@@ -43,7 +43,11 @@ import {
   computeAnnualHealthcareCost,
   nextCliffAbove,
 } from "./healthcareCost.js";
-import { projectStrategy, STRATEGY_DEFS } from "./strategyCompare.js";
+import {
+  projectStrategy,
+  resolveInvestedForCheck,
+  STRATEGY_DEFS,
+} from "./strategyCompare.js";
 
 // Medicare eligibility starts at 65 — the boundary where the early-claim
 // healthcare regime flips from ACA premiums to Medicare/IRMAA. Mirrors the
@@ -197,11 +201,32 @@ function projectWage(inputs, wage) {
 
   // coveredElsewhere:true → SS monthly nets carry no healthcare adjustment, so
   // finalEarly is pure SS. We add the ABSOLUTE healthcare cost back separately.
-  const proj = computeProjection({
-    ...inputs,
-    grossIncome: wage,
-    coveredElsewhere: true,
+  const baseProjInputs = { ...inputs, grossIncome: wage, coveredElsewhere: true };
+  let proj = computeProjection(baseProjInputs);
+
+  // Honor the user's $-mode / per-strategy invest exactly as the strategy
+  // comparison does, so the wage panel's SS totals share the invest basis used
+  // by the rest of the app (StrategyCompare and the BY-WAGE lever) instead of
+  // silently always investing the percentage. In pure "%" mode this is a no-op
+  // (dollarDriven false → no re-run). Each wage scenario has a different early
+  // check, so a fixed dollar resolves to a different percentage per scenario —
+  // which is the whole point of $-mode (one dollar, not one fraction). The
+  // override is the one for the user's current mode's strategy (own /
+  // survivor / switch); null in modes/configs without an override.
+  const stratKeyForMode = STRATEGY_DEFS.find((d) => d.mode === inputs.mode)?.key;
+  const overrides = inputs.investedEarlyDollarByStrategy || {};
+  const resolved = resolveInvestedForCheck({
+    check: proj.earlyMonthlyNet,
+    investedPct: inputs.investedPct,
+    investedEarlyDollar: inputs.investedEarlyDollar,
+    override: stratKeyForMode ? overrides[stratKeyForMode] : undefined,
   });
+  if (resolved.dollarDriven && proj.earlyMonthlyNet > 0) {
+    proj = computeProjection({
+      ...baseProjInputs,
+      investedPct: resolved.investedPct,
+    });
+  }
 
   const ssLifetime = proj.finalEarly;
   const wageNetPreFRA = proj.wageTaxPreFRA.net;

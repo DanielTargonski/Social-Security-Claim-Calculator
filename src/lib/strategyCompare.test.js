@@ -5,6 +5,7 @@ import {
   findSeriesCrossover,
   mergeEarlySeries,
   classifyDecisiveness,
+  resolveInvestedForCheck,
   DECISIVE_RELATIVE_MARGIN,
   STRATEGY_DEFS,
 } from "./strategyCompare.js";
@@ -544,5 +545,93 @@ describe("mergeEarlySeries", () => {
       { age: 60, x: 10, y: 0 },
       { age: 61, x: 20, y: 5 },
     ]);
+  });
+});
+
+describe("resolveInvestedForCheck", () => {
+  const CHECK = 2000;
+
+  it("uses the percentage of the check when no dollar figure is given", () => {
+    const r = resolveInvestedForCheck({
+      check: CHECK,
+      investedPct: 50,
+      investedEarlyDollar: null,
+      override: undefined,
+    });
+    expect(r.dollarDriven).toBe(false);
+    expect(r.investedMonthly).toBe(1000);
+    expect(r.investedPct).toBe(50);
+    expect(r.investedAtCheckCap).toBe(false);
+    expect(r.hasOverride).toBe(false);
+  });
+
+  it("invests the global $ amount and reports the equivalent percentage", () => {
+    const r = resolveInvestedForCheck({
+      check: CHECK,
+      investedPct: 100,
+      investedEarlyDollar: 500,
+      override: undefined,
+    });
+    expect(r.dollarDriven).toBe(true);
+    expect(r.investedMonthly).toBe(500);
+    expect(r.investedPct).toBe(25); // 500 / 2000
+  });
+
+  it("a per-strategy override beats the global $ amount", () => {
+    const r = resolveInvestedForCheck({
+      check: CHECK,
+      investedPct: 100,
+      investedEarlyDollar: 500,
+      override: 250,
+    });
+    expect(r.dollarDriven).toBe(true);
+    expect(r.hasOverride).toBe(true);
+    expect(r.investedMonthly).toBe(250);
+    expect(r.investedPct).toBe(12.5);
+  });
+
+  it("caps the requested amount at the whole check and flags it", () => {
+    const r = resolveInvestedForCheck({
+      check: CHECK,
+      investedPct: 100,
+      investedEarlyDollar: 5000, // more than the check
+      override: undefined,
+    });
+    expect(r.investedMonthly).toBe(CHECK);
+    expect(r.investedPct).toBe(100);
+    expect(r.investedAtCheckCap).toBe(true);
+  });
+
+  it("a request equal to the check does not read as capped", () => {
+    const r = resolveInvestedForCheck({
+      check: CHECK,
+      investedPct: 100,
+      investedEarlyDollar: CHECK,
+      override: undefined,
+    });
+    expect(r.investedAtCheckCap).toBe(false);
+  });
+
+  it("a negative override is ignored (follow-slider sentinel)", () => {
+    const r = resolveInvestedForCheck({
+      check: CHECK,
+      investedPct: 40,
+      investedEarlyDollar: null,
+      override: -1,
+    });
+    expect(r.hasOverride).toBe(false);
+    expect(r.dollarDriven).toBe(false);
+    expect(r.investedMonthly).toBe(800);
+  });
+
+  it("a zero check invests nothing", () => {
+    const r = resolveInvestedForCheck({
+      check: 0,
+      investedPct: 100,
+      investedEarlyDollar: 500,
+      override: undefined,
+    });
+    expect(r.investedMonthly).toBe(0);
+    expect(r.investedAtCheckCap).toBe(false);
   });
 });
