@@ -10,6 +10,7 @@ import {
 } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
 import SliderInput from "./SliderInput.jsx";
+import ReturnRateSlider from "./ReturnRateSlider.jsx";
 import ShareLinkButton from "./ShareLinkButton.jsx";
 
 const MONTH_OPTIONS = [
@@ -459,23 +460,10 @@ export default function InputsPanel({
         <div className="section-divider" style={{ marginTop: "20px" }}>
           Outlook
         </div>
-        <SliderInput
-          label="Annual real return invested"
-          value={returnRate}
-          onChange={setReturnRate}
-          min={0}
-          max={10}
-          step={0.5}
-          format={(v) => v.toFixed(1) + "%"}
-          // "Real" is finance jargon for "after inflation" — the explainer
-          // sits in the slider's hint area so it's visible the first time
-          // the user encounters the term, not buried in a footnote.
-          hint={
-            returnRate === 7
-              ? "after inflation · S&P 500 historical"
-              : "after inflation"
-          }
-        />
+        {/* The same return-rate knob also appears inside the StrategyCompare
+            and WageCompare cards below — see ReturnRateSlider for the shared
+            bounds/format/hint. */}
+        <ReturnRateSlider value={returnRate} onChange={setReturnRate} />
         <SliderInput
           label={
             <>

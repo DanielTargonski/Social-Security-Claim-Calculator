@@ -616,6 +616,8 @@ export default function App() {
               lifeExpectancy={lifeExpectancy}
               onInvestChange={handleCompareInvestChange}
               onInvestReset={handleCompareInvestReset}
+              returnRate={returnRate}
+              onReturnRateChange={setReturnRate}
               wageRobustness={wageRobustness}
             />
           )}
@@ -634,6 +636,8 @@ export default function App() {
             dirty={wageAltsDirty}
             onAltChange={handleWageAltChange}
             onReset={handleWageAltReset}
+            returnRate={returnRate}
+            onReturnRateChange={setReturnRate}
           />
 
           <PotTable
