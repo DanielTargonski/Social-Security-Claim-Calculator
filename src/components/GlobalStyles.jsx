@@ -23,6 +23,10 @@ export default function GlobalStyles() {
         -moz-osx-font-smoothing: grayscale;
         font-feature-settings: "cv05", "ss01";
       }
+      html { scroll-behavior: smooth; }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+      }
 
       /* Numerals — tabular so columns of figures align. */
       .num {
@@ -50,6 +54,78 @@ export default function GlobalStyles() {
         background: ${C.surface};
         border: 1px solid ${C.border};
         border-radius: var(--radius);
+      }
+
+      /* ── Sticky in-page jump rail ─────────────────────────────────────── */
+      .jump-target {
+        scroll-margin-top: 5.75rem;
+      }
+      .jump-nav-wrap {
+        position: sticky;
+        top: 0;
+        z-index: 45;
+        margin: 0 -4px 16px;
+        padding: 8px 4px 10px;
+        background:
+          linear-gradient(
+            to bottom,
+            ${C.bg} 0%,
+            color-mix(in srgb, ${C.bg} 96%, transparent) 78%,
+            transparent 100%
+          );
+      }
+      .jump-nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x proximity;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+        padding: 4px;
+        background: color-mix(in srgb, ${C.paper} 92%, transparent);
+        border: 1px solid ${C.border};
+        border-radius: var(--radius-pill);
+        box-shadow: var(--shadow-sm);
+      }
+      .jump-nav-link {
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        padding: 7px 12px;
+        border-radius: var(--radius-pill);
+        color: ${C.inkSoft};
+        border: 1px solid transparent;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+        text-decoration: none;
+        white-space: nowrap;
+        transition:
+          background 0.16s ease,
+          border-color 0.16s ease,
+          color 0.16s ease;
+      }
+      .jump-nav-link:hover {
+        color: ${C.ink};
+        background: ${C.surface};
+        border-color: ${C.border};
+      }
+      .jump-nav-link[aria-current="location"] {
+        color: ${C.accentOn};
+        background: ${C.accent};
+        border-color: ${C.accent};
+        box-shadow:
+          0 2px 10px color-mix(in srgb, ${C.accent} 35%, transparent),
+          0 0 0 1px color-mix(in srgb, ${C.accent} 45%, transparent);
+      }
+      @media (min-width: 1024px) {
+        .jump-nav-wrap {
+          top: 10px;
+        }
       }
 
       /* ── Range slider — filled track via --pct + floating thumb ───────── */
