@@ -289,7 +289,14 @@ export default function App() {
     ],
     [grossIncome, wageAltA, wageAltB]
   );
-  const wageCompare = useWageCompare(inputs, wageScenarios);
+  const wageCompare = useWageCompare(
+    {
+      ...inputs,
+      investedEarlyDollar,
+      investedEarlyDollarByStrategy: compareInvest,
+    },
+    wageScenarios
+  );
   // Cross-wage strategy robustness (survivor/switch only) for StrategyCompare's
   // "BY WAGE" lever — does one strategy win at every wage being compared?
   // Pass the invest resolution so it races strategies at the same dollars the

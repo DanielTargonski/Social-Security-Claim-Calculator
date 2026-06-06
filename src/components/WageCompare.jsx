@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -10,6 +9,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { FRA, fmtMoney, fmtBig, fmtAge, fmtIncome } from "../lib/benefitMath.js";
+import { useClickToEditNumber } from "../hooks/useClickToEditNumber.js";
 import { C } from "../constants/colors.js";
 
 // Line/accent color per scenario, by position. The current wage (always first)
@@ -23,35 +23,18 @@ const colorAt = (idx) => PALETTE[idx] ?? C.inkFaint;
 // pattern used across the calculator's sliders and the per-strategy invest
 // fields. Whole-dollar entry, $1,000 step.
 function EditableWage({ value, color, onChange }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const startEdit = () => {
-    setDraft(String(Math.round(value)));
-    setEditing(true);
-  };
-  const commit = () => {
-    const v = parseFloat(draft);
-    if (!Number.isNaN(v)) onChange(Math.max(0, v));
-    setEditing(false);
-  };
+  const { editing, startEdit, inputProps } = useClickToEditNumber({
+    value,
+    onCommit: onChange,
+  });
 
   if (editing) {
     return (
       <input
-        type="number"
-        autoFocus
+        {...inputProps}
         className="num"
-        value={draft}
         min={0}
         step={1000}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onFocus={(e) => e.target.select()}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
-          else if (e.key === "Escape") setEditing(false);
-        }}
         style={{
           color: C.ink,
           fontWeight: 700,

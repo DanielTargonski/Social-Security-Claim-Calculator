@@ -121,25 +121,73 @@ export function mergeEarlySeries(aData, bData, aKey, bKey) {
 //   verdict     { primaryWinner, primaryMargin, crossover, switchEndsAhead,
 //                 breakEvenReturn, crossoverSurvivalProb, conditioningAge,
 //                 overallWinner, overallRunnerUp, overallMargin }
-// Run one strategy's projection on the given inputs, resolving how much it
-// invests. How much each scenario invests is decided per strategy, in this
-// order of precedence:
+// Resolve how much a scenario invests, given its own early check. How much is
+// decided in this order of precedence:
 //
-//   1. PER-STRATEGY OVERRIDE (`investedEarlyDollarByStrategy[key]`) — a
-//      monthly dollar the user set for THAT strategy alone, independent of the
-//      others. This is the decoupling the global slider can't express: the
-//      slider forces ONE figure across every scenario, so a user who wants to
-//      invest $500/mo on survivor-early but only $250/mo on own->survivor
-//      (different bets, not the same dollar) had no way to say so. The
-//      comparison honors each override on its own.
+//   1. PER-STRATEGY OVERRIDE (`override`) — a monthly dollar the user set for
+//      THIS scenario alone, independent of the others. This is the decoupling
+//      the global slider can't express: the slider forces ONE figure across
+//      every scenario, so a user who wants to invest $500/mo on survivor-early
+//      but only $250/mo on own->survivor (different bets, not the same dollar)
+//      had no way to say so. Each override is honored on its own.
 //   2. GLOBAL DOLLAR (`investedEarlyDollar`) — the slider's "$" mode: one
 //      dollar invested in every scenario (capped per check). Used for any
-//      strategy without its own override.
+//      scenario without its own override.
 //   3. PERCENTAGE (`investedPct`) — the slider's "%" mode: invest that fraction
 //      of each scenario's OWN check (so different dollars per scenario).
 //
 // Every resolved amount is capped at the scenario's own check — you can't
 // invest more than you receive ("whole check" when the request exceeds it).
+// Returns the resolved monthly dollar, the equivalent percentage of the check
+// (so the caller can re-run computeProjection on a single investedPct knob),
+// and flags for the UI. `dollarDriven` is true whenever a dollar figure
+// (override or global "$") drove the amount — the only case where a re-run is
+// needed, since pure "%" mode already used `investedPct` in the first
+// projection.
+//
+// Shared by projectStrategy (the strategy comparison) and projectWage (the
+// wage comparison) so BOTH honor the user's $-mode / per-strategy invest on the
+// identical basis — they must not diverge.
+export function resolveInvestedForCheck({
+  check,
+  investedPct,
+  investedEarlyDollar,
+  override,
+}) {
+  const hasOverride = override != null && override >= 0;
+  const globalDollarMode = investedEarlyDollar != null && investedEarlyDollar > 0;
+
+  let requestedDollar;
+  let dollarDriven;
+  if (hasOverride) {
+    requestedDollar = override;
+    dollarDriven = true;
+  } else if (globalDollarMode) {
+    requestedDollar = investedEarlyDollar;
+    dollarDriven = true;
+  } else {
+    requestedDollar = (investedPct / 100) * check;
+    dollarDriven = false;
+  }
+
+  const investedMonthly =
+    check > 0 ? Math.min(Math.max(requestedDollar, 0), check) : 0;
+  // Did the request exceed the check (so it clamped to the whole check)? The
+  // 0.5 slack keeps a request that equals the check from reading as capped.
+  const investedAtCheckCap = check > 0 && requestedDollar > check + 0.5;
+  const resolvedPct = check > 0 ? (investedMonthly / check) * 100 : investedPct;
+
+  return {
+    investedMonthly,
+    investedPct: resolvedPct,
+    investedAtCheckCap,
+    dollarDriven,
+    hasOverride,
+  };
+}
+
+// Run one strategy's projection on the given inputs, resolving how much it
+// invests via resolveInvestedForCheck (see its precedence doc above).
 //
 // Returns the projection plus the derived invest figures the UI needs. Shared
 // by compareStrategies (builds the full strategy objects) and the break-even
@@ -170,33 +218,16 @@ export function projectStrategy(def, inputs) {
   // so a re-run would be a no-op.
   const check = projection.earlyMonthlyNet;
   const overrides = inputs.investedEarlyDollarByStrategy || {};
-  const override = overrides[def.key];
-  const hasOverride = override != null && override >= 0;
-  const globalDollar = inputs.investedEarlyDollar;
-  const globalDollarMode = globalDollar != null && globalDollar > 0;
-
-  let requestedDollar;
-  let dollarDriven;
-  if (hasOverride) {
-    requestedDollar = override;
-    dollarDriven = true;
-  } else if (globalDollarMode) {
-    requestedDollar = globalDollar;
-    dollarDriven = true;
-  } else {
-    requestedDollar = (inputs.investedPct / 100) * check;
-    dollarDriven = false;
-  }
-
-  const investedMonthly =
-    check > 0 ? Math.min(Math.max(requestedDollar, 0), check) : 0;
-  // Did the request exceed the check (so it clamped to the whole check)? The
-  // 0.5 slack keeps a request that equals the check from reading as capped.
-  const investedAtCheckCap = check > 0 && requestedDollar > check + 0.5;
+  const { investedMonthly, investedPct, investedAtCheckCap, dollarDriven, hasOverride } =
+    resolveInvestedForCheck({
+      check,
+      investedPct: inputs.investedPct,
+      investedEarlyDollar: inputs.investedEarlyDollar,
+      override: overrides[def.key],
+    });
 
   if (dollarDriven && check > 0) {
-    const pct = (investedMonthly / check) * 100;
-    projection = computeProjection({ ...projInputs, investedPct: pct });
+    projection = computeProjection({ ...projInputs, investedPct });
   }
 
   return {

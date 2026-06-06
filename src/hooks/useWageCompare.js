@@ -29,6 +29,11 @@ export function useWageCompare(inputs, wageScenarios) {
     coveredElsewhere,
     unsubsidizedSilverAnnual,
     locality,
+    // Invest resolution must match the rest of the app (StrategyCompare + the
+    // BY WAGE lever) so the wage panel honors $-mode / per-strategy invest
+    // instead of always investing the percentage. Null/absent in % mode.
+    investedEarlyDollar,
+    investedEarlyDollarByStrategy,
   } = inputs;
 
   return useMemo(
@@ -53,6 +58,8 @@ export function useWageCompare(inputs, wageScenarios) {
           coveredElsewhere,
           unsubsidizedSilverAnnual,
           locality,
+          investedEarlyDollar,
+          investedEarlyDollarByStrategy,
         },
         wageScenarios
       ),
@@ -75,6 +82,8 @@ export function useWageCompare(inputs, wageScenarios) {
       coveredElsewhere,
       unsubsidizedSilverAnnual,
       locality,
+      investedEarlyDollar,
+      investedEarlyDollarByStrategy,
       // App memoizes wageScenarios on (grossIncome, wageAltA, wageAltB), so the
       // reference is stable until a wage changes — a sound dependency, same as
       // useStrategyCompare's investedEarlyDollarByStrategy.
