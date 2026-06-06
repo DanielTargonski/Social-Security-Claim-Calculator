@@ -19,7 +19,17 @@ import {
 import { useClickToEditNumber } from "../hooks/useClickToEditNumber.js";
 import { makeEndpointDot } from "./EndpointDot.jsx";
 import ReturnRateSlider from "./ReturnRateSlider.jsx";
+import SliderInput from "./SliderInput.jsx";
 import { C } from "../constants/colors.js";
+
+// How the current claiming strategy reads in prose, keyed by mode. Used by the
+// invest-amount readout so it names the strategy whose early checks are being
+// invested ("the strategy selected").
+const STRATEGY_LABEL = {
+  retirement: "claiming your own benefit early",
+  survivor: "claiming survivor early",
+  switch: "the own → survivor switch",
+};
 
 // Line/accent color per scenario, by position. The current wage (always first)
 // reads as the neutral "this is you" ink line; the two what-ifs get the
@@ -219,6 +229,14 @@ export default function WageCompare({
   // in-card slider is omitted (keeps the panel renderable standalone).
   returnRate = null,
   onReturnRateChange = () => {},
+  // The current claiming mode (names the strategy in the invest readout) plus
+  // the shared "invest % of early-claim checks" knob + its setter. Lets the user
+  // see and retune how much of the selected strategy's early check is invested,
+  // right here. Null investedPct → the in-card invest control is omitted (keeps
+  // the panel renderable standalone).
+  mode,
+  investedPct = null,
+  onInvestedPctChange = () => {},
 }) {
   const { scenarios, byKey, merged, verdict } = compare;
   const lifeLabel = fmtAge(lifeExpectancy);
@@ -308,6 +326,49 @@ export default function WageCompare({
           <ReturnRateSlider value={returnRate} onChange={onReturnRateChange} />
         </div>
       )}
+
+      {/* Invest knob for the selected strategy. The panel runs ONE claiming
+          decision (the current mode) across wages; this shows how much of that
+          strategy's early check is invested per month at the current wage and
+          lets the user retune it here. Each wage has a different early check, so
+          at a fixed % the invested dollar differs per scenario — the readout
+          tracks the current wage. Same shared investedPct as the inputs panel. */}
+      {investedPct != null &&
+        (() => {
+          const cur = byKey[currentKey];
+          const invested = cur?.investedMonthly ?? 0;
+          const cash = Math.max(0, (cur?.earlyMonthlyNet ?? 0) - invested);
+          const flags =
+            (cur?.investedAtCheckCap ? " · whole check" : "") +
+            (cur?.investedOverridden ? " · custom" : "");
+          const parts = [];
+          if (invested > 0.5) parts.push(`${fmtMoney(invested)}/mo invested`);
+          if (cash > 0.5) parts.push(`${fmtMoney(cash)}/mo cash`);
+          const investHint = (parts.length ? parts.join(" · ") : "—") + flags;
+          const strategyName = STRATEGY_LABEL[mode] || "the early claim";
+          return (
+            <div className="card-flat p-4 md:p-5 mb-5">
+              <p className="text-xs mb-3 max-w-xl" style={{ color: C.inkSoft }}>
+                How much of each early-claim check {strategyName} invests — the
+                rest is spent as cash. At your current wage that's{" "}
+                <span className="num" style={{ color: C.ink, fontWeight: 600 }}>
+                  {fmtMoney(invested)}/mo
+                </span>{" "}
+                invested. Drag to change.
+              </p>
+              <SliderInput
+                label="Invest % of early-claim checks"
+                value={investedPct}
+                onChange={onInvestedPctChange}
+                min={0}
+                max={100}
+                step={5}
+                format={(v) => Number(v.toFixed(1)) + "%"}
+                hint={investHint}
+              />
+            </div>
+          );
+        })()}
 
       {/* Verdict banner. */}
       <div

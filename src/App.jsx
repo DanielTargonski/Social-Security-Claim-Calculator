@@ -638,6 +638,9 @@ export default function App() {
             onReset={handleWageAltReset}
             returnRate={returnRate}
             onReturnRateChange={setReturnRate}
+            mode={mode}
+            investedPct={investedPct}
+            onInvestedPctChange={setInvestedPct}
           />
 
           <PotTable

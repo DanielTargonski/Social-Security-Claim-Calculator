@@ -284,6 +284,16 @@ function projectWage(inputs, wage) {
     earningsTestWithholding: proj.earningsTestWithholding,
     earlyMonthlyNet: proj.earlyMonthlyNet,
     postFRAMonthlyNet: proj.earlyPostFRAMonthlyNetRetired,
+    // How much of THIS wage's early check is invested per month (post-cap),
+    // resolved on the same basis as the rest of the app — %-mode, global
+    // $-mode, or a per-strategy override for the current claiming mode. The
+    // remainder of the check is spent as cash. Surfaced so the wage panel can
+    // show (and let the user retune) the invested amount for the selected
+    // strategy. Each wage has a different early check, so at a fixed % this is a
+    // different dollar per scenario — and at a fixed $ it can clamp to the check.
+    investedMonthly: resolved.investedMonthly,
+    investedAtCheckCap: resolved.investedAtCheckCap,
+    investedOverridden: resolved.hasOverride,
     wageNetAnnual: wageNetPreFRA,
     magiACA,
     healthcareAnnualNow,

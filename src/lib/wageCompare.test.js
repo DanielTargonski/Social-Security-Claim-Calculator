@@ -298,6 +298,47 @@ describe("compareStrategiesAcrossWages", () => {
   });
 });
 
+describe("compareWages — per-scenario invested amount", () => {
+  it("exposes investedMonthly as the % of each scenario's own early check", () => {
+    const { byKey } = compareWages(
+      { ...baseInputs, investedPct: 50 },
+      wages(40000, 0)
+    );
+    // 50% of each scenario's own early check; the check differs by wage (the
+    // earnings test trims the higher-wage check), so the dollars differ too.
+    expect(byKey.s0.investedMonthly).toBeCloseTo(byKey.s0.earlyMonthlyNet * 0.5, 4);
+    expect(byKey.s1.investedMonthly).toBeCloseTo(byKey.s1.earlyMonthlyNet * 0.5, 4);
+    expect(byKey.s0.investedOverridden).toBe(false);
+    expect(byKey.s0.investedAtCheckCap).toBe(false);
+  });
+
+  it("caps investedMonthly at the whole check and flags it in $-mode", () => {
+    const ws = wages(40000);
+    const { byKey } = compareWages(
+      { ...baseInputs, investedPct: 100, investedEarlyDollar: 999999 },
+      ws
+    );
+    expect(byKey.s0.investedMonthly).toBeCloseTo(byKey.s0.earlyMonthlyNet, 4);
+    expect(byKey.s0.investedAtCheckCap).toBe(true);
+  });
+
+  it("flags a per-strategy override for the current mode's strategy", () => {
+    // survivor mode → the "survivor" override drives the invested amount.
+    const ws = wages(40000);
+    const { byKey } = compareWages(
+      {
+        ...baseInputs,
+        mode: "survivor",
+        investedPct: 100,
+        investedEarlyDollarByStrategy: { survivor: 150 },
+      },
+      ws
+    );
+    expect(byKey.s0.investedMonthly).toBeCloseTo(150, 4);
+    expect(byKey.s0.investedOverridden).toBe(true);
+  });
+});
+
 describe("earlyHealthcareForWage — unit", () => {
   it("returns all zeros when covered elsewhere", () => {
     const hc = earlyHealthcareForWage({

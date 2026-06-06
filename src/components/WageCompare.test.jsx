@@ -46,6 +46,7 @@ function renderPanel(overrides = {}, scenarioWages = [40000, 24480, 0], props = 
   const onAltChange = props.onAltChange ?? vi.fn();
   const onReset = props.onReset ?? vi.fn();
   const onReturnRateChange = props.onReturnRateChange ?? vi.fn();
+  const onInvestedPctChange = props.onInvestedPctChange ?? vi.fn();
   render(
     <WageCompare
       compare={compare}
@@ -59,9 +60,12 @@ function renderPanel(overrides = {}, scenarioWages = [40000, 24480, 0], props = 
       onReset={onReset}
       returnRate={props.returnRate ?? null}
       onReturnRateChange={onReturnRateChange}
+      mode={inputs.mode}
+      investedPct={props.investedPct ?? null}
+      onInvestedPctChange={onInvestedPctChange}
     />
   );
-  return { compare, onAltChange, onReset, onReturnRateChange };
+  return { compare, onAltChange, onReset, onReturnRateChange, onInvestedPctChange };
 }
 
 describe("WageCompare — render", () => {
@@ -227,6 +231,51 @@ describe("WageCompare — return-rate control", () => {
     await user.type(input, "8");
     await user.keyboard("{Enter}");
     expect(onReturnRateChange).toHaveBeenCalledWith(8);
+  });
+});
+
+describe("WageCompare — invest control", () => {
+  it("omits the invest control when no investedPct is supplied", () => {
+    renderPanel();
+    expect(
+      screen.queryByText(/Invest % of early-claim checks/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the invest slider and shows the monthly invested amount", () => {
+    // Covered elsewhere keeps the math simple; 50% avoids the 0%/100% slider
+    // end-label collision so the value display is unambiguous.
+    const { compare } = renderPanel(
+      { coveredElsewhere: true },
+      [40000, 24480, 0],
+      { investedPct: 50 }
+    );
+    expect(
+      screen.getByText(/Invest % of early-claim checks/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    // The readout names the selected strategy (survivor mode) and shows a
+    // per-month invested dollar.
+    expect(screen.getByText(/claiming survivor early invests/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/\/mo invested/i).length).toBeGreaterThan(0);
+    // The readout reflects the current scenario's resolved invested amount (it
+    // appears in both the bold callout and the slider hint, so allow several).
+    const invested = Math.round(compare.byKey.current.investedMonthly);
+    expect(
+      screen.getAllByText(new RegExp(`\\$${invested.toLocaleString()}/mo`)).length
+    ).toBeGreaterThan(0);
+  });
+
+  it("editing the invest % calls onInvestedPctChange with the typed value", async () => {
+    const user = userEvent.setup();
+    const onInvestedPctChange = vi.fn();
+    renderPanel({}, [40000, 24480, 0], { investedPct: 50, onInvestedPctChange });
+    await user.click(screen.getByText("50%"));
+    const input = screen.getByRole("spinbutton");
+    await user.clear(input);
+    await user.type(input, "25");
+    await user.keyboard("{Enter}");
+    expect(onInvestedPctChange).toHaveBeenCalledWith(25);
   });
 });
 
