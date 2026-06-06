@@ -158,6 +158,21 @@ export default function App() {
     setInvestOwn(-1);
   };
 
+  // The wage panel resolves how much each scenario invests with precedence
+  // override > global $-mode > percentage. So a per-strategy dollar override for
+  // the active mode's strategy SHADOWS investedPct — dragging the wage panel's
+  // "Invest %" slider would change a value nothing reads and the card looks
+  // frozen. Setting a percentage means dropping that fixed-dollar override, so
+  // clear the active mode's override when the wage panel's invest slider moves
+  // (only that mode's — the other strategies' overrides are left untouched).
+  const handleWageInvestedPctChange = (v) => {
+    setInvestedPct(v);
+    const key = { retirement: "own", survivor: "survivor", switch: "switch" }[
+      mode
+    ];
+    if (key && compareInvest[key] != null) investSetterByKey[key](-1);
+  };
+
   // Mirror state into the URL on every change. Stored raw investStopAge
   // intentionally, not the clamped effective value, so a shared link
   // preserves the user's actual setting and "comes back" if the recipient
@@ -640,7 +655,7 @@ export default function App() {
             onReturnRateChange={setReturnRate}
             mode={mode}
             investedPct={investedPct}
-            onInvestedPctChange={setInvestedPct}
+            onInvestedPctChange={handleWageInvestedPctChange}
           />
 
           <PotTable

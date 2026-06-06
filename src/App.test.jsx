@@ -321,6 +321,40 @@ describe("App — Card 3 verdict copy across claim-age regimes", () => {
   });
 });
 
+describe("App — wage-panel invest slider clears a shadowing override", () => {
+  // Regression: a per-strategy dollar override (custom) for the active mode's
+  // strategy shadows investedPct (the wage panel resolves invest with
+  // precedence override > $-mode > %), so dragging the wage panel's "Invest %"
+  // slider changed a value nothing read — the card looked frozen. Setting a
+  // percentage must drop the active mode's override so the slider works.
+  it("editing the wage-panel invest % updates the amount despite a custom override", async () => {
+    const user = userEvent.setup();
+    // switch mode + a large 'switch' override (cisw) so it caps to the whole
+    // check and flags "custom" — exactly the reported state.
+    setUrlSearch("mode=switch&age=63&inv=45&cisw=5000");
+    render(<App />);
+    const wageCard = document.getElementById("wage-compare");
+    expect(wageCard).toBeTruthy();
+    const investedNow = () =>
+      within(wageCard).getAllByText("Invested/mo")[0].nextElementSibling
+        .textContent;
+    const before = investedNow();
+    // The override is active → the wage card flags it "custom".
+    expect(within(wageCard).getAllByText(/custom/i).length).toBeGreaterThan(0);
+
+    // Edit the wage panel's invest % via click-to-edit (its value shows "45%";
+    // the return-rate slider in the same card shows "7.0%").
+    await user.click(within(wageCard).getByText("45%"));
+    const input = within(wageCard).getByRole("spinbutton");
+    await user.clear(input);
+    await user.type(input, "20{Enter}");
+
+    // The invested amount now follows the percentage, and the override is gone.
+    expect(investedNow()).not.toBe(before);
+    expect(within(wageCard).queryByText(/custom/i)).toBeNull();
+  });
+});
+
 describe("App — healthcare MAGI uses post-earnings-test SS", () => {
   // Regression: when the pre-FRA earnings test wipes out the early SS check,
   // SSA-1099 reports the post-ET amount, so AGI (and hence MAGI for ACA / IRMAA)
