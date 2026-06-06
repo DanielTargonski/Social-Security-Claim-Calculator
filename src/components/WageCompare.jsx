@@ -674,6 +674,24 @@ export default function WageCompare({
                     {fmtMoney(s.postFRAMonthlyNet)}/mo
                   </div>
                 </div>
+                {/* How much of THIS wage's early check is invested vs spent as
+                    cash. At a fixed invest %, a higher wage's earnings-test-
+                    trimmed check invests fewer dollars — the split each wage
+                    actually lands on, not just the shared percentage. */}
+                <div>
+                  <div style={{ color: C.inkFaint }}>Invested/mo</div>
+                  <div style={{ color: C.inkSoft }}>
+                    {fmtMoney(s.investedMonthly)}/mo
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: C.inkFaint }}>Cash/mo</div>
+                  <div style={{ color: C.inkSoft }}>
+                    {s.earlyMonthlyNet - s.investedMonthly > 0.5
+                      ? `${fmtMoney(s.earlyMonthlyNet - s.investedMonthly)}/mo`
+                      : "—"}
+                  </div>
+                </div>
               </div>
 
               <HealthcareLine

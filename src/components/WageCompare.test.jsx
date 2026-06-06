@@ -277,6 +277,25 @@ describe("WageCompare — invest control", () => {
     await user.keyboard("{Enter}");
     expect(onInvestedPctChange).toHaveBeenCalledWith(25);
   });
+
+  it("shows each scenario's own invested/mo on its card (always, no prop needed)", () => {
+    // The per-card amounts come straight from the compare object, so they render
+    // even without the invest control wired (no investedPct prop).
+    const { compare } = renderPanel(
+      { coveredElsewhere: true, investedPct: 50 },
+      [40000, 24480, 0]
+    );
+    // One "Invested/mo" cell per scenario card (3).
+    expect(screen.getAllByText("Invested/mo")).toHaveLength(3);
+    // Each card shows its OWN resolved invested amount — different per wage,
+    // since the earnings test trims the higher-wage early check.
+    for (const key of ["current", "alt1", "alt2"]) {
+      const amt = Math.round(compare.byKey[key].investedMonthly);
+      expect(
+        screen.getAllByText(new RegExp(`\\$${amt.toLocaleString()}/mo`)).length
+      ).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("WageCompare — healthcare cliff status", () => {
