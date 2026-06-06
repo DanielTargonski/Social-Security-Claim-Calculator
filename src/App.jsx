@@ -4,11 +4,13 @@ import { C } from "./constants/colors.js";
 import { useBenefitProjection } from "./hooks/useBenefitProjection.js";
 import { useOptimalClaimAge } from "./hooks/useOptimalClaimAge.js";
 import { useStrategyCompare } from "./hooks/useStrategyCompare.js";
+import { useWageCompare, useWageRobustness } from "./hooks/useWageCompare.js";
 import { useFormState } from "./hooks/useFormState.js";
 import { useUrlSync } from "./hooks/useUrlSync.js";
 import { useTheme } from "./hooks/useTheme.js";
 import { getInitialStateFromUrl } from "./lib/shareableState.js";
 import { rangeForMode, snapClaimAgeOnModeSwitch } from "./lib/modeConfig.js";
+import { EARNINGS_LIMIT_2026 } from "./lib/ssRules.js";
 import {
   computeMagiACA,
   computeMagiIRMAA,
@@ -27,6 +29,7 @@ import PotTable from "./components/PotTable.jsx";
 import Footnotes from "./components/Footnotes.jsx";
 import SensitivityTornado from "./components/SensitivityTornado.jsx";
 import StrategyCompare from "./components/StrategyCompare.jsx";
+import WageCompare from "./components/WageCompare.jsx";
 import HealthcarePanel from "./components/HealthcarePanel.jsx";
 import OptimalClaimAge from "./components/OptimalClaimAge.jsx";
 import AboutPage from "./components/AboutPage.jsx";
@@ -56,6 +59,18 @@ export default function App() {
   // the underlying stored value is always the percentage (a shared link still
   // round-trips identically). See InputsPanel's UnitToggle.
   const [investedPctEarlyMode, setInvestedPctEarlyMode] = useState("%");
+
+  // Two alternative pre-67 wage levels for the "what if you earned less before
+  // 67?" comparison panel. The panel always races these against the live
+  // current wage (grossIncome), so only the alternatives need state. Session-
+  // only (not URL-persisted): the current wage IS persisted, so a shared link
+  // still reproduces the user's real situation; the what-if alternatives reset
+  // to their defaults. Defaults tell the core story — the earnings-test limit
+  // ("drop under the test") and $0 ("stop working").
+  const WAGE_ALT_A_DEFAULT = EARNINGS_LIMIT_2026; // $24,480
+  const WAGE_ALT_B_DEFAULT = 0;
+  const [wageAltA, setWageAltA] = useState(WAGE_ALT_A_DEFAULT);
+  const [wageAltB, setWageAltB] = useState(WAGE_ALT_B_DEFAULT);
 
   // Hydrate initial state from URL query params (set by ShareLinkButton when
   // someone shared this link). Falls back to defaults for any missing field.
@@ -263,6 +278,40 @@ export default function App() {
     investedEarlyDollar,
     investedEarlyDollarByStrategy: compareInvest,
   });
+
+  // Wage comparison: the same claiming decision at the current pre-67 wage vs
+  // two alternatives. Memoized so the hook only recomputes when a wage moves.
+  const wageScenarios = useMemo(
+    () => [
+      { key: "current", wage: grossIncome },
+      { key: "alt1", wage: wageAltA },
+      { key: "alt2", wage: wageAltB },
+    ],
+    [grossIncome, wageAltA, wageAltB]
+  );
+  const wageCompare = useWageCompare(inputs, wageScenarios);
+  // Cross-wage strategy robustness (survivor/switch only) for StrategyCompare's
+  // "BY WAGE" lever — does one strategy win at every wage being compared?
+  // Pass the invest resolution so it races strategies at the same dollars the
+  // verdict/cards use (finalEarly basis, same as compareStrategies).
+  const wageRobustness = useWageRobustness(
+    {
+      ...inputs,
+      investedEarlyDollar,
+      investedEarlyDollarByStrategy: compareInvest,
+    },
+    wageScenarios
+  );
+  const wageAltsDirty =
+    wageAltA !== WAGE_ALT_A_DEFAULT || wageAltB !== WAGE_ALT_B_DEFAULT;
+  const handleWageAltChange = (key, dollars) => {
+    if (key === "alt1") setWageAltA(dollars);
+    else if (key === "alt2") setWageAltB(dollars);
+  };
+  const handleWageAltReset = () => {
+    setWageAltA(WAGE_ALT_A_DEFAULT);
+    setWageAltB(WAGE_ALT_B_DEFAULT);
+  };
 
   const primaryBenefitLabel =
     mode === "retirement" ? "Your benefit at 67" : "Survivor benefit at 67";
@@ -560,8 +609,25 @@ export default function App() {
               lifeExpectancy={lifeExpectancy}
               onInvestChange={handleCompareInvestChange}
               onInvestReset={handleCompareInvestReset}
+              wageRobustness={wageRobustness}
             />
           )}
+
+          {/* What different pre-67 wages do to the same claiming decision —
+              earnings test, FRA recoup, SS taxation, and the ACA / IRMAA
+              healthcare cliffs, all netted into one comparable total. Shown in
+              every mode; the wage/earnings-test question isn't survivor-specific. */}
+          <WageCompare
+            compare={wageCompare}
+            currentKey="current"
+            claimAge={claimAge}
+            lifeExpectancy={lifeExpectancy}
+            coveredElsewhere={coveredElsewhere}
+            unsubsidizedSilverAnnual={unsubsidizedSilverAnnual}
+            dirty={wageAltsDirty}
+            onAltChange={handleWageAltChange}
+            onReset={handleWageAltReset}
+          />
 
           <PotTable
             claimAge={claimAge}

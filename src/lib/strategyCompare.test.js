@@ -4,6 +4,8 @@ import {
   findBreakEvenReturn,
   findSeriesCrossover,
   mergeEarlySeries,
+  classifyDecisiveness,
+  DECISIVE_RELATIVE_MARGIN,
   STRATEGY_DEFS,
 } from "./strategyCompare.js";
 import { computeProjection } from "./benefitMath.js";
@@ -32,6 +34,65 @@ const baseInputs = {
   unsubsidizedSilverAnnual: 9679,
   locality: "none",
 };
+
+describe("classifyDecisiveness", () => {
+  it("flags a wide, never-trailing lead as decisive", () => {
+    const d = classifyDecisiveness({
+      crossover: null,
+      winnerTotal: 800000,
+      loserTotal: 600000,
+    });
+    expect(d.tier).toBe("decisive");
+    expect(d.alwaysAhead).toBe(true);
+    expect(d.relativeMargin).toBeCloseTo(0.3333, 3);
+  });
+
+  it("flags a crossover as a close call regardless of final margin", () => {
+    const d = classifyDecisiveness({
+      crossover: 81,
+      winnerTotal: 695000,
+      loserTotal: 676000,
+    });
+    expect(d.tier).toBe("close");
+    expect(d.alwaysAhead).toBe(false);
+  });
+
+  it("flags a never-trailing but slim lead as an edge", () => {
+    const d = classifyDecisiveness({
+      crossover: null,
+      winnerTotal: 700000,
+      loserTotal: 685000,
+    });
+    expect(d.tier).toBe("edge");
+    expect(d.relativeMargin).toBeLessThan(DECISIVE_RELATIVE_MARGIN);
+  });
+
+  it("treats a positive winner over a non-positive loser as decisive", () => {
+    const d = classifyDecisiveness({
+      crossover: null,
+      winnerTotal: 100,
+      loserTotal: 0,
+    });
+    expect(d.relativeMargin).toBe(Infinity);
+    expect(d.tier).toBe("decisive");
+  });
+});
+
+describe("compareStrategies — decisiveness", () => {
+  it("attaches a decisiveness read with a valid tier and the winner key", () => {
+    const { verdict } = compareStrategies(baseInputs);
+    expect(["decisive", "close", "edge"]).toContain(verdict.decisiveness.tier);
+    expect(verdict.decisiveness.winnerKey).toBe(verdict.primaryWinner);
+  });
+
+  it("reads as decisive for a short life where survivor-early dominates", () => {
+    // Short life → claiming the larger survivor benefit early wins outright and
+    // the switch never catches up (no crossover), by a wide margin.
+    const { verdict } = compareStrategies({ ...baseInputs, lifeExpectancy: 72 });
+    expect(verdict.primaryWinner).toBe("survivor");
+    expect(verdict.decisiveness.tier).toBe("decisive");
+  });
+});
 
 describe("compareStrategies — shape", () => {
   it("returns the three strategies in a stable order", () => {
