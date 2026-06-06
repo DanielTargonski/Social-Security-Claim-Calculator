@@ -45,6 +45,7 @@ function renderCompare(overrides = {}, props = {}) {
       lifeExpectancy={inputs.lifeExpectancy}
       onInvestChange={onInvestChange}
       onInvestReset={onInvestReset}
+      wageRobustness={props.wageRobustness ?? null}
     />
   );
   return { compare, onSelectStrategy, onInvestChange, onInvestReset };
@@ -200,6 +201,88 @@ describe("StrategyCompare — verdict levers", () => {
     expect(screen.queryByText("LONGEVITY")).not.toBeInTheDocument();
     // The return lever still renders.
     expect(screen.getByText("RETURNS")).toBeInTheDocument();
+  });
+});
+
+describe("StrategyCompare — decisiveness signal", () => {
+  it("renders a decisiveness status chip", () => {
+    renderCompare();
+    const chip = screen.getByTitle(/how clear-cut the winner is/i);
+    expect(chip).toBeInTheDocument();
+    expect(chip.textContent).toMatch(/clear winner|close call|slight edge/i);
+  });
+
+  it("shows a 'clear winner' chip + emphasis when one strategy dominates", () => {
+    // Short life → survivor early dominates with no crossover, wide margin.
+    renderCompare({ lifeExpectancy: 72 });
+    expect(screen.getByText(/clear winner/i)).toBeInTheDocument();
+    expect(screen.getByText(/not a close call/i)).toBeInTheDocument();
+  });
+
+  it("shows a 'close call' chip when the lines cross", () => {
+    // Flat returns + long life → a crossover, so the call is longevity-dependent.
+    renderCompare({ returnRate: 0, lifeExpectancy: 95 });
+    expect(screen.getByText(/close call/i)).toBeInTheDocument();
+  });
+
+  it("colors the decisive chip by the actual winner (red when survivor-early wins)", () => {
+    // Short life → survivor-early (red) wins decisively; the chip must read red,
+    // not the hardcoded green, matching the banner/number/card for that winner.
+    renderCompare({
+      mode: "survivor",
+      fraBenefit: 3000,
+      ownBenefit: 1000,
+      claimAge: 62,
+      returnRate: 0,
+      lifeExpectancy: 70,
+      coveredElsewhere: true,
+    });
+    const chip = screen.getByTitle(/how clear-cut the winner is/i);
+    expect(chip.textContent).toMatch(/clear winner/i);
+    expect(chip.style.color).toBe("var(--c-early)");
+  });
+});
+
+describe("StrategyCompare — by-wage robustness lever", () => {
+  it("omits the BY WAGE lever when no robustness data is supplied", () => {
+    renderCompare();
+    expect(screen.queryByText("BY WAGE")).not.toBeInTheDocument();
+  });
+
+  it("renders a 'wins at every wage' lever when one strategy is robust", () => {
+    renderCompare(
+      {},
+      {
+        wageRobustness: {
+          perWage: [{ wage: 0 }, { wage: 24480 }, { wage: 40000 }],
+          allWinner: "switch",
+          minMargin: 20000,
+          maxMargin: 41000,
+          wageCount: 3,
+        },
+      }
+    );
+    expect(screen.getByText("BY WAGE")).toBeInTheDocument();
+    expect(
+      screen.getByText(/wins at every pre-67 wage/i)
+    ).toBeInTheDocument();
+  });
+
+  it("renders a 'flips with your wage' lever when the winner is not robust", () => {
+    renderCompare(
+      {},
+      {
+        wageRobustness: {
+          perWage: [{ wage: 0 }, { wage: 24480 }, { wage: 40000 }],
+          allWinner: null,
+          minMargin: 1000,
+          maxMargin: 50000,
+          wageCount: 3,
+        },
+      }
+    );
+    expect(screen.getByText("BY WAGE")).toBeInTheDocument();
+    expect(screen.getByText(/flips with your pre-67 wage/i)).toBeInTheDocument();
   });
 });
 

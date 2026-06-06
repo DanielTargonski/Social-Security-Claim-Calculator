@@ -129,6 +129,13 @@ function StrategyInvestField({
 // Owns no state. Every number comes from compareStrategies upstream (via
 // useStrategyCompare). Clicking a strategy switches the calculator into that
 // mode so the user can drill into it with the full chart + panels.
+// Status-chip metadata for the decisiveness read (clear winner vs close call).
+const DECIS_META = {
+  decisive: { label: "Clear winner", color: C.wait },
+  edge: { label: "Slight edge", color: C.inkSoft },
+  close: { label: "Close call", color: C.early },
+};
+
 export default function StrategyCompare({
   compare,
   mode,
@@ -139,6 +146,9 @@ export default function StrategyCompare({
   // renders standalone (e.g. in tests) without the App wiring.
   onInvestChange = () => {},
   onInvestReset = () => {},
+  // Cross-wage strategy robustness (from compareStrategiesAcrossWages). Null →
+  // the "across wages" lever is omitted (keeps the panel renderable standalone).
+  wageRobustness = null,
 }) {
   const { strategies, byKey, merged, verdict } = compare;
   const {
@@ -149,6 +159,7 @@ export default function StrategyCompare({
     breakEvenReturn,
     crossoverSurvivalProb,
     conditioningAge,
+    decisiveness,
   } = verdict;
 
   // Any strategy carrying a per-strategy override → offer a reset to the slider.
@@ -200,6 +211,66 @@ export default function StrategyCompare({
         conditioningAge
       )} to the ${fmtAge(crossover)} crossover (SSA period life table)` +
       (switchEndsAhead ? " — past it, the switch comes out ahead." : ".");
+  }
+
+  // Decisiveness read — is one strategy by far better, or is it a close call?
+  // Drives the status chip and a one-line emphasis. Guarded so the panel still
+  // renders if an older `compare` lacks the field.
+  // Accent for the winning strategy (green = wait/switch, red = claim survivor
+  // early) — used to color the decisive chip/emphasis so they match the banner
+  // border, margin number, and winning card rather than always reading green.
+  const winnerAccent = primaryWinner === "switch" ? C.wait : C.early;
+  const decisChip = decisiveness
+    ? {
+        label: DECIS_META[decisiveness.tier].label,
+        color:
+          decisiveness.tier === "decisive"
+            ? winnerAccent
+            : DECIS_META[decisiveness.tier].color,
+      }
+    : null;
+  const decisPct =
+    decisiveness && decisiveness.relativeMargin !== Infinity
+      ? Math.round(decisiveness.relativeMargin * 100)
+      : null;
+  let decisEmphasis = null;
+  if (decisiveness?.tier === "decisive") {
+    decisEmphasis =
+      decisPct == null
+        ? `Not a close call — ${winnerLabel} is ahead at every age and ends far higher.`
+        : `Not a close call — ${winnerLabel} is ahead at every age and ends about ${decisPct}% higher.`;
+  } else if (decisiveness?.tier === "edge" && decisPct != null) {
+    decisEmphasis = `${winnerLabel} is ahead at every age, but only about ${decisPct}% higher — a slim edge.`;
+  }
+
+  // Across-wages robustness lever — does one strategy win at EVERY pre-67 wage
+  // the user is comparing? Tells them whether the strategy choice depends on how
+  // much they work. Omitted when wageRobustness isn't supplied.
+  let wageLeverNote = null;
+  if (wageRobustness && wageRobustness.perWage.length > 1) {
+    const wagesArr = wageRobustness.perWage.map((p) => p.wage);
+    const loW = Math.min(...wagesArr);
+    const hiW = Math.max(...wagesArr);
+    if (wageRobustness.allWinner) {
+      const name =
+        wageRobustness.allWinner === "switch"
+          ? "Own → Survivor"
+          : "Claiming survivor early";
+      const { minMargin, maxMargin } = wageRobustness;
+      const marginPhrase =
+        Math.round(minMargin) === Math.round(maxMargin)
+          ? `by ${fmtBig(minMargin)}`
+          : `by ${fmtBig(minMargin)}–${fmtBig(maxMargin)}`;
+      wageLeverNote = `${name} wins at every pre-67 wage from ${fmtMoney(
+        loW
+      )} to ${fmtMoney(
+        hiW
+      )} (${marginPhrase} in dollars in hand) — the strategy choice doesn't hinge on how much you work.`;
+    } else {
+      wageLeverNote = `Which strategy wins flips with your pre-67 wage (${fmtMoney(
+        loW
+      )}–${fmtMoney(hiW)}) — see the wage panel below.`;
+    }
   }
 
   // Endpoint value labels: pin each plotted line's final total ("$798K") right
@@ -334,11 +405,30 @@ export default function StrategyCompare({
           }`,
         }}
       >
-        <div
-          className="text-xs uppercase mb-1"
-          style={{ color: C.inkFaint, letterSpacing: "0.12em", fontWeight: 600 }}
-        >
-          By age {lifeLabel}, at your assumptions
+        <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+          <div
+            className="text-xs uppercase"
+            style={{ color: C.inkFaint, letterSpacing: "0.12em", fontWeight: 600 }}
+          >
+            By age {lifeLabel}, at your assumptions
+          </div>
+          {decisChip && (
+            <span
+              className="text-xs num uppercase"
+              title="How clear-cut the winner is — a wide, never-trailing lead vs a longevity-dependent toss-up"
+              style={{
+                color: decisChip.color,
+                border: `1px solid ${decisChip.color}`,
+                borderRadius: "var(--radius-pill)",
+                padding: "1px 8px",
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {decisChip.label}
+            </span>
+          )}
         </div>
         <div
           className="display"
@@ -359,6 +449,17 @@ export default function StrategyCompare({
         <p className="text-xs mt-2" style={{ color: C.inkSoft }}>
           {crossoverNote}
         </p>
+        {decisEmphasis && (
+          <p
+            className="text-xs mt-1"
+            style={{
+              color: decisiveness.tier === "decisive" ? winnerAccent : C.inkSoft,
+              fontWeight: decisiveness.tier === "decisive" ? 600 : 400,
+            }}
+          >
+            {decisEmphasis}
+          </p>
+        )}
 
         {/* The two levers that move the answer: how good returns must be, and
             how long you must live. Framed so the user sees the sensitivity. */}
@@ -395,6 +496,24 @@ export default function StrategyCompare({
                 LONGEVITY
               </span>
               <span>{longevityLeverNote}</span>
+            </div>
+          )}
+          {wageLeverNote && (
+            <div
+              className="flex gap-2 mt-1"
+              style={{ alignItems: "baseline" }}
+            >
+              <span
+                style={{
+                  color: C.inkFaint,
+                  fontWeight: 600,
+                  letterSpacing: "0.06em",
+                  minWidth: "4.5rem",
+                }}
+              >
+                BY WAGE
+              </span>
+              <span>{wageLeverNote}</span>
             </div>
           )}
         </div>

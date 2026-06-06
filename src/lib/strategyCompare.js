@@ -145,7 +145,7 @@ export function mergeEarlySeries(aData, bData, aKey, bKey) {
 // by compareStrategies (builds the full strategy objects) and the break-even
 // sweep below (needs only `projection.finalEarly` per rate), so the sweep
 // resolves invest amounts exactly like the live comparison.
-function projectStrategy(def, inputs) {
+export function projectStrategy(def, inputs) {
   const claimAge = clampClaimAgeToBounds(def.mode, inputs.claimAge);
   const fraBenefit = inputs[def.fraSource];
   const investStopAge = clampInvestStopAge({
@@ -259,6 +259,36 @@ export function findBreakEvenReturn(inputs, { max = 12, step = 0.5 } = {}) {
   return { rate: null, lowWinner, highWinner: lowWinner };
 }
 
+// How decisive is the primary verdict (own->survivor vs survivor-early)? This is
+// separate from WHO wins — it answers the user's question "is one strategy by far
+// better, or is this a close call?". Pure: takes the head-to-head crossover and
+// the two lifetime totals.
+//
+//   'decisive' — the winner leads at EVERY age (the lines never cross) AND ends a
+//                wide margin ahead (>= DECISIVE_RELATIVE_MARGIN). A clear,
+//                not-a-close-call answer.
+//   'close'    — the two lines cross within the projected lifespan, so the answer
+//                hinges on how long you live (the crossover age says where).
+//   'edge'     — the winner leads at every age but only by a slim margin.
+//
+// `relativeMargin` is the winner's final lead as a fraction of the loser's total
+// (Infinity when the loser ends at <= 0 while the winner is positive).
+export const DECISIVE_RELATIVE_MARGIN = 0.15;
+export function classifyDecisiveness({ crossover, winnerTotal, loserTotal }) {
+  const alwaysAhead = crossover == null;
+  const relativeMargin =
+    loserTotal > 0
+      ? (winnerTotal - loserTotal) / loserTotal
+      : winnerTotal > 0
+      ? Infinity
+      : 0;
+  let tier;
+  if (alwaysAhead && relativeMargin >= DECISIVE_RELATIVE_MARGIN) tier = "decisive";
+  else if (!alwaysAhead) tier = "close";
+  else tier = "edge";
+  return { tier, alwaysAhead, relativeMargin };
+}
+
 export function compareStrategies(inputs) {
   const strategies = STRATEGY_DEFS.map((def) => {
     const r = projectStrategy(def, inputs);
@@ -320,6 +350,17 @@ export function compareStrategies(inputs) {
   const crossover = findSeriesCrossover(merged, "switchEarly", "survivorEarly");
   const switchVsSurvivor = sw.lifetimeTotal - survivor.lifetimeTotal;
 
+  // How decisive the primary verdict is (clear winner vs close call).
+  const primaryWinnerKey = switchVsSurvivor >= 0 ? "switch" : "survivor";
+  const decisiveness = {
+    ...classifyDecisiveness({
+      crossover,
+      winnerTotal: primaryWinnerKey === "switch" ? sw.lifetimeTotal : survivor.lifetimeTotal,
+      loserTotal: primaryWinnerKey === "switch" ? survivor.lifetimeTotal : sw.lifetimeTotal,
+    }),
+    winnerKey: primaryWinnerKey,
+  };
+
   // The return-rate lever: where the primary verdict flips as returns vary.
   const breakEvenReturn = findBreakEvenReturn(inputs);
 
@@ -345,6 +386,11 @@ export function compareStrategies(inputs) {
     // Age where the switch line overtakes the survivor-early line (null when
     // they never cross in range — one leads the whole way).
     crossover,
+    // How decisive the primary verdict is — { tier: 'decisive'|'close'|'edge',
+    // alwaysAhead, relativeMargin, winnerKey }. Drives the "clear winner vs
+    // close call" status the UI shows so the user can tell a no-brainer from a
+    // longevity-dependent toss-up.
+    decisiveness,
     // The return rate that flips the primary verdict (the "how good must
     // returns be?" lever): { rate, lowWinner, highWinner }. See
     // findBreakEvenReturn.
