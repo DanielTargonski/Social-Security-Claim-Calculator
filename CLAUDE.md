@@ -56,13 +56,16 @@ src/
 │  ├─ ShareLinkButton.jsx        Copies window.location.href (state in query params)
 │  ├─ SensitivityTornado.jsx     "What moves the answer" panel
 │  ├─ SensitivityTornado.test.jsx (mode-by-mode + bounds-collapse regression)
-│  ├─ StrategyCompare.jsx        Head-to-head: survivor-early vs own→survivor (vs own-only)
-│  ├─ StrategyCompare.test.jsx   (render/verdict/navigation/clamp tests)
+│  ├─ StrategyCompare.jsx        Head-to-head: survivor-early vs own→survivor (vs own-only) + decisiveness chip + by-wage lever
+│  ├─ StrategyCompare.test.jsx   (render/verdict/navigation/clamp + decisiveness + by-wage tests)
+│  ├─ WageCompare.jsx            Same decision at different pre-67 wages + "marginal work" warning
+│  ├─ WageCompare.test.jsx       (render/edit/reset/cliff/marginal-work tests)
 │  └─ Var.jsx                    Tiny inline pill for dynamic numbers in prose
 ├─ hooks/
 │  ├─ useBenefitProjection.js   useMemo wrapper around computeProjection
 │  ├─ useOptimalClaimAge.js     useMemo wrapper around the claim-age sweep
 │  ├─ useStrategyCompare.js     useMemo wrapper around compareStrategies
+│  ├─ useWageCompare.js         useMemo wrappers: useWageCompare + useWageRobustness
 │  ├─ useFormState.js           Single state bag + auto-generated setX setters
 │  ├─ useFormState.test.js
 │  └─ useUrlSync.js             Mirror form state into window.location.search
@@ -79,8 +82,10 @@ src/
    ├─ healthcareCost.test.js
    ├─ optimalClaimAge.js         96-step claim-age sweep that finds the peak
    ├─ optimalClaimAge.test.js
-   ├─ strategyCompare.js         Runs all 3 strategies on one input set + verdict/crossover/break-even-return/mortality
+   ├─ strategyCompare.js         Runs all 3 strategies on one input set + verdict/crossover/break-even-return/mortality/decisiveness; exports projectStrategy
    ├─ strategyCompare.test.js
+   ├─ wageCompare.js             Same decision at different pre-67 wages: totals + marginal-work warning + cross-wage strategy robustness
+   ├─ wageCompare.test.js
    ├─ lifeTable.js               Approximate unisex SSA period life table (survival probabilities)
    ├─ lifeTable.test.js
    ├─ shareableState.js          URL ↔ state schema + clamp on hydrate
@@ -182,6 +187,20 @@ Intentional simplifications:
 - Window-anchored calendar year (the same `currentYear + (windowStartAge − claimAge)` value is used for the whole window). Edge years that straddle 2028 → 2029 inside a single window are treated as all-in or all-out based on the start year. Negligible for most use cases.
 - No interaction with the **TCJA 65+ additional standard deduction** ($2,050 in 2026); the OBBBA deduction is treated as an `extraDeduction` on top of the base standard deduction, which is the same place the TCJA add-on would go if modeled. Users on the 65+ standard-deduction add-on would slightly under-state their tax bill — fine for sensitivity analysis.
 
+### Wage comparison + decision signals (PR #35)
+
+Lives in `src/lib/wageCompare.js` + `src/components/WageCompare.jsx`, plus strategy-panel signals in `strategyCompare.js` / `StrategyCompare.jsx`.
+
+**Wage comparison panel ("What if you earned less before 67?", shown in every mode).** Runs the SAME claiming decision (mode, claim age, benefits, return, …) at the current pre-67 wage plus two editable alternatives, varying ONLY `grossIncome`. Each scenario's comparable number is **total resources = SS invested-pot-and-cash + wage take-home (after federal + NY/NYC tax) − absolute ACA/Medicare premiums**. Crucially the SS side is run with `coveredElsewhere: true` internally so its monthly nets carry NO healthcare adjustment, and the ABSOLUTE early-claim healthcare cost is subtracted separately (`earlyHealthcareForWage`) — the early-vs-wait *delta* basis that `computeProjection` bakes in is the wrong basis for a wage-vs-wage race. Including wage take-home is load-bearing: without it, dropping wages always looks better. The panel exposes the earnings-test / FRA-recoup / SS-tax / ACA-cliff interplay across wages. Alt wages are session-only (not URL-persisted); the current-wage scenario tracks the live `grossIncome` slider.
+
+**"Marginal work" warning (`marginalWorkReturn` → `verdict.marginalWork`).** Flags when the extra work to reach the winning wage barely pays off ("keeps only N cents of each extra dollar earned", keepRate < `POOR_KEEP_RATE` = 0.40) or LOSES money. Headlines the adjacent wage step that reveals it: the losing step UP from the winner when a higher wage does worse (the only way the `negative` tier can fire — the step INTO the winner is always ≥ 0), else the step into the winner. Denominator = gross extra wages over the pre-67 years; numerator = extra lifetime resources kept (conservative at returnRate > 0, since compounding only inflates the kept side). Driver split `dWage + dSS + dHealth === extraResources` by construction (because `lifetimeTotal = ss + wage − healthcare`), so the warning can't contradict the totals; `dominantDrag` (ss / healthcare / tax) drives the "why" clause. Switch-mode aware (no FRA recoup → "those withheld checks never come back"). Tiny steps (< `TINY_STEP_GROSS` = $3,000) and claimAge ≥ 67 return null.
+
+**Strategy decision signals (in the StrategyCompare panel).**
+- **Decisiveness** (`classifyDecisiveness` → `verdict.decisiveness`): `decisive` (no crossover AND winner ≥ 15% ahead — `DECISIVE_RELATIVE_MARGIN`), `close` (the lines cross — longevity-dependent), or `edge` (always ahead, slim margin). Rendered as a status chip + emphasis line, **colored by the actual winner** (red survivor-early / green switch) so a no-brainer reads differently from a toss-up.
+- **By-wage robustness** (`compareStrategiesAcrossWages` → `useWageRobustness` → the "BY WAGE" lever): does ONE strategy beat the other at EVERY pre-67 wage being compared, or does it flip? **Computed on the SAME `finalEarly` basis the headline verdict uses** (via the now-exported `projectStrategy`, with the user's real `coveredElsewhere` and invest resolution) — NOT the wage-panel basis. This is load-bearing: an earlier version on the wage-panel basis (SS + wage − absolute healthcare) could render two contradictory sentences in one card (verdict names one winner, lever names another) at survivor claim ages below switch's 62 floor, because wage take-home was miscredited when the two strategies clamped to different claim ages. A regression test pins lever/verdict agreement at the current wage.
+
+Both features were adversarially reviewed (a multi-agent find→verify pass) which confirmed 5 real defects, all fixed — the load-bearing one being the BY WAGE basis mismatch above.
+
 ---
 
 ## Things explicitly OUT of scope
@@ -207,7 +226,7 @@ These are intentional simplifications; don't add them without checking with the 
 - **No emojis** in code, comments, commit messages, or UI text unless the user explicitly asks.
 - **Commit messages** are detailed (multi-paragraph with rationale, not just a one-liner). Past commits set the bar — match that style.
 - **Click-to-edit on every slider** — the `SliderInput` component supports typing exact values via a number input that appears on click. New inputs should use this pattern.
-- **Color palette** lives in a `C` constant inside `App.jsx`. The chart conventions:
+- **Color palette** lives in the `C` constant in `src/constants/colors.js` (imported everywhere, no prop drilling; each key resolves to a CSS custom property so light/dark is a pure CSS swap). The chart conventions:
   - Dark red (`C.early`) = "claim early" line, also = "worse outcome" in the tornado
   - Dark green (`C.wait`) = "wait until FRA" line, also = "better outcome" in the tornado
   - Soft red (`C.earlySoft`, dashed) = invested-pot trajectory
@@ -227,7 +246,7 @@ npm run preview          # serve the production build at :4173
 npm run lint             # eslint
 ```
 
-`npm test` should always pass before committing. **601 tests across 31 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
+`npm test` should always pass before committing. **676 tests across 33 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
 
 `@vitest/coverage-v8` is a dev dependency — `npx vitest run --coverage` prints a per-file table. `coverage/` is gitignored.
 
@@ -278,6 +297,7 @@ The user's git is locally configured to push as `DanielTargonski` (this account 
     2. **Mortality weighting** (`lib/lifeTable.js`): approximate unisex SSA-2021 period life table (lx anchors 60–100, linear interpolation, `survivalProbability(from,to)`). The verdict reports `crossoverSurvivalProb` = P(live from the survivor claim age `conditioningAge` to the crossover) and surfaces it as the "LONGEVITY" lever: "About P% chance of living from 62 to the 76 yr 7 mo crossover (SSA period life table) — past it, the switch comes out ahead." Null when the lines never cross. Gender-neutral by design (unisex blend); documented as approximate, period-not-cohort, not actuarial.
     3. **Chart legend** (#7): a 2-chip legend (red "Survivor early" / green "Own → Survivor") above the head-to-head chart — the two plotted lines; own-only stays a supplementary card, not plotted.
     4. **Shareable comparison config** (#6): the per-strategy invest overrides moved from session-only state into the `shareableState` SCHEMA (`cisv`/`cisw`/`ciso`, −1 sentinel), so a link reproduces the exact head-to-head the sender set up. Round-trips through `useFormState`/`useUrlSync`/`getInitialStateFromUrl` like every other field. Browser-verified via a crafted `?…&cisv=500&cisw=250` link hydrating the fields and both lever sentences rendering correctly.
+- **Pre-67 wage comparison + decision signals (PR #35)**: new `WageCompare` panel (every mode) races the same claiming decision at the current pre-67 wage vs two editable alternatives, netting SS + wage take-home − absolute healthcare into one comparable total; a "marginal work" warning flags when extra work keeps only a few cents per dollar (or loses money), switch- and cliff-aware. Plus two `StrategyCompare` signals: a **decisiveness chip** (clear winner vs longevity-dependent close call, colored by the winner) and a **"BY WAGE" robustness lever** (does one strategy win at every wage — computed on the same `finalEarly` basis as the verdict via the now-exported `projectStrategy`, so the two can't contradict). Adversarially reviewed (multi-agent find→verify); 5 confirmed findings fixed, notably a BY-WAGE-vs-verdict basis contradiction at survivor claim ages below 62. 676 tests, lint, build, browser-verified across all signal tiers. Full mechanics under "Wage comparison + decision signals" in the math model section above.
 
 ### Candidate features (from the survey research)
 Researched but not built. In rough priority order based on the original analysis:
@@ -285,7 +305,7 @@ Researched but not built. In rough priority order based on the original analysis
 1. **Trust-fund haircut toggle** *(small, novel — no mainstream calculator has this)* — checkbox + year/% inputs (default 2033/23% per CBO). Tilts every break-even toward claiming earlier, hits surviving-spouse claimants asymmetrically.
 2. **RIB-LIM display in survivor mode** *(small, novel)* — shows the 82.5%-of-PIA cap on survivor benefits and how the deceased's early-claiming clipped it. Only relevant when the deceased was already collecting; not relevant for the original use case (deceased never claimed) but matters for other users.
 3. **Mortality-weighted lifetime totals** *(medium)* — replace single "live until X" with SSA period-life-table probabilities. *Partially shipped*: the strategy-comparison panel's "LONGEVITY" lever now reports P(live to the crossover) via `lib/lifeTable.js` (see "Shipped recently"). What remains is probability-weighting the **lifetime totals themselves** (integrate each age's outcome over the survival curve) so the headline numbers and the main chart become expected values, not point-in-time-at-lifeExpectancy.
-4. **Tax-torpedo / provisional-income visualizer** — show effective marginal rate on each extra $1 of wages.
+4. **Tax-torpedo / provisional-income visualizer** — show effective marginal rate on each extra $1 of wages. *Partially shipped*: the wage panel's "marginal work" warning (PR #35) now reports the lifetime keep-rate (cents kept per extra pre-67 wage dollar, netting the earnings test + SS taxation + ACA/IRMAA) across the compared wage scenarios. What remains is a true per-$1 provisional-income curve.
 5. **Monte Carlo on the invested pot** — replace single deterministic real return with a P10/P50/P90 distribution.
 6. **State tax dropdown** — ~10 states still tax SS in 2026 (CO, CT, MN, MT, NM, RI, UT, VT, WV); only NY/NYC handled now.
 7. **Discount rate ≠ investment return** — separate knobs for sophisticated users.
