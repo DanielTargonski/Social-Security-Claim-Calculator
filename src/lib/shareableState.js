@@ -63,10 +63,10 @@ const SCHEMA = [
   { key: "investSurvivor",     url: "cisv",  type: "num",  default: -1, min: -1, max: 50000 },
   { key: "investSwitch",       url: "cisw",  type: "num",  default: -1, min: -1, max: 50000 },
   { key: "investOwn",          url: "ciso",  type: "num",  default: -1, min: -1, max: 50000 },
-  // Annual withdrawal rate for the "pot as a paycheck" income view (the
-  // classic 4% rule). Display-only: it never changes the main chart's totals.
-  // See lib/potIncome.js.
-  { key: "withdrawalRate",     url: "swr",   type: "num",  default: 4,    min: 2,    max: 8 },
+  // Real yield used to size Social Security as an inflation-protected bond
+  // (pot = annual check / yield). Default ~ long-term TIPS real yields.
+  // Display-only: it never changes the main chart's totals. See lib/ssPot.js.
+  { key: "bondYield",          url: "byld",  type: "num",  default: 2,    min: 0.5,  max: 6 },
 ];
 
 export const DEFAULT_STATE = Object.fromEntries(
