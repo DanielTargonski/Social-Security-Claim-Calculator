@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { findOptimalClaimAge, rangeForMode } from "./optimalClaimAge.js";
+import {
+  findOptimalClaimAge,
+  rangeForMode,
+  levelMonthlyDraw,
+} from "./optimalClaimAge.js";
+import { computeProjection } from "./benefitMath.js";
 
 // Realistic baseline so the sweep has meaningful trade-offs (not a degenerate
 // zero-income / zero-return case where every claim age is equivalent).
@@ -174,5 +179,133 @@ describe("findOptimalClaimAge — investStopAge clamping", () => {
       expect(Number.isFinite(sample.score)).toBe(true);
       expect(sample.score).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("findOptimalClaimAge — answer does not depend on the current pick", () => {
+  // App passes investStopAge already raised to the CURRENT claim age
+  // (effectiveInvestStopAge) and the user's own setting as
+  // preferredInvestStopAge. At 2% real / live to 85 the old sweep answered
+  // 69 yr 1 mo at a pick of 62 but 66 yr 1 mo at a pick of 70.
+  const pick = (claimAge, withPreference = true) =>
+    findOptimalClaimAge({
+      ...baseInputs,
+      returnRate: 2,
+      lifeExpectancy: 85,
+      claimAge,
+      investStopAge: Math.max(67, Math.ceil(claimAge)),
+      ...(withPreference ? { preferredInvestStopAge: 67 } : {}),
+    });
+
+  it("total-wealth optimum is the same at a pick of 62 or 70", () => {
+    expect(pick(70).optimalAge).toBeCloseTo(pick(62).optimalAge, 6);
+    expect(pick(68.5).optimalAge).toBeCloseTo(pick(62).optimalAge, 6);
+  });
+
+  it("(control) without the preference the raised stop age moves the answer", () => {
+    expect(pick(70, false).optimalAge).not.toBeCloseTo(pick(62, false).optimalAge, 6);
+  });
+
+  it("the baseline score is still the score App shows at the pick", () => {
+    const res = pick(70);
+    const shown = computeProjection({
+      ...baseInputs,
+      returnRate: 2,
+      lifeExpectancy: 85,
+      claimAge: 70,
+      investStopAge: 70,
+    }).finalEarly;
+    expect(res.baselineScore).toBeCloseTo(shown, 6);
+  });
+});
+
+describe("levelMonthlyDraw", () => {
+  it("at 0% the pot is simply split evenly over the months", () => {
+    expect(levelMonthlyDraw({ pot: 120000, months: 240, r: 0 })).toBe(500);
+  });
+
+  it("at a positive rate the draw runs the pot to exactly $0", () => {
+    const r = 0.07 / 12;
+    const draw = levelMonthlyDraw({ pot: 100000, months: 216, r });
+    let pot = 100000;
+    for (let m = 0; m < 216; m++) pot = pot * (1 + r) - draw;
+    expect(pot).toBeCloseTo(0, 4);
+    expect(draw * 216).toBeGreaterThan(100000);
+  });
+
+  it("is 0 with nothing to draw or no time to draw it", () => {
+    expect(levelMonthlyDraw({ pot: 0, months: 100, r: 0.005 })).toBe(0);
+    expect(levelMonthlyDraw({ pot: 1000, months: 0, r: 0.005 })).toBe(0);
+  });
+});
+
+describe("findOptimalClaimAge — highest monthly income (both pots)", () => {
+  // Claim-early-and-invest until 67, then draw the pot down by lifeExpectancy.
+  const incomeInputs = { ...baseInputs, claimAge: 62, investStopAge: 67 };
+  const incomeOpt = (overrides) =>
+    findOptimalClaimAge({ ...incomeInputs, ...overrides }).income;
+
+  it("monthly income = Social Security check + pot draw", () => {
+    const { optimal, baseline } = incomeOpt({ returnRate: 7, lifeExpectancy: 85 });
+    for (const inc of [optimal, baseline]) {
+      expect(inc.monthly).toBeCloseTo(inc.check + inc.potDraw, 9);
+    }
+    // Claiming at 62 and investing builds a pot that pays an income.
+    expect(baseline.potDraw).toBeGreaterThan(0);
+  });
+
+  it("a claim past the invest-stop age invests nothing, so there is no pot draw", () => {
+    const { optimal } = incomeOpt({ returnRate: 0, lifeExpectancy: 85 });
+    expect(optimal.potDraw).toBe(0);
+    const p = computeProjection({ ...incomeInputs, claimAge: 70, investStopAge: 70 });
+    expect(optimal.check).toBeCloseTo(p.earlyPostFRAMonthlyNetRetired, 9);
+  });
+
+  it("with flat returns the biggest check wins: claim at 70", () => {
+    expect(incomeOpt({ returnRate: 0, lifeExpectancy: 85 }).optimalAge).toBeCloseTo(70, 6);
+  });
+
+  it("high returns and a short life move it to claiming early", () => {
+    expect(incomeOpt({ returnRate: 10, lifeExpectancy: 78 }).optimalAge).toBeCloseTo(62, 6);
+  });
+
+  it("a longer life expectancy never moves the income optimum earlier", () => {
+    const short = incomeOpt({ returnRate: 10, lifeExpectancy: 78 }).optimalAge;
+    const long = incomeOpt({ returnRate: 10, lifeExpectancy: 95 }).optimalAge;
+    expect(long).toBeGreaterThanOrEqual(short);
+    expect(long).toBeCloseTo(70, 6);
+  });
+
+  it("is never below the user's pick", () => {
+    for (const returnRate of [0, 4, 7, 10]) {
+      const { optimal, baseline } = incomeOpt({ returnRate });
+      expect(optimal.monthly).toBeGreaterThanOrEqual(baseline.monthly - 1e-9);
+    }
+  });
+
+  it("total drawn at 0% return is every check collected", () => {
+    const { baseline } = incomeOpt({ returnRate: 0, lifeExpectancy: 85 });
+    const p = computeProjection({ ...incomeInputs, returnRate: 0, lifeExpectancy: 85 });
+    expect(baseline.totalDrawn).toBeCloseTo(p.finalEarly, 4);
+  });
+
+  it("does not move with the current pick when App has raised the stop age", () => {
+    // App passes investStopAge raised to the current claim age; the user's
+    // own setting arrives as preferredInvestStopAge.
+    const at = (claimAge) =>
+      findOptimalClaimAge({
+        ...incomeInputs,
+        claimAge,
+        investStopAge: Math.max(67, Math.ceil(claimAge)),
+        preferredInvestStopAge: 67,
+      }).income.optimalAge;
+    expect(at(70)).toBeCloseTo(at(62), 6);
+    expect(at(68.5)).toBeCloseTo(at(62), 6);
+  });
+
+  it("switch mode: same survivor check at any age, so the biggest pot wins", () => {
+    expect(
+      incomeOpt({ mode: "switch", returnRate: 7, lifeExpectancy: 85 }).optimalAge
+    ).toBeCloseTo(62, 6);
   });
 });
