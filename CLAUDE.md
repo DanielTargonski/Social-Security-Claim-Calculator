@@ -54,7 +54,8 @@ src/
 │  ├─ SocialSecurityPot.jsx      "Your Social Security as a pot": each choice's SS check sized as an inflation-protected bond
 │  ├─ SocialSecurityPot.test.jsx
 │  ├─ Footnotes.jsx              Static footnote grid
-│  ├─ OptimalClaimAge.jsx        Sweep result panel ("the optimal claim age is …")
+│  ├─ OptimalClaimAge.jsx        Sweep result panel ("the optimal claim age is …") + "Highest monthly income" recommendation
+│  ├─ OptimalClaimAge.test.jsx
 │  ├─ ShareLinkButton.jsx        Copies window.location.href (state in query params)
 │  ├─ SensitivityTornado.jsx     "What moves the answer" panel
 │  ├─ SensitivityTornado.test.jsx (mode-by-mode + bounds-collapse regression)
@@ -82,7 +83,7 @@ src/
    ├─ chartProjection.test.js
    ├─ healthcareCost.js          ACA cliffs (200%/400% FPL) + Medicare IRMAA tiers (OBBBA 2026+)
    ├─ healthcareCost.test.js
-   ├─ optimalClaimAge.js         96-step claim-age sweep that finds the peak
+   ├─ optimalClaimAge.js         96-step claim-age sweep: max total wealth + max retirement income (SS check + invested-pot draw)
    ├─ optimalClaimAge.test.js
    ├─ strategyCompare.js         Runs all 3 strategies on one input set + verdict/crossover/break-even-return/mortality/decisiveness; exports projectStrategy
    ├─ strategyCompare.test.js
@@ -250,7 +251,7 @@ npm run preview          # serve the production build at :4173
 npm run lint             # eslint
 ```
 
-`npm test` should always pass before committing. **724 tests across 37 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
+`npm test` should always pass before committing. **746 tests across 38 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
 
 `@vitest/coverage-v8` is a dev dependency — `npx vitest run --coverage` prints a per-file table. `coverage/` is gitignored.
 
@@ -304,6 +305,7 @@ The user's git is locally configured to push as `DanielTargonski` (this account 
 - **Pre-67 wage comparison + decision signals (PR #35)**: new `WageCompare` panel (every mode) races the same claiming decision at the current pre-67 wage vs two editable alternatives, netting SS + wage take-home − absolute healthcare into one comparable total; a "marginal work" warning flags when extra work keeps only a few cents per dollar (or loses money), switch- and cliff-aware. Plus two `StrategyCompare` signals: a **decisiveness chip** (clear winner vs longevity-dependent close call, colored by the winner) and a **"BY WAGE" robustness lever** (does one strategy win at every wage — computed on the same `finalEarly` basis as the verdict via the now-exported `projectStrategy`, so the two can't contradict). Adversarially reviewed (multi-agent find→verify); 5 confirmed findings fixed, notably a BY-WAGE-vs-verdict basis contradiction at survivor claim ages below 62. 676 tests, lint, build, browser-verified across all signal tiers. Full mechanics under "Wage comparison + decision signals" in the math model section above.
 
 - **"Your Social Security as a pot" (`SocialSecurityPot`)**: sizes the pot Social Security itself amounts to. The model treats SS as an inflation-protected bond the claimant holds but never sees: it pays the check as income, the government raises it with inflation, and the principal never runs down. In real dollars that is a perpetuity, `pot = annual check / real bond yield` (`lib/ssPot.js`). It does NOT run down to $0 at life expectancy; that was considered and rejected by the user. Compares at `max(claimAge, FRA)`: early pot (post-FRA check, after recoup; survivor check in switch mode) + the invested pot at 67 (`potAtFRARow`) vs the wait pot, and prices waiting as the checks given up in between. Switch mode usually ends on the same survivor pot, so the panel says the early checks come "at no cost to the pot". Uses GROSS checks (pre-FRA after earnings-test withholding, averaged); the invested pot it sits beside is net. New `bondYield` schema field (`byld`, 0.5-6%, default 2, about long-term TIPS real yields). It replaced a short-lived "pot as a paycheck" panel (4%-rule draw from the *invested* pot, `withdrawalRate`/`swr`), which modeled the wrong pot. Display-only.
+- **"Highest monthly income" recommendation (in `OptimalClaimAge`)**: a second recommendation next to the total-wealth optimum, per the user's direction that the app should favor the claim age giving the highest monthly income once retired, drawing from BOTH pots together. For each candidate age, `retirementIncome` in `lib/optimalClaimAge.js` = the lifelong net check (`earlyPostFRAMonthlyNetRetired`; the SS pot never runs down) + `levelMonthlyDraw` of the invested pot from the invest-stop age that spends it to $0 at lifeExpectancy. Life expectancy matters through that draw (a longer life gives a thinner draw and favors waiting); returns make the draw bigger (favor claiming early). Also reports `totalDrawn` (cash checks + every pot draw by lifeExpectancy). Two details are load-bearing: (1) BOTH sweeps (total wealth and income) start each candidate from the user's own invest-stop setting (`preferredInvestStopAge`, passed from App; helper `preferredInvestStopAge` falls back to `investStopAge`), NOT App's `effectiveInvestStopAge`, which is raised to the current claim age. Otherwise the answer moved with the pick: the income rec recommended 62 at a pick of 70 (so "Use" bounced between the two), and the wealth rec answered 69 yr 1 mo at a pick of 62 but 66 yr 1 mo at a pick of 70 (2% real, live to 85). The wealth sweep keeps the ceil-to-next-birthday clamp per candidate, matching what App shows at that pick, so its baseline score still equals the displayed total. (2) For income, a claim past the invest-stop age invests nothing (stop = max(preferred, claimAge), no ceil), so the wealth sweep's clamp can't create a phantom pot and odd answers like 69 yr 1 mo. Without returns the answer is the biggest check (70 retirement / 67 survivor); switch mode is always 62 (same survivor check, biggest pot). Gains under 1% are shown as "your pick is within $X/mo", with no Use button.
 
 ### Candidate features (from the survey research)
 Researched but not built. In rough priority order based on the original analysis:

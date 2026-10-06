@@ -1,6 +1,114 @@
 import { rangeForMode } from "../lib/optimalClaimAge.js";
-import { fmtAge, fmtBig } from "../lib/benefitMath.js";
+import { fmtAge, fmtBig, fmtMoney } from "../lib/benefitMath.js";
 import { C } from "../constants/colors.js";
+
+// "Highest monthly income" block: Social Security check + invested-pot draw.
+function IncomeRecommendation({
+  income,
+  baselineAge,
+  lifeExpectancy,
+  returnRate,
+  setClaimAge,
+}) {
+  const { optimalAge, optimal, baseline } = income;
+  const atOptimum = Math.abs(optimalAge - baselineAge) * 12 < 0.5;
+  // Within 1% of the best is noise (e.g. +$2/mo for claiming a month later):
+  // say the pick is essentially there instead of recommending a change.
+  const gain = optimal.monthly - baseline.monthly;
+  const closeEnough = !atOptimum && gain < 0.01 * optimal.monthly;
+  const recommend = !atOptimum && !closeEnough;
+  const potWord = returnRate > 0 ? "the invested pot" : "the set-aside checks";
+  const life = fmtAge(lifeExpectancy);
+  const breakdown = (inc) =>
+    inc.potDraw > 0
+      ? `${fmtMoney(inc.check)} Social Security check + ${fmtMoney(
+          inc.potDraw
+        )} drawn from ${potWord}`
+      : `${fmtMoney(inc.check)} Social Security check, nothing invested`;
+
+  return (
+    <div className="mb-5 pt-4" style={{ borderTop: `1px solid ${C.border}` }}>
+      <div
+        className="text-xs uppercase mb-2"
+        style={{ color: C.inkFaint, letterSpacing: "0.12em", fontWeight: 600 }}
+      >
+        Highest monthly income
+      </div>
+      <p className="text-xs mb-3 max-w-xl" style={{ color: C.inkSoft }}>
+        Draws from both pots together once you retire: the Social Security
+        check (that pot never runs down) plus a steady, inflation-adjusted draw
+        that spends {potWord} down to $0 by {life}. A longer life spreads that
+        draw thinner, which favors waiting.
+      </p>
+      <div className="flex justify-between items-end gap-4 flex-wrap">
+        <div className="text-sm max-w-xl" style={{ color: C.ink }}>
+          {atOptimum ? (
+            <>
+              Your pick of {fmtAge(baselineAge)} already gives the highest
+              income:{" "}
+              <strong className="num" style={{ color: C.wait }}>
+                {fmtMoney(optimal.monthly)}/mo
+              </strong>
+              .
+            </>
+          ) : closeEnough ? (
+            <>
+              Your pick of {fmtAge(baselineAge)} is within{" "}
+              {fmtMoney(gain)}/mo of the highest income (
+              {fmtMoney(optimal.monthly)}/mo at {fmtAge(optimalAge)}):{" "}
+              <strong className="num" style={{ color: C.wait }}>
+                {fmtMoney(baseline.monthly)}/mo
+              </strong>
+              .
+            </>
+          ) : (
+            <>
+              Claim at{" "}
+              <strong className="num" style={{ color: C.wait }}>
+                {fmtAge(optimalAge)}
+              </strong>{" "}
+              for{" "}
+              <strong className="num" style={{ color: C.wait }}>
+                {fmtMoney(optimal.monthly)}/mo
+              </strong>
+              , vs {fmtMoney(baseline.monthly)}/mo at your pick of{" "}
+              {fmtAge(baselineAge)}.
+            </>
+          )}
+          <div className="text-xs num mt-1" style={{ color: C.inkSoft }}>
+            {breakdown(recommend ? optimal : baseline)}
+          </div>
+          {recommend && (
+            <div className="text-xs num" style={{ color: C.inkFaint }}>
+              Your pick: {breakdown(baseline)}
+            </div>
+          )}
+          <div className="text-xs mt-1" style={{ color: C.inkSoft }}>
+            Total drawn from both pots by {life}:{" "}
+            <span className="num">
+              {fmtBig((recommend ? optimal : baseline).totalDrawn)}
+            </span>
+            {recommend && (
+              <>
+                {" "}
+                (your pick:{" "}
+                <span className="num">{fmtBig(baseline.totalDrawn)}</span>)
+              </>
+            )}
+          </div>
+        </div>
+        {recommend && (
+          <button
+            onClick={() => setClaimAge(optimalAge)}
+            className="btn-primary"
+          >
+            Use {fmtAge(optimalAge)}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // "What's the best age to claim, given everything else above?" panel.
 // Receives the precomputed sweep result from useOptimalClaimAge (shared
@@ -222,6 +330,18 @@ export default function OptimalClaimAge({ inputs, optimal, setClaimAge }) {
           <span>{fmtAge(latest)}</span>
         </div>
       </div>
+
+      {/* Second recommendation: the claim age with the highest monthly
+          income once retired, drawing from both pots together (the Social
+          Security check plus a level draw that spends the invested pot down
+          by life expectancy). See retirementIncome in lib/optimalClaimAge. */}
+      <IncomeRecommendation
+        income={optimal.income}
+        baselineAge={baselineAge}
+        lifeExpectancy={inputs.lifeExpectancy}
+        returnRate={inputs.returnRate}
+        setClaimAge={setClaimAge}
+      />
 
       {/* CTA + caveat */}
       <div

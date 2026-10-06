@@ -281,7 +281,13 @@ export default function App() {
   // Sweeps claimAge across the mode's range and reports the peak. Shared
   // between the small chip under the claim-age slider (in InputsPanel)
   // and the full OptimalClaimAge panel below the chart.
-  const optimal = useOptimalClaimAge(inputs);
+  // The sweep reads the user's own invest-stop setting so neither
+  // recommendation moves with the current claim age (see
+  // preferredInvestStopAge in lib/optimalClaimAge.js).
+  const optimal = useOptimalClaimAge({
+    ...inputs,
+    preferredInvestStopAge: investStopAge,
+  });
 
   // Runs all three claiming strategies (survivor early / own->survivor switch /
   // own only) on the same inputs for the head-to-head comparison panel. Only
