@@ -26,7 +26,7 @@ import SummaryCards from "./components/SummaryCards.jsx";
 import MetadataStrip from "./components/MetadataStrip.jsx";
 import ChartCard from "./components/ChartCard.jsx";
 import PotTable from "./components/PotTable.jsx";
-import PotIncome from "./components/PotIncome.jsx";
+import SocialSecurityPot from "./components/SocialSecurityPot.jsx";
 import Footnotes from "./components/Footnotes.jsx";
 import SensitivityTornado from "./components/SensitivityTornado.jsx";
 import StrategyCompare from "./components/StrategyCompare.jsx";
@@ -106,7 +106,7 @@ export default function App() {
     investSurvivor,
     investSwitch,
     investOwn,
-    withdrawalRate,
+    bondYield,
   } = state;
   const {
     setMode,
@@ -131,7 +131,7 @@ export default function App() {
     setInvestSurvivor,
     setInvestSwitch,
     setInvestOwn,
-    setWithdrawalRate,
+    setBondYield,
   } = setters;
 
   // Per-strategy invested-dollar overrides for the strategy-comparison panel,
@@ -258,6 +258,7 @@ export default function App() {
     finalPot,
     advantage,
     potAtStopRow,
+    potAtFRARow,
     crossoverValue,
     waitInvestedAdvantage,
     waitInvestedBreakEvenAge,
@@ -367,7 +368,7 @@ export default function App() {
 
     items.push(
       { id: "lifetime-chart", label: "Chart" },
-      { id: "pot-income", label: "Pot income" }
+      { id: "ss-pot", label: "SS pot" }
     );
 
     if (mode === "survivor" || mode === "switch") {
@@ -668,23 +669,19 @@ export default function App() {
             />
           </section>
 
-          {/* The income view of the same pot: draw a fixed, inflation-adjusted
-              amount from it (the 4% rule) and compare monthly income instead
-              of lifetime totals. Display-only; the chart above is unchanged. */}
-          <section id="pot-income" className="jump-target">
-            <PotIncome
+          {/* Social Security sized as an inflation-protected bond (annual
+              check / real yield) for each claiming choice, next to the
+              invested pot. Display-only; the chart above is unchanged. */}
+          <section id="ss-pot" className="jump-target">
+            <SocialSecurityPot
               claimAge={claimAge}
-              investStopAge={effectiveInvestStopAge}
-              lifeExpectancy={lifeExpectancy}
               returnRate={returnRate}
-              withdrawalRate={withdrawalRate}
-              onWithdrawalRateChange={setWithdrawalRate}
-              chartData={chartData}
-              earlyPostFRAMonthlyNet={earlyPostFRAMonthlyNet}
-              earlyPostFRAMonthlyNetRetired={earlyPostFRAMonthlyNetRetired}
-              fraMonthlyNet={fraMonthlyNet}
-              fraMonthlyNetRetired={fraMonthlyNetRetired}
-              postFRAWorkEndAge={postFRAWorkEndAge}
+              bondYield={bondYield}
+              onBondYieldChange={setBondYield}
+              earlyPreFRAMonthly={ssBasisPostET / 12}
+              earlyPostFRAMonthly={earlyPostFRAMonthlyGross}
+              waitMonthly={fraMonthlyGross}
+              investedPotAtFRA={potAtFRARow}
             />
           </section>
 
