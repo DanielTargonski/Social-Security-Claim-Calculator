@@ -26,6 +26,7 @@ import SummaryCards from "./components/SummaryCards.jsx";
 import MetadataStrip from "./components/MetadataStrip.jsx";
 import ChartCard from "./components/ChartCard.jsx";
 import PotTable from "./components/PotTable.jsx";
+import PotIncome from "./components/PotIncome.jsx";
 import Footnotes from "./components/Footnotes.jsx";
 import SensitivityTornado from "./components/SensitivityTornado.jsx";
 import StrategyCompare from "./components/StrategyCompare.jsx";
@@ -105,6 +106,7 @@ export default function App() {
     investSurvivor,
     investSwitch,
     investOwn,
+    withdrawalRate,
   } = state;
   const {
     setMode,
@@ -129,6 +131,7 @@ export default function App() {
     setInvestSurvivor,
     setInvestSwitch,
     setInvestOwn,
+    setWithdrawalRate,
   } = setters;
 
   // Per-strategy invested-dollar overrides for the strategy-comparison panel,
@@ -362,7 +365,10 @@ export default function App() {
       items.push({ id: "summary-healthcare", label: "Healthcare card" });
     }
 
-    items.push({ id: "lifetime-chart", label: "Chart" });
+    items.push(
+      { id: "lifetime-chart", label: "Chart" },
+      { id: "pot-income", label: "Pot income" }
+    );
 
     if (mode === "survivor" || mode === "switch") {
       items.push({ id: "strategy-compare", label: "Strategies" });
@@ -659,6 +665,26 @@ export default function App() {
               finalPot={finalPot}
               finalEarly={finalEarly}
               advantage={advantage}
+            />
+          </section>
+
+          {/* The income view of the same pot: draw a fixed, inflation-adjusted
+              amount from it (the 4% rule) and compare monthly income instead
+              of lifetime totals. Display-only; the chart above is unchanged. */}
+          <section id="pot-income" className="jump-target">
+            <PotIncome
+              claimAge={claimAge}
+              investStopAge={effectiveInvestStopAge}
+              lifeExpectancy={lifeExpectancy}
+              returnRate={returnRate}
+              withdrawalRate={withdrawalRate}
+              onWithdrawalRateChange={setWithdrawalRate}
+              chartData={chartData}
+              earlyPostFRAMonthlyNet={earlyPostFRAMonthlyNet}
+              earlyPostFRAMonthlyNetRetired={earlyPostFRAMonthlyNetRetired}
+              fraMonthlyNet={fraMonthlyNet}
+              fraMonthlyNetRetired={fraMonthlyNetRetired}
+              postFRAWorkEndAge={postFRAWorkEndAge}
             />
           </section>
 

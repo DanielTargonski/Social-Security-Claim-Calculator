@@ -51,6 +51,8 @@ src/
 │  ├─ MetadataStrip.test.jsx     (render gate, recoup rows, healthcare rows, covered-elsewhere)
 │  ├─ ChartCard.jsx              Lifetime-payout chart + 4-stat row
 │  ├─ PotTable.jsx               Five-year pot snapshots with phase labels
+│  ├─ PotIncome.jsx              "The pot as a paycheck": 4%-rule draw from the pot vs the wait check
+│  ├─ PotIncome.test.jsx
 │  ├─ Footnotes.jsx              Static footnote grid
 │  ├─ OptimalClaimAge.jsx        Sweep result panel ("the optimal claim age is …")
 │  ├─ ShareLinkButton.jsx        Copies window.location.href (state in query params)
@@ -86,6 +88,8 @@ src/
    ├─ strategyCompare.test.js
    ├─ wageCompare.js             Same decision at different pre-67 wages: totals + marginal-work warning + cross-wage strategy robustness
    ├─ wageCompare.test.js
+   ├─ potIncome.js               Income view of the pot: fixed real draw (4% rule) from investStopAge, closed-form drawdown
+   ├─ potIncome.test.js
    ├─ lifeTable.js               Approximate unisex SSA period life table (survival probabilities)
    ├─ lifeTable.test.js
    ├─ shareableState.js          URL ↔ state schema + clamp on hydrate
@@ -246,7 +250,7 @@ npm run preview          # serve the production build at :4173
 npm run lint             # eslint
 ```
 
-`npm test` should always pass before committing. **676 tests across 33 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
+`npm test` should always pass before committing. **737 tests across 37 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
 
 `@vitest/coverage-v8` is a dev dependency — `npx vitest run --coverage` prints a per-file table. `coverage/` is gitignored.
 
@@ -298,6 +302,8 @@ The user's git is locally configured to push as `DanielTargonski` (this account 
     3. **Chart legend** (#7): a 2-chip legend (red "Survivor early" / green "Own → Survivor") above the head-to-head chart — the two plotted lines; own-only stays a supplementary card, not plotted.
     4. **Shareable comparison config** (#6): the per-strategy invest overrides moved from session-only state into the `shareableState` SCHEMA (`cisv`/`cisw`/`ciso`, −1 sentinel), so a link reproduces the exact head-to-head the sender set up. Round-trips through `useFormState`/`useUrlSync`/`getInitialStateFromUrl` like every other field. Browser-verified via a crafted `?…&cisv=500&cisw=250` link hydrating the fields and both lever sentences rendering correctly.
 - **Pre-67 wage comparison + decision signals (PR #35)**: new `WageCompare` panel (every mode) races the same claiming decision at the current pre-67 wage vs two editable alternatives, netting SS + wage take-home − absolute healthcare into one comparable total; a "marginal work" warning flags when extra work keeps only a few cents per dollar (or loses money), switch- and cliff-aware. Plus two `StrategyCompare` signals: a **decisiveness chip** (clear winner vs longevity-dependent close call, colored by the winner) and a **"BY WAGE" robustness lever** (does one strategy win at every wage — computed on the same `finalEarly` basis as the verdict via the now-exported `projectStrategy`, so the two can't contradict). Adversarially reviewed (multi-agent find→verify); 5 confirmed findings fixed, notably a BY-WAGE-vs-verdict basis contradiction at survivor claim ages below 62. 676 tests, lint, build, browser-verified across all signal tiers. Full mechanics under "Wage comparison + decision signals" in the math model section above.
+
+- **"The pot as a paycheck" income view (`PotIncome`)**: the main chart scores lifetime totals with the pot compounding untouched after `investStopAge`; this panel instead draws a fixed, inflation-adjusted income from the pot (classic 4% rule: `withdrawalRate`% of the balance at `investStopAge`, then the same real dollars every year) and compares monthly income at `max(draw start, FRA)` — early check + draw vs wait check (+ wait-pot draw when wait+invest has a pot). Up to the draw start the pot is read straight from `chartData`, so both views agree on pot size; after it there are no contributions, so `lib/potIncome.js` uses a closed-form drawdown with exact depletion age. Reports pot left at lifeExpectancy ("still yours, on top of the income"). New `withdrawalRate` schema field (`swr`, 2–8%, default 4). Display-only: never feeds back into the main projection. Deterministic (no sequence-of-returns risk) and taxes on withdrawals are not modeled; both noted in the panel.
 
 ### Candidate features (from the survey research)
 Researched but not built. In rough priority order based on the original analysis:

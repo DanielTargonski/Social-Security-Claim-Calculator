@@ -203,8 +203,24 @@ describe("shareableState — DEFAULT_STATE shape", () => {
         "postFRAWorkYears",
         "returnRate",
         "unsubsidizedSilverAnnual",
+        "withdrawalRate",
       ].sort()
     );
+  });
+});
+
+describe("shareableState — withdrawal rate", () => {
+  it("defaults to the classic 4% rule and round-trips through the URL", () => {
+    expect(DEFAULT_STATE.withdrawalRate).toBe(4);
+    const round = parseStateFromParams(
+      serializeStateToParams({ ...DEFAULT_STATE, withdrawalRate: 3.5 })
+    );
+    expect(round.withdrawalRate).toBe(3.5);
+  });
+
+  it("clamps a hand-crafted out-of-range rate", () => {
+    expect(parseStateFromParams(new URLSearchParams("swr=20")).withdrawalRate).toBe(8);
+    expect(parseStateFromParams(new URLSearchParams("swr=0")).withdrawalRate).toBe(2);
   });
 });
 
