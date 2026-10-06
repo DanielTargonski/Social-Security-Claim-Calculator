@@ -388,6 +388,64 @@ describe("buildChartData — invariants", () => {
     expect(last.wait).toBe(36 * 2500);
     expect(last.waitInvested).toBe(last.wait);
   });
+
+  // Regression: checks are booked at month END, so the first check after a
+  // claim lands at claimAge + 1 month. When claimAge > FRA the simulation is
+  // indexed from simBase = FRA, and the old float guard
+  // `ageAtMonthEnd >= claimAge` was satisfied by the month ending EXACTLY at
+  // claimAge, booking one extra check for the month before the claim. With
+  // investStopAge === claimAge that phantom check landed in the invested pot
+  // even though nothing should be invested.
+  it("claimAge > FRA: one year of claiming books exactly 12 checks, none invested", () => {
+    const r = buildChartData({
+      ...baseChart,
+      claimAge: 70,
+      investStopAge: 70,
+      lifeExpectancy: 71,
+      returnRate: 0,
+      earlyPostFRAMonthlyNet: 1000,
+    });
+    const rowAt70 = r.find((d) => Math.abs(d.age - 70) < 0.01);
+    expect(rowAt70.early).toBe(0);
+    expect(rowAt70.pot).toBe(0);
+    const last = r[r.length - 1];
+    expect(last.age).toBe(71);
+    expect(last.early).toBe(12 * 1000);
+    expect(last.pot).toBe(0);
+  });
+
+  it("claimAge > FRA at a fractional month: still N months of claiming = N checks", () => {
+    // 68 yr 5 mo claim, observed at 69 yr 5 mo → 12 checks, no phantom.
+    const claimAge = 68 + 5 / 12;
+    const r = buildChartData({
+      ...baseChart,
+      claimAge,
+      investStopAge: claimAge,
+      lifeExpectancy: claimAge + 1,
+      returnRate: 0,
+      earlyPostFRAMonthlyNet: 1000,
+    });
+    const last = r[r.length - 1];
+    expect(last.early).toBe(12 * 1000);
+    expect(last.pot).toBe(0);
+  });
+
+  it("claimAge <= FRA is unchanged: claim at 62, observed at 63 = 12 checks", () => {
+    const r = buildChartData({
+      ...baseChart,
+      claimAge: 62,
+      investStopAge: 67,
+      lifeExpectancy: 63,
+      returnRate: 0,
+      earlyMonthlyNet: 1000,
+    });
+    expect(r[0].age).toBe(62);
+    expect(r[0].early).toBe(0);
+    const last = r[r.length - 1];
+    expect(last.age).toBe(63);
+    expect(last.early).toBe(12 * 1000);
+    expect(last.pot).toBe(12 * 1000);
+  });
 });
 
 describe("buildChartData — lumpy SSA withholding pattern", () => {

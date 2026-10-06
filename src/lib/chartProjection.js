@@ -247,23 +247,28 @@ export function buildChartData({
   const monthlyWaitCumCash = new Array(totalMonthsLife + 1).fill(0);
   let waitCumCash = 0;
 
+  // Month index (from simBase) at which the claim is filed. 0 when
+  // claimAge <= FRA (simBase === claimAge); (claimAge - FRA) * 12 for a
+  // delayed claim. Rounded so the comparison below is on integers, stable
+  // to float noise from the 1/12 slider step.
+  const claimMonth = Math.round((claimAge - simBase) * 12);
+
   for (let m = 1; m <= totalMonthsLife; m++) {
     const ageAtMonthEnd = simBase + m / 12;
 
     // Early scenario: the claimant hasn't claimed yet for ages < claimAge,
-    // so contributions and cash are both 0 in that pre-claim window. The
-    // guard matters when claimAge > FRA (simBase = FRA, claimAge > FRA);
-    // when claimAge <= FRA the guard is always satisfied after m=1.
+    // so contributions and cash are both 0 in that pre-claim window. Checks
+    // are booked at month END, so the first check lands in month
+    // claimMonth + 1 (N months of claiming = N checks). The month ending
+    // exactly at claimAge is the month BEFORE the claim and books nothing.
+    // The guard matters when claimAge > FRA (simBase = FRA, claimMonth > 0);
+    // when claimAge <= FRA, claimMonth is 0 and every m >= 1 passes.
     let contribThisMonth = 0;
     let cashThisMonth = 0;
-    if (ageAtMonthEnd >= claimAge) {
-      // monthsSinceClaim drives the lumpy earnings-test withholding's
-      // year-cycle (12-month wrap). Use round-to-int via the rebase math so
-      // it's stable to float noise from m / 12.
-      const monthsSinceClaim = Math.max(
-        0,
-        Math.round(m - (claimAge - simBase) * 12)
-      );
+    if (m > claimMonth) {
+      // monthsSinceClaim (>= 1) drives the lumpy earnings-test withholding's
+      // year-cycle (12-month wrap).
+      const monthsSinceClaim = m - claimMonth;
       // Pre-FRA, the contribution rate splits at Medicare eligibility (65):
       // before 65 the check carries the ACA-premium healthcare delta, from 65
       // on it carries the Medicare/IRMAA delta. The lumpy earnings-test
