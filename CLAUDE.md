@@ -250,7 +250,7 @@ npm run preview          # serve the production build at :4173
 npm run lint             # eslint
 ```
 
-`npm test` should always pass before committing. **724 tests across 37 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
+`npm test` should always pass before committing. **727 tests across 37 files** as of this writing: math tests in `src/lib/`, hook tests in `src/hooks/`, and React render tests in `src/components/` + `src/App.test.jsx`. Vitest defaults to the node environment for speed; component / hook test files opt into jsdom by adding `// @vitest-environment jsdom` as the first line. Add new tests when adding new math (live in the relevant `*.test.js`) or new components (mirror the file as `*.test.jsx`).
 
 `@vitest/coverage-v8` is a dev dependency — `npx vitest run --coverage` prints a per-file table. `coverage/` is gitignored.
 
