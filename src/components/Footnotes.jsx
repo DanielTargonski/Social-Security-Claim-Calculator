@@ -2,7 +2,7 @@ import { C } from "../constants/colors.js";
 
 // Static footnotes at the bottom of the page: earnings test, NYC tax
 // treatment, switch-strategy notes, and caveats this model leaves out.
-// Author attribution + copyright notice live below the grid.
+// Author attribution, feedback link, and copyright notice live below the grid.
 export default function Footnotes() {
   return (
     <>
@@ -139,7 +139,7 @@ export default function Footnotes() {
       <div>
         © 2026 Daniel Targonski. All rights reserved.
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className="num" style={{ letterSpacing: "0.08em" }}>
           Built by{" "}
           <a
@@ -152,6 +152,16 @@ export default function Footnotes() {
             Daniel Targonski
           </a>
         </span>
+        <span style={{ color: C.border }}>·</span>
+        <a
+          href="https://github.com/DanielTargonski/Social-Security-Claim-Calculator/issues/new/choose"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="attribution-link num"
+          style={{ color: C.inkSoft, letterSpacing: "0.08em" }}
+        >
+          Report a bug / suggest a feature
+        </a>
         <span style={{ color: C.border }}>·</span>
         <a
           href="https://github.com/DanielTargonski/Social-Security-Claim-Calculator"

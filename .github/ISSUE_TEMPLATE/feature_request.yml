@@ -1,0 +1,15 @@
+name: Feature request
+description: Suggest something the calculator should model, show, or explain.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like the calculator to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help? (optional)
+      description: The situation or decision you're trying to work through.
