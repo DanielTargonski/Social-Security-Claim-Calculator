@@ -1,0 +1,29 @@
+name: Bug report
+description: A number looks wrong, something doesn't render, or the page breaks.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please don't include your Social Security number or any other personal identifiers.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect to see instead?
+    validations:
+      required: true
+  - type: input
+    id: share-link
+    attributes:
+      label: Share link (optional)
+      description: Click "Copy share link" in the calculator and paste it here so the exact inputs can be reproduced.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce (optional)
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / device (optional)
+      placeholder: e.g. Chrome on Windows, Safari on iPhone
